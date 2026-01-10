@@ -1,474 +1,379 @@
 export default function Services() {
   return (
-    <main className="min-h-screen bg-white">
-      {/* Header with Logo */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-center">
-            <a href="/" className="text-2xl font-bold">
-              <span className="text-gray-900">Ceto</span>
-              <span className="text-teal-600">Interactive</span>
+    <main className="min-h-screen bg-[#f7f8fb] text-[#0f172a]">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#e6e9f2]">
+        <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <a href="/" className="text-xl sm:text-2xl tracking-wide">
+              <span className="font-semibold text-[#0b1220]">Ceto</span>
+              <span className="font-light text-[#2b5fb8]">Interactive</span>
             </a>
-            <nav className="hidden md:flex gap-8">
-              <a href="/" className="text-gray-700 hover:text-teal-600 font-medium">Home</a>
-              <a href="/services" className="text-teal-600 font-medium">Services</a>
-              <a href="/envnews" className="text-gray-700 hover:text-teal-600 font-medium">Environmental News</a>
-              <a href="/contact" className="text-gray-700 hover:text-teal-600 font-medium">Contact</a>
+
+            <nav className="hidden md:flex items-center gap-8 text-sm">
+              <a className="text-[#334155] hover:text-[#2b5fb8] transition" href="/">
+                Home
+              </a>
+              <a className="text-[#2b5fb8] font-medium" href="/services">
+                Services
+              </a>
+              <a className="text-[#334155] hover:text-[#2b5fb8] transition" href="/envnews">
+                News &amp; Updates
+              </a>
+              <a
+                className="inline-flex items-center rounded-full bg-[#2b5fb8] text-white px-5 py-2 hover:bg-[#234f98] transition shadow-sm"
+                href="/contact"
+              >
+                Connect
+              </a>
             </nav>
           </div>
         </div>
       </header>
 
       {/* Hero */}
-      <section className="bg-gradient-to-br from-blue-900 to-teal-700 text-white py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-5xl font-bold mb-4">Our Services</h1>
-          <p className="text-xl text-blue-100 max-w-3xl">
-            Comprehensive environmental solutions tailored to your project. Contact us for a custom quote based on scope, duration, and location.
-          </p>
-        </div>
-      </section>
+      <section className="relative overflow-hidden">
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(circle at 20% 20%, rgba(43,95,184,0.10), transparent 55%), radial-gradient(circle at 80% 30%, rgba(28,140,114,0.08), transparent 55%), radial-gradient(circle at 55% 85%, rgba(217,119,6,0.08), transparent 60%)"
+          }}
+        />
+        <div className="relative max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 py-14 sm:py-16">
+          <div className="max-w-3xl">
+            <p className="text-xs tracking-[0.28em] uppercase text-[#2b5fb8]/80">
+              Services
+            </p>
+            <h1 className="mt-3 text-4xl sm:text-5xl font-light leading-tight text-[#0b1220]">
+              Environmental work that’s calm, clear, and field-ready.
+            </h1>
+            <p className="mt-4 text-base sm:text-lg text-[#475569] leading-relaxed">
+              Compliance support, permitting coordination, and monitoring systems—built to reduce risk, prevent surprises,
+              and keep projects moving.
+            </p>
 
-      {/* Construction Services */}
-      <section id="construction" className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-12">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Construction Environmental Compliance</h2>
-            <p className="text-xl text-gray-600">Professional compliance services for active construction projects</p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* SWPPP */}
-            <div className="bg-slate-50 rounded-xl p-8 border border-slate-200">
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">SWPPP Development & Management</h3>
-              <p className="text-gray-600 mb-6">
-                Complete Stormwater Pollution Prevention Plans for construction sites over 1 acre. EPA CGP and TCEQ compliant.
-              </p>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Site-specific SWPPP document (25-40 pages)</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">BMP specifications and drainage maps</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">NOI assistance and contractor training</span>
-                </li>
-              </ul>
-              <a href="/contact" className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
-                Request Quote
+            <div className="mt-7 flex flex-col sm:flex-row gap-3">
+              <a
+                href="#construction"
+                className="inline-flex items-center justify-center rounded-full bg-[#0b1220] text-white px-6 py-3 text-sm hover:bg-black transition shadow-sm"
+              >
+                Construction Compliance
+              </a>
+              <a
+                href="#renewable"
+                className="inline-flex items-center justify-center rounded-full bg-white/70 border border-[#e6e9f2] text-[#0b1220] px-6 py-3 text-sm hover:bg-white transition"
+              >
+                Renewable Energy
+              </a>
+              <a
+                href="#technology"
+                className="inline-flex items-center justify-center rounded-full bg-white/70 border border-[#e6e9f2] text-[#0b1220] px-6 py-3 text-sm hover:bg-white transition"
+              >
+                Smart Monitoring
               </a>
             </div>
 
-            {/* Erosion Control Monitoring */}
-            <div className="bg-slate-50 rounded-xl p-8 border border-slate-200">
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Erosion Control Monitoring</h3>
-              <p className="text-gray-600 mb-6">
-                Weekly site inspections with photo documentation and compliance reporting.
-              </p>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Weekly inspections + post-rain event checks</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Comprehensive photo documentation</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Monthly compliance reports</span>
-                </li>
-              </ul>
-              <a href="/contact" className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
-                Request Quote
-              </a>
-            </div>
-
-            {/* Pre-Construction Screening */}
-            <div className="bg-slate-50 rounded-xl p-8 border border-slate-200">
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Pre-Construction Environmental Screening</h3>
-              <p className="text-gray-600 mb-6">
-                Desktop environmental risk assessment before you break ground.
-              </p>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Regulatory database review (TCEQ, EPA)</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Wetland and floodplain screening</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Historical aerial photo analysis</span>
-                </li>
-              </ul>
-              <a href="/contact" className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
-                Request Quote
-              </a>
-            </div>
-
-            {/* Environmental Coordination */}
-            <div className="bg-slate-50 rounded-xl p-8 border border-slate-200">
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Environmental Compliance Coordination</h3>
-              <p className="text-gray-600 mb-6">
-                Ongoing environmental support for active projects (hourly consulting).
-              </p>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Permitting application coordination</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Agency correspondence and submittal tracking</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Contractor environmental training</span>
-                </li>
-              </ul>
-              <a href="/contact" className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
-                Request Quote
-              </a>
-            </div>
+            <p className="mt-5 text-xs text-[#64748b]">
+              Pricing varies by scope, duration, and location. We’ll quote quickly with the basics.
+            </p>
           </div>
         </div>
       </section>
 
-      {/* Renewable Energy Services */}
-      <section id="renewable" className="py-20 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-12">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Renewable Energy Services</h2>
-            <p className="text-xl text-gray-600">Environmental support for solar and wind projects</p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* Solar/Wind Screening */}
-            <div className="bg-white rounded-xl p-8 border border-slate-200">
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Solar/Wind Project Environmental Screening</h3>
-              <p className="text-gray-600 mb-6">
-                Desktop environmental constraints analysis for renewable energy projects.
+      {/* Quick finder */}
+      <section className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 pb-8">
+        <div className="grid lg:grid-cols-12 gap-6">
+          {/* Left: quick nav */}
+          <aside className="lg:col-span-4">
+            <div className="bg-white rounded-2xl border border-[#e6e9f2] p-5 shadow-sm">
+              <h2 className="text-sm font-medium text-[#0b1220]">Find what you need</h2>
+              <p className="mt-1 text-sm text-[#64748b]">
+                Jump to a section, then expand only the details you care about.
               </p>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Species habitat and wetland review</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Cultural resources screening</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Preliminary permitting pathway assessment</span>
-                </li>
-              </ul>
-              <a href="/contact" className="inline-block bg-teal-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-teal-700 transition">
-                Request Quote
-              </a>
-            </div>
 
-            {/* Permitting Coordination */}
-            <div className="bg-white rounded-xl p-8 border border-slate-200">
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Environmental Permitting Coordination</h3>
-              <p className="text-gray-600 mb-6">
-                Agency coordination and permit application support (hourly consulting).
-              </p>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">USACE wetland permit support</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">TPWD and USFWS consultation coordination</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Permit tracking and compliance monitoring</span>
-                </li>
-              </ul>
-              <a href="/contact" className="inline-block bg-teal-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-teal-700 transition">
-                Request Quote
-              </a>
-            </div>
-
-            {/* Construction Monitoring */}
-            <div className="bg-white rounded-xl p-8 border border-slate-200 md:col-span-2">
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Construction Environmental Monitoring (Solar/Wind)</h3>
-              <p className="text-gray-600 mb-6">
-                On-site compliance monitoring during solar and wind construction phases.
-              </p>
-              <div className="grid md:grid-cols-2 gap-6 mb-6">
-                <ul className="space-y-3">
-                  <li className="flex items-start">
-                    <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-gray-700">Weekly construction compliance inspections</span>
-                  </li>
-                  <li className="flex items-start">
-                    <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-gray-700">Environmental permit condition verification</span>
-                  </li>
-                </ul>
-                <ul className="space-y-3">
-                  <li className="flex items-start">
-                    <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-gray-700">Photo documentation and monthly reporting</span>
-                  </li>
-                  <li className="flex items-start">
-                    <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-gray-700">Contractor environmental training</span>
-                  </li>
-                </ul>
+              <div className="mt-4 space-y-2 text-sm">
+                <a className="block rounded-xl px-3 py-2 hover:bg-[#f3f6ff] text-[#0b1220]" href="#construction">
+                  Construction Environmental Compliance
+                </a>
+                <a className="block rounded-xl px-3 py-2 hover:bg-[#f3f6ff] text-[#0b1220]" href="#renewable">
+                  Renewable Energy Services
+                </a>
+                <a className="block rounded-xl px-3 py-2 hover:bg-[#f3f6ff] text-[#0b1220]" href="#technology">
+                  Smart Monitoring Technology
+                </a>
+                <a className="block rounded-xl px-3 py-2 hover:bg-[#fff7ed] text-[#0b1220]" href="#research">
+                  Environmental Research Support
+                </a>
               </div>
-              <a href="/contact" className="inline-block bg-teal-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-teal-700 transition">
-                Request Quote
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Smart Technology Services */}
-      <section id="technology" className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-12">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Smart Monitoring Technology</h2>
-            <p className="text-xl text-gray-600">Custom IoT environmental monitoring systems</p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* Smart Construction Monitoring */}
-            <div className="bg-slate-50 rounded-xl p-8 border border-slate-200">
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Smart Construction Monitoring System</h3>
-              <p className="text-gray-600 mb-6">
-                Automated photo capture and compliance documentation system.
-              </p>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">ESP32-CAM automated daily photo capture</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Weather-triggered event documentation</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Cloud storage and web dashboard access</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Weekly automated compliance reports</span>
-                </li>
-              </ul>
-              <a href="/contact" className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
-                Request Quote
-              </a>
-            </div>
-
-            {/* Environmental Sensor Monitoring */}
-            <div className="bg-slate-50 rounded-xl p-8 border border-slate-200">
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Environmental Sensor Monitoring</h3>
-              <p className="text-gray-600 mb-6">
-                Real-time water quality monitoring with automated alerts.
-              </p>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Multi-sensor system (pH, turbidity, temperature)</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Automated data logging and cloud upload</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Threshold exceedance alerts (text/email)</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Monthly analytical reports</span>
-                </li>
-              </ul>
-              <a href="/contact" className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
-                Request Quote
-              </a>
-            </div>
-
-            {/* Wetland Monitoring */}
-            <div className="bg-slate-50 rounded-xl p-8 border border-slate-200 md:col-span-2">
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Wetland/Conservation Area Monitoring</h3>
-              <p className="text-gray-600 mb-6">
-                Hydrology and wildlife monitoring for mitigation and conservation sites.
-              </p>
-              <div className="grid md:grid-cols-2 gap-6 mb-6">
-                <ul className="space-y-3">
-                  <li className="flex items-start">
-                    <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-gray-700">Automated water level and precipitation tracking</span>
-                  </li>
-                  <li className="flex items-start">
-                    <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-gray-700">Wildlife camera integration (optional)</span>
-                  </li>
-                </ul>
-                <ul className="space-y-3">
-                  <li className="flex items-start">
-                    <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-gray-700">Quarterly compliance reports per permit schedule</span>
-                  </li>
-                  <li className="flex items-start">
-                    <svg className="w-6 h-6 text-teal-600 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-gray-700">Multi-year data archive and analysis</span>
-                  </li>
-                </ul>
+              <div className="mt-5 flex gap-3">
+                <a
+                  href="/contact"
+                  className="flex-1 text-center rounded-full bg-[#2b5fb8] text-white px-4 py-2 text-sm hover:bg-[#234f98] transition"
+                >
+                  Request a Quote
+                </a>
+                <a
+                  href="mailto:dj@cetointeractive.com"
+                  className="flex-1 text-center rounded-full bg-white border border-[#e6e9f2] px-4 py-2 text-sm hover:bg-[#f8fafc] transition"
+                >
+                  Email
+                </a>
               </div>
-              <a href="/contact" className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
-                Request Quote
-              </a>
             </div>
-          </div>
-        </div>
-      </section>
+          </aside>
 
-      {/* Environmental Research Services */}
-      <section className="py-20 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-12">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Environmental Research & Support Services</h2>
-            <p className="text-xl text-gray-600">Professional research services for consulting firms and property transactions</p>
-          </div>
+          {/* Right: sections */}
+          <div className="lg:col-span-8 space-y-6">
+            <Section
+              id="construction"
+              kicker="Construction"
+              title="Construction Environmental Compliance"
+              subtitle="Reduce stormwater risk and keep documentation clean."
+              cards={[
+                {
+                  title: "SWPPP Development & Management",
+                  summary:
+                    "Site-specific SWPPP documents and ongoing updates aligned to your project phase.",
+                  bullets: [
+                    "Site-specific plan + BMP selection",
+                    "NOI support + contractor onboarding",
+                    "Plan maintenance as conditions change"
+                  ]
+                },
+                {
+                  title: "Erosion Control Monitoring",
+                  summary:
+                    "Routine inspections with photo documentation and clear action items.",
+                  bullets: [
+                    "Weekly inspections + post-rain checks",
+                    "Photo documentation and logs",
+                    "Monthly summary reporting (as needed)"
+                  ]
+                },
+                {
+                  title: "Pre-Construction Environmental Screening",
+                  summary:
+                    "Desktop risk scan before you break ground (fast + practical).",
+                  bullets: [
+                    "Regulatory database review (EPA/TCEQ)",
+                    "Wetland/floodplain screening",
+                    "Historical aerial review"
+                  ]
+                },
+                {
+                  title: "Compliance Coordination",
+                  summary:
+                    "Support for permitting, correspondence, training, and recordkeeping.",
+                  bullets: [
+                    "Agency communication support",
+                    "Submittal tracking + documentation",
+                    "Field coordination + toolbox talks"
+                  ]
+                }
+              ]}
+            />
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {/* Database Screening */}
-            <div className="bg-white rounded-xl p-8 border border-slate-200">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Regulatory Database Screening</h3>
-              <p className="text-gray-600 mb-6">
-                Complete ASTM Table 1 database searches for Phase I ESA support.
-              </p>
-              <a href="/contact" className="text-blue-600 font-semibold hover:underline">Contact for Quote →</a>
-            </div>
+            <Section
+              id="renewable"
+              kicker="Renewables"
+              title="Renewable Energy Services"
+              subtitle="Environmental screening and compliance support for solar and wind."
+              cards={[
+                {
+                  title: "Project Environmental Screening",
+                  summary:
+                    "Constraints analysis to identify permitting pathways early.",
+                  bullets: [
+                    "Habitat/wetland constraints review",
+                    "Cultural resources screening (as applicable)",
+                    "Preliminary permit pathway mapping"
+                  ]
+                },
+                {
+                  title: "Permitting Coordination",
+                  summary:
+                    "Help with agency coordination and permit tracking.",
+                  bullets: [
+                    "USACE / consultation coordination support",
+                    "Permit tracking and milestone planning",
+                    "Compliance checklists for field teams"
+                  ]
+                },
+                {
+                  title: "Construction Environmental Monitoring",
+                  summary:
+                    "On-site checks during construction phases—tight, documented, actionable.",
+                  bullets: [
+                    "Construction compliance inspections",
+                    "Permit condition verification",
+                    "Photo documentation + reporting"
+                  ]
+                }
+              ]}
+            />
 
-            {/* Historical Research */}
-            <div className="bg-white rounded-xl p-8 border border-slate-200">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Historical Research & Aerials</h3>
-              <p className="text-gray-600 mb-6">
-                Aerial photos, Sanborn maps, and historical land use analysis.
-              </p>
-              <a href="/contact" className="text-blue-600 font-semibold hover:underline">Contact for Quote →</a>
-            </div>
+            <Section
+              id="technology"
+              kicker="Technology"
+              title="Smart Monitoring Technology"
+              subtitle="Simple, dependable systems that produce usable records."
+              cards={[
+                {
+                  title: "Smart Construction Photo Monitoring",
+                  summary:
+                    "Automated photo capture and organized documentation for compliance workflows.",
+                  bullets: [
+                    "Scheduled captures + event capture options",
+                    "Cloud organization (project-based)",
+                    "Automated summaries (optional)"
+                  ]
+                },
+                {
+                  title: "Environmental Sensor Monitoring",
+                  summary:
+                    "Real-time logging + threshold alerts where it matters.",
+                  bullets: [
+                    "Configurable sensors (as needed)",
+                    "Automated data logging",
+                    "Alerting + monthly reporting"
+                  ]
+                },
+                {
+                  title: "Wetland / Conservation Area Monitoring",
+                  summary:
+                    "Hydrology and habitat monitoring for mitigation + conservation sites.",
+                  bullets: [
+                    "Water level / precipitation tracking (as applicable)",
+                    "Camera integration options",
+                    "Quarterly/annual reports per permit schedule"
+                  ]
+                }
+              ]}
+            />
 
-            {/* Site Reconnaissance */}
-            <div className="bg-white rounded-xl p-8 border border-slate-200">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Site Reconnaissance</h3>
-              <p className="text-gray-600 mb-6">
-                Field observations and photo documentation for Phase I ESAs.
-              </p>
-              <a href="/contact" className="text-blue-600 font-semibold hover:underline">Contact for Quote →</a>
-            </div>
+            <Section
+              id="research"
+              kicker="Research"
+              title="Environmental Research & Support"
+              subtitle="Fast, clean deliverables for consulting teams and transactions."
+              cards={[
+                {
+                  title: "Regulatory Database Screening",
+                  summary:
+                    "Support for Phase I ESA / due diligence research workflows.",
+                  bullets: ["Database compilation", "Clear summary tables", "Source documentation"]
+                },
+                {
+                  title: "Historical Research & Aerials",
+                  summary:
+                    "Aerial review and land-use history summaries.",
+                  bullets: ["Aerial timelines", "Map compilation", "Land-use narrative"]
+                },
+                {
+                  title: "Site Reconnaissance",
+                  summary:
+                    "Field observations with photo documentation (as requested).",
+                  bullets: ["Photo log", "Observations summary", "Client-ready export"]
+                }
+              ]}
+            />
           </div>
         </div>
       </section>
 
       {/* CTA */}
-      <section className="py-20 bg-gradient-to-br from-blue-900 to-teal-700 text-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl font-bold mb-6">Ready to Discuss Your Project?</h2>
-          <p className="text-xl mb-8 text-blue-100">
-            Contact us for a custom quote based on your project scope, duration, and location.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a 
-              href="/contact" 
-              className="inline-block bg-white text-blue-900 px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-50 transition"
-            >
-              Schedule Consultation
-            </a>
-            <a 
-              href="mailto:dj@cetointeractive.com" 
-              className="inline-block bg-teal-600 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-teal-700 transition border-2 border-white"
-            >
-              Email DJ Morgan
-            </a>
+      <section className="border-t border-[#e6e9f2] bg-white">
+        <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 py-12">
+          <div className="rounded-3xl border border-[#e6e9f2] bg-[#0b1220] text-white p-8 sm:p-10 relative overflow-hidden">
+            <div
+              className="absolute inset-0 opacity-40"
+              style={{
+                background:
+                  "radial-gradient(circle at 25% 30%, rgba(43,95,184,0.35), transparent 55%), radial-gradient(circle at 80% 70%, rgba(28,140,114,0.25), transparent 55%), radial-gradient(circle at 50% 95%, rgba(217,119,6,0.22), transparent 60%)"
+              }}
+            />
+            <div className="relative max-w-2xl">
+              <h2 className="text-2xl sm:text-3xl font-light">Want a quote without the back-and-forth?</h2>
+              <p className="mt-3 text-white/80 leading-relaxed">
+                Send location + rough schedule + what you’re building. We’ll reply with a clean plan and options.
+              </p>
+              <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                <a
+                  href="/contact"
+                  className="inline-flex items-center justify-center rounded-full bg-white text-[#0b1220] px-6 py-3 text-sm hover:bg-[#f1f5f9] transition"
+                >
+                  Schedule a Consultation
+                </a>
+                <a
+                  href="mailto:dj@cetointeractive.com"
+                  className="inline-flex items-center justify-center rounded-full border border-white/30 bg-white/10 text-white px-6 py-3 text-sm hover:bg-white/15 transition"
+                >
+                  Email DJ Morgan
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       </section>
     </main>
   );
 }
+
+function Section({
+  id,
+  kicker,
+  title,
+  subtitle,
+  cards
+}: {
+  id: string;
+  kicker: string;
+  title: string;
+  subtitle: string;
+  cards: Array<{ title: string; summary: string; bullets: string[] }>;
+}) {
+  return (
+    <section id={id} className="bg-white rounded-3xl border border-[#e6e9f2] shadow-sm">
+      <div className="p-6 sm:p-8">
+        <p className="text-xs tracking-[0.25em] uppercase text-[#2b5fb8]/80">{kicker}</p>
+        <h2 className="mt-2 text-2xl sm:text-3xl font-light text-[#0b1220]">{title}</h2>
+        <p className="mt-2 text-sm sm:text-base text-[#64748b] leading-relaxed">{subtitle}</p>
+
+        <div className="mt-6 grid sm:grid-cols-2 gap-4">
+          {cards.map((c) => (
+            <div key={c.title} className="rounded-2xl border border-[#e6e9f2] bg-[#fafbff] p-5">
+              <h3 className="text-base font-medium text-[#0b1220]">{c.title}</h3>
+              <p className="mt-1 text-sm text-[#475569] leading-relaxed">{c.summary}</p>
+
+              {/* Collapsible details: less overwhelm */}
+              <details className="mt-3">
+                <summary className="cursor-pointer text-sm text-[#2b5fb8] hover:text-[#234f98] select-none">
+                  What’s included
+                </summary>
+                <ul className="mt-3 space-y-2 text-sm text-[#334155]">
+                  {c.bullets.map((b) => (
+                    <li key={b} className="flex gap-2">
+                      <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-[#1c8c72]" />
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-4">
+                  <a
+                    href="/contact"
+                    className="inline-flex items-center justify-center rounded-full bg-[#2b5fb8] text-white px-4 py-2 text-xs hover:bg-[#234f98] transition"
+                  >
+                    Request Quote
+                  </a>
+                </div>
+              </details>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
