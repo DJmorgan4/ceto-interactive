@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import Image from 'next/image';
 
 type FeedItem = {
   title: string;
@@ -22,7 +23,6 @@ export default function EnvironmentalNews() {
 
   useEffect(() => {
     let alive = true;
-
     async function load() {
       setLoading(true);
       setError(null);
@@ -40,11 +40,8 @@ export default function EnvironmentalNews() {
         setLoading(false);
       }
     }
-
     load();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, []);
 
   const categories = useMemo(() => {
@@ -56,207 +53,160 @@ export default function EnvironmentalNews() {
     const q = query.trim().toLowerCase();
     return items.filter((it) => {
       const categoryOk = categoryFilter === 'All' ? true : it.category === categoryFilter;
-      const queryOk = q
-        ? (it.title || '').toLowerCase().includes(q) ||
-          (it.source || '').toLowerCase().includes(q) ||
-          (it.summary || '').toLowerCase().includes(q)
-        : true;
+      const queryOk = q ? (it.title || '').toLowerCase().includes(q) || (it.source || '').toLowerCase().includes(q) || (it.summary || '').toLowerCase().includes(q) : true;
       return categoryOk && queryOk;
     });
   }, [items, query, categoryFilter]);
 
   const urgentItems = filtered.filter(i => i.impact === 'high' && i.deadline);
-  const topStories = filtered.filter(i => i.impact === 'high' && !i.deadline).slice(0, 3);
+  const topStories = filtered.filter(i => i.impact === 'high' && !i.deadline).slice(0, 1);
+  const secondTier = filtered.filter(i => i.impact === 'high' && !i.deadline).slice(1, 3);
   const regularItems = filtered.filter(i => i.impact !== 'high');
 
   return (
-    <main className="min-h-screen bg-[#f7f8fb]">
-      {/* Slim header */}
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-[#e6e9f2]">
-        <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 py-3">
-          <div className="flex items-center justify-between">
-            <a href="/" className="text-lg tracking-wide">
-              <span className="font-semibold text-[#0b1220]">Ceto</span>
-              <span className="font-light text-[#2b5fb8]">Interactive</span>
-            </a>
-            <nav className="flex items-center gap-6 text-sm">
-              <a className="text-[#334155] hover:text-[#2b5fb8] transition" href="/">Home</a>
-              <a className="text-[#334155] hover:text-[#2b5fb8] transition" href="/services">Services</a>
-              <a className="text-[#2b5fb8] font-medium" href="/envnews">News</a>
-            </nav>
-          </div>
-        </div>
-      </header>
-
-      {/* Newspaper masthead */}
-      <div className="bg-white border-b-4 border-[#0b1220]">
-        <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8 py-8">
-          <div className="text-center border-t-2 border-b-2 border-[#0b1220] py-6">
-            <div className="text-[10px] uppercase tracking-[0.3em] text-[#64748b] mb-1">The</div>
-            <h1 className="font-serif text-5xl sm:text-6xl font-bold text-[#0b1220] mb-1">
-              Environmental Register
-            </h1>
-            <div className="text-[10px] uppercase tracking-[0.25em] text-[#64748b] mb-2">
-              Daily Intelligence on Environmental Law &amp; Regulation
-            </div>
-            <div className="text-xs text-[#475569]">
-              {new Date().toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
-            </div>
+    <main className="min-h-screen bg-white">
+      {/* Top info bar - like WSJ */}
+      <div className="border-b border-gray-300">
+        <div className="max-w-[1400px] mx-auto px-8 py-2">
+          <div className="flex items-center justify-between text-[11px] text-gray-600">
+            <div className="tracking-wide">McKinney, Texas</div>
+            <div className="tracking-wide">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</div>
           </div>
         </div>
       </div>
 
-      {/* Filter bar - newspaper style */}
-      <div className="bg-[#f0f4f8] border-b border-[#e6e9f2]">
-        <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col sm:flex-row gap-4">
+      {/* Masthead - Fortune 500 clean */}
+      <header className="border-b-4 border-black bg-white">
+        <div className="max-w-[1400px] mx-auto px-8 py-12">
+          <div className="text-center">
+            {/* Logo */}
+            <div className="mb-6">
+              <Image 
+                src="/logo.png" 
+                alt="Ceto Interactive" 
+                width={200}
+                height={80}
+                className="mx-auto"
+                priority
+              />
+            </div>
+
+            {/* Main title */}
+            <h1 className="font-serif text-[72px] font-bold text-black mb-1 tracking-tight leading-none">
+              CETO INTERACTIVE
+            </h1>
+            
+            {/* Subtitle */}
+            <div className="text-[15px] font-semibold text-black tracking-[0.15em] mb-4">
+              ENVIRONMENTAL INTELLIGENCE
+            </div>
+
+            {/* Issue info */}
+            <div className="flex items-center justify-center gap-3 text-[11px] text-gray-600 tracking-wide">
+              <span>VOL. 1</span>
+              <span>•</span>
+              <span>NO. {Math.floor((Date.now() - new Date('2025-01-01').getTime()) / (1000 * 60 * 60 * 24 * 7))}</span>
+              <span>•</span>
+              <span className="font-semibold text-black">{items.length} REPORTS</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation bar */}
+        <div className="border-t border-gray-300 bg-white">
+          <div className="max-w-[1400px] mx-auto px-8 py-3">
+            <div className="flex items-center justify-between">
+              <nav className="flex gap-8 text-[13px] font-semibold">
+                <a href="/" className="hover:text-gray-600 transition">HOME</a>
+                <a href="/services" className="hover:text-gray-600 transition">SERVICES</a>
+                <span className="text-black">LATEST UPDATES</span>
+              </nav>
+              <div className="text-[11px] text-gray-600 tracking-wide">
+                UPDATED WEEKLY
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Search bar */}
+      <div className="border-b border-gray-200 bg-gray-50">
+        <div className="max-w-[1400px] mx-auto px-8 py-4">
+          <div className="flex gap-4 max-w-2xl">
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search all updates..."
-              className="flex-1 px-4 py-2 border border-[#e6e9f2] rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#2b5fb8]/30"
+              placeholder="Search reports..."
+              className="flex-1 px-4 py-2 border border-gray-300 text-sm focus:outline-none focus:border-black transition"
             />
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-4 py-2 border border-[#e6e9f2] rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#2b5fb8]/30"
+              className="px-4 py-2 border border-gray-300 text-sm focus:outline-none focus:border-black transition bg-white"
             >
               {categories.map(cat => (
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
-            <div className="text-xs text-[#64748b] flex items-center">
-              {loading ? 'Updating...' : `${filtered.length} updates`}
-            </div>
           </div>
         </div>
       </div>
 
-      {/* Main content area */}
-      <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8 py-8">
+      {/* Main content */}
+      <div className="max-w-[1400px] mx-auto px-8 py-12">
         {error && (
-          <div className="bg-red-50 border-l-4 border-red-600 p-4 mb-8 rounded-r-lg">
-            <p className="text-sm text-red-800">{error}</p>
+          <div className="border-4 border-red-600 bg-red-50 p-8 mb-12 text-center">
+            <div className="text-xl font-bold text-red-900 mb-2">SERVICE INTERRUPTION</div>
+            <div className="text-sm text-red-700">{error}</div>
           </div>
         )}
 
         {loading && !error && (
-          <div className="text-center py-12">
-            <div className="inline-block animate-pulse">
-              <div className="text-lg font-medium text-[#0b1220]">Gathering latest updates...</div>
-              <div className="text-sm text-[#64748b] mt-2">Monitoring EPA, TCEQ, USFWS & more</div>
-            </div>
+          <div className="text-center py-24">
+            <div className="text-2xl font-serif font-bold text-black mb-4">Loading Intelligence...</div>
+            <div className="text-sm text-gray-600">Monitoring EPA • TCEQ • USFWS • Federal Register</div>
           </div>
         )}
 
         {!loading && !error && filtered.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-[#64748b]">No updates match your search. Try adjusting filters.</p>
+          <div className="text-center py-24">
+            <div className="text-xl text-gray-600">No reports match your search.</div>
           </div>
         )}
 
         {!loading && !error && filtered.length > 0 && (
           <>
-            {/* URGENT SECTION - Red banner */}
+            {/* URGENT - Banner */}
             {urgentItems.length > 0 && (
-              <section className="mb-10">
-                <div className="bg-red-50 border-l-4 border-red-600 rounded-r-lg overflow-hidden">
-                  <div className="bg-red-600 text-white px-6 py-3">
-                    <h2 className="font-serif text-2xl font-bold flex items-center gap-2">
-                      <span className="text-3xl">⚠</span>
-                      Action Required
-                    </h2>
-                  </div>
-                  <div className="p-6 space-y-6">
-                    {urgentItems.map((item) => (
-                      <article key={item.link} className="border-b border-red-200 last:border-0 pb-6 last:pb-0">
-                        <div className="flex items-start justify-between gap-4 mb-2">
-                          <h3 className="font-serif text-xl font-bold text-[#0b1220] flex-1">
-                            <a 
-                              href={item.link} 
-                              target="_blank" 
-                              rel="noreferrer"
-                              className="hover:text-[#2b5fb8] transition"
-                            >
-                              {item.title}
-                            </a>
-                          </h3>
-                          {item.deadline && (
-                            <div className="bg-red-600 text-white px-3 py-1 text-xs font-bold uppercase tracking-wide rounded shrink-0">
-                              {formatDate(item.deadline)}
-                            </div>
-                          )}
-                        </div>
-                        {item.summary && (
-                          <p className="text-sm text-[#334155] mb-3 leading-relaxed">{item.summary}</p>
+              <section className="mb-16 border-t-4 border-red-600 pt-8">
+                <div className="mb-8">
+                  <h2 className="text-[11px] font-bold tracking-[0.2em] text-red-600 mb-2">URGENT</h2>
+                  <div className="text-3xl font-serif font-bold text-black">Action Required</div>
+                </div>
+                
+                <div className="space-y-8">
+                  {urgentItems.map((item) => (
+                    <article key={item.link} className="border-l-4 border-red-600 pl-6">
+                      <div className="flex items-start justify-between gap-8 mb-3">
+                        <h3 className="text-2xl font-serif font-bold text-black leading-tight flex-1">
+                          <a href={item.link} target="_blank" rel="noreferrer" className="hover:text-gray-600 transition">
+                            {item.title}
+                          </a>
+                        </h3>
+                        {item.deadline && (
+                          <div className="bg-red-600 text-white px-4 py-2 text-xs font-bold tracking-wider shrink-0">
+                            {formatDate(item.deadline)}
+                          </div>
                         )}
-                        <div className="flex flex-wrap gap-3 text-xs text-[#64748b]">
-                          <span className="font-medium">{item.source}</span>
-                          {item.publishedAt && (
-                            <>
-                              <span>•</span>
-                              <span>{formatDate(item.publishedAt)}</span>
-                            </>
-                          )}
-                          {item.category && (
-                            <>
-                              <span>•</span>
-                              <span className="uppercase tracking-wide">{item.category}</span>
-                            </>
-                          )}
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {/* TOP STORIES - 3 column layout */}
-            {topStories.length > 0 && (
-              <section className="mb-10">
-                <div className="border-b-2 border-[#0b1220] pb-2 mb-6">
-                  <h2 className="font-serif text-3xl font-bold text-[#0b1220]">Top Stories</h2>
-                </div>
-                <div className="grid md:grid-cols-3 gap-6">
-                  {topStories.map((item) => (
-                    <article key={item.link} className="bg-white border border-[#e6e9f2] rounded-lg p-5 hover:shadow-lg transition">
-                      {item.category && (
-                        <div className="mb-3">
-                          <span className="text-[10px] uppercase tracking-wider bg-[#e6e9f2] text-[#334155] px-2 py-1 rounded">
-                            {item.category}
-                          </span>
-                        </div>
-                      )}
-                      <h3 className="font-serif text-lg font-bold text-[#0b1220] mb-3 leading-tight">
-                        <a 
-                          href={item.link} 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="hover:text-[#2b5fb8] transition"
-                        >
-                          {item.title}
-                        </a>
-                      </h3>
+                      </div>
                       {item.summary && (
-                        <p className="text-sm text-[#475569] mb-3 leading-relaxed line-clamp-3">
-                          {item.summary}
-                        </p>
+                        <p className="text-[15px] leading-relaxed text-gray-700 mb-4">{item.summary}</p>
                       )}
-                      <div className="flex flex-wrap gap-2 text-xs text-[#64748b] pt-3 border-t border-[#e6e9f2]">
-                        <span className="font-medium">{item.source}</span>
-                        {item.publishedAt && (
-                          <>
-                            <span>•</span>
-                            <span>{formatDate(item.publishedAt)}</span>
-                          </>
-                        )}
+                      <div className="flex gap-4 text-[11px] text-gray-600">
+                        <span className="font-semibold text-black">{item.source}</span>
+                        {item.publishedAt && <span>{formatDate(item.publishedAt)}</span>}
+                        {item.category && <span>{item.category}</span>}
                       </div>
                     </article>
                   ))}
@@ -264,56 +214,78 @@ export default function EnvironmentalNews() {
               </section>
             )}
 
-            {/* REGULAR UPDATES - Clean list */}
-            {regularItems.length > 0 && (
-              <section>
-                <div className="border-b border-[#e6e9f2] pb-2 mb-4">
-                  <h2 className="font-serif text-2xl font-bold text-[#0b1220]">Recent Updates</h2>
+            {/* TOP STORY - Full width feature */}
+            {topStories.length > 0 && (
+              <section className="mb-16 border-t-4 border-black pt-8">
+                {topStories.map((item) => (
+                  <article key={item.link}>
+                    {item.category && (
+                      <div className="text-[11px] font-bold tracking-[0.2em] text-black mb-3">{item.category}</div>
+                    )}
+                    <h2 className="text-5xl font-serif font-bold text-black leading-tight mb-6">
+                      <a href={item.link} target="_blank" rel="noreferrer" className="hover:text-gray-600 transition">
+                        {item.title}
+                      </a>
+                    </h2>
+                    {item.summary && (
+                      <p className="text-xl leading-relaxed text-gray-700 mb-6 max-w-4xl">{item.summary}</p>
+                    )}
+                    <div className="flex gap-4 text-[11px] text-gray-600 pb-8 border-b border-gray-300">
+                      <span className="font-semibold text-black">{item.source}</span>
+                      {item.publishedAt && <span>{formatDate(item.publishedAt)}</span>}
+                    </div>
+                  </article>
+                ))}
+              </section>
+            )}
+
+            {/* SECOND TIER - 2 column */}
+            {secondTier.length > 0 && (
+              <section className="mb-16">
+                <div className="grid md:grid-cols-2 gap-12">
+                  {secondTier.map((item) => (
+                    <article key={item.link} className="border-t-2 border-black pt-6">
+                      {item.category && (
+                        <div className="text-[11px] font-bold tracking-[0.2em] text-black mb-3">{item.category}</div>
+                      )}
+                      <h3 className="text-2xl font-serif font-bold text-black leading-tight mb-4">
+                        <a href={item.link} target="_blank" rel="noreferrer" className="hover:text-gray-600 transition">
+                          {item.title}
+                        </a>
+                      </h3>
+                      {item.summary && (
+                        <p className="text-[15px] leading-relaxed text-gray-700 mb-4">{item.summary}</p>
+                      )}
+                      <div className="flex gap-4 text-[11px] text-gray-600">
+                        <span className="font-semibold text-black">{item.source}</span>
+                        {item.publishedAt && <span>{formatDate(item.publishedAt)}</span>}
+                      </div>
+                    </article>
+                  ))}
                 </div>
-                <div className="space-y-4">
+              </section>
+            )}
+
+            {/* REGULAR - 3 column compact */}
+            {regularItems.length > 0 && (
+              <section className="border-t border-gray-300 pt-8">
+                <div className="grid md:grid-cols-3 gap-8">
                   {regularItems.map((item) => (
-                    <article 
-                      key={item.link}
-                      className="bg-white border-l-4 border-[#2b5fb8] rounded-r-lg p-5 hover:shadow-md transition"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          {item.category && (
-                            <div className="mb-2">
-                              <span className="text-[10px] uppercase tracking-wider bg-[#e6e9f2] text-[#334155] px-2 py-1 rounded">
-                                {item.category}
-                              </span>
-                            </div>
-                          )}
-                          <h3 className="font-serif text-lg font-bold text-[#0b1220] mb-2">
-                            <a 
-                              href={item.link} 
-                              target="_blank" 
-                              rel="noreferrer"
-                              className="hover:text-[#2b5fb8] transition"
-                            >
-                              {item.title}
-                            </a>
-                          </h3>
-                          {item.summary && (
-                            <p className="text-sm text-[#475569] mb-3 leading-relaxed">
-                              {item.summary}
-                            </p>
-                          )}
-                          <div className="flex flex-wrap gap-3 text-xs text-[#64748b]">
-                            <span className="font-medium">{item.source}</span>
-                            {item.publishedAt && (
-                              <>
-                                <span>•</span>
-                                <span>{formatDate(item.publishedAt)}</span>
-                              </>
-                            )}
-                            <span>•</span>
-                            <span className="text-[#2b5fb8] font-medium hover:underline">
-                              View Official Document →
-                            </span>
-                          </div>
-                        </div>
+                    <article key={item.link} className="border-l border-gray-300 pl-4">
+                      {item.category && (
+                        <div className="text-[10px] font-bold tracking-wider text-black mb-2">{item.category}</div>
+                      )}
+                      <h4 className="text-lg font-serif font-bold text-black leading-tight mb-3">
+                        <a href={item.link} target="_blank" rel="noreferrer" className="hover:text-gray-600 transition">
+                          {item.title}
+                        </a>
+                      </h4>
+                      {item.summary && (
+                        <p className="text-[13px] leading-relaxed text-gray-700 mb-3">{item.summary}</p>
+                      )}
+                      <div className="text-[10px] text-gray-600">
+                        <span className="font-semibold text-black">{item.source}</span>
+                        {item.publishedAt && <> • {formatDate(item.publishedAt)}</>}
                       </div>
                     </article>
                   ))}
@@ -323,39 +295,39 @@ export default function EnvironmentalNews() {
           </>
         )}
 
-        {/* Call to action */}
+        {/* CTA */}
         {!loading && !error && (
-          <div className="mt-12 bg-[#0b1220] text-white rounded-lg p-8 text-center">
-            <h3 className="font-serif text-2xl font-bold mb-2">Never Miss an Update</h3>
-            <p className="text-sm text-gray-300 mb-4">
-              Get weekly summaries of environmental regulations delivered to your inbox
-            </p>
-            <a 
-              href="/contact"
-              className="inline-block bg-[#2b5fb8] hover:bg-[#234f98] text-white px-6 py-3 rounded-lg font-medium transition"
-            >
-              Subscribe for Free →
-            </a>
+          <div className="mt-20 border-4 border-black p-12 text-center">
+            <div className="max-w-2xl mx-auto">
+              <h3 className="text-3xl font-serif font-bold text-black mb-4">Subscribe to Weekly Intelligence</h3>
+              <p className="text-[15px] text-gray-700 mb-8 leading-relaxed">
+                Receive curated environmental regulatory updates, compliance deadlines, and industry analysis delivered to your inbox every week.
+              </p>
+              <a href="/contact" className="inline-block bg-black text-white px-8 py-3 text-sm font-bold tracking-wider hover:bg-gray-800 transition">
+                SUBSCRIBE NOW →
+              </a>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Footer - Source credits */}
-      <footer className="bg-white border-t border-[#e6e9f2] mt-12 py-8">
-        <div className="max-w-6xl mx-auto px-5 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <p className="font-serif italic text-sm text-[#475569] mb-2">
-              "Your authoritative source for environmental regulatory intelligence"
-            </p>
-            <p className="text-xs text-[#64748b]">
-              Monitored Sources: EPA, TCEQ, USFWS, USACE, NOAA, State Environmental Agencies
-            </p>
-            <div className="mt-4 flex justify-center gap-6 text-xs text-[#64748b]">
-              <a href="/about" className="hover:text-[#2b5fb8]">About</a>
-              <a href="/sources" className="hover:text-[#2b5fb8]">Sources</a>
-              <a href="/archive" className="hover:text-[#2b5fb8]">Archive</a>
-              <a href="/contact" className="hover:text-[#2b5fb8]">Suggest a Source</a>
-            </div>
+      {/* Footer */}
+      <footer className="border-t-4 border-black bg-white py-12 mt-20">
+        <div className="max-w-[1400px] mx-auto px-8 text-center">
+          <div className="mb-6">
+            <div className="text-2xl font-serif font-bold text-black mb-2">CETO INTERACTIVE</div>
+            <div className="text-[13px] text-gray-600 tracking-wide">Environmental Technology & Consulting</div>
+          </div>
+          <div className="text-[11px] text-gray-600 mb-6">
+            Sources: EPA • TCEQ • USFWS • USACE • Federal Register • State Environmental Agencies
+          </div>
+          <div className="flex justify-center gap-8 text-[11px] font-semibold text-black mb-6">
+            <a href="/about" className="hover:text-gray-600">ABOUT</a>
+            <a href="/services" className="hover:text-gray-600">SERVICES</a>
+            <a href="/contact" className="hover:text-gray-600">CONTACT</a>
+          </div>
+          <div className="text-[10px] text-gray-500">
+            © 2026 Ceto Interactive. All reports sourced from official government publications.
           </div>
         </div>
       </footer>
@@ -365,12 +337,7 @@ export default function EnvironmentalNews() {
 
 function formatDate(iso: string): string {
   try {
-    const d = new Date(iso);
-    return d.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
   } catch {
     return iso;
   }
