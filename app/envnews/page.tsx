@@ -33,11 +33,42 @@ const THEME = {
   sunset: "#E07A5F",
 };
 
+const IMPACT_WEIGHT: Record<Impact, number> = { high: 3, medium: 2, low: 1 };
+const RECENCY_DAYS_FOR_HOME = 120; // keeps the "edition" fresh; archive can come later
+
+function toTime(iso?: string) {
+  const t = iso ? Date.parse(iso) : NaN;
+  return Number.isFinite(t) ? t : 0;
+}
+
+function primaryTime(item: FeedItem) {
+  // Prefer publishedAt; fallback to deadline. If neither parses, returns 0.
+  return Math.max(toTime(item.publishedAt), toTime(item.deadline));
+}
+
+function sortScore(item: FeedItem) {
+  const recency = primaryTime(item);
+  const impact = item.impact ? IMPACT_WEIGHT[item.impact] : 0;
+  // Recency dominates; impact breaks ties.
+  return recency * 10 + impact;
+}
+
+function formatEditionDate(d = new Date()) {
+  return d.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export default function EnvironmentalNews() {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Reading-first: keep filters, but tuck them behind “Refine”
+  const [showFilters, setShowFilters] = useState(false);
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [impactFilter, setImpactFilter] = useState<"All" | Impact>("All");
@@ -92,7 +123,16 @@ export default function EnvironmentalNews() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return items.filter((it) => {
+    const userIsRefining = q.length > 0 || categoryFilter !== "All" || impactFilter !== "All";
+
+    const cutoff = Date.now() - RECENCY_DAYS_FOR_HOME * 24 * 60 * 60 * 1000;
+
+    const base = items.filter((it) => {
+      // Homepage edition stays fresh unless user is explicitly searching/filtering
+      const t = primaryTime(it);
+      const withinWindow = t === 0 ? true : t >= cutoff;
+      if (!userIsRefining && !withinWindow) return false;
+
       const categoryOk = categoryFilter === "All" ? true : it.category === categoryFilter;
       const impactOk = impactFilter === "All" ? true : it.impact === impactFilter;
 
@@ -105,12 +145,23 @@ export default function EnvironmentalNews() {
 
       return categoryOk && impactOk && queryOk;
     });
+
+    // Always: latest first, then “greatest”
+    return base.sort((a, b) => sortScore(b) - sortScore(a));
   }, [items, query, categoryFilter, impactFilter]);
 
-  const keyDates = filtered.filter((i) => i.deadline);
-  const featured = filtered.filter((i) => i.impact === "high" && !i.deadline).slice(0, 1);
-  const secondary = filtered.filter((i) => i.impact === "high" && !i.deadline).slice(1, 3);
-  const more = filtered.filter((i) => i.impact !== "high");
+  const now = Date.now();
+
+  const lead = filtered[0] ? filtered[0] : null;
+  const topStories = filtered.slice(1, 7);
+  const briefs = filtered.slice(7, 17);
+
+  const keyDates = useMemo(() => {
+    return filtered
+      .filter((i) => i.deadline && toTime(i.deadline) >= now - 24 * 60 * 60 * 1000) // drop stale dates
+      .sort((a, b) => toTime(a.deadline) - toTime(b.deadline))
+      .slice(0, 6);
+  }, [filtered, now]);
 
   return (
     <SiteShell>
@@ -151,8 +202,8 @@ export default function EnvironmentalNews() {
 
         <section className="relative z-10 px-6 lg:px-10 pt-10 pb-14">
           <div className="max-w-[1200px] mx-auto">
-            {/* Masthead (NO LOGO) */}
-            <div
+            {/* Masthead (newspaper-ish, no logo) */}
+            <header
               className="rounded-3xl p-7 md:p-10"
               style={{
                 backgroundColor: THEME.surface,
@@ -160,80 +211,102 @@ export default function EnvironmentalNews() {
                 backdropFilter: "blur(10px)",
               }}
             >
-              <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-                <div className="min-w-0">
-                  <div
-                    className="text-[11px] md:text-xs tracking-[0.28em] uppercase"
-                    style={{ color: "rgba(79, 122, 106, 0.85)" }}
-                  >
-                    Environmental intelligence
+              <div className="flex flex-col gap-6">
+                <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                  <div className="min-w-0">
+                    <div
+                      className="text-[11px] md:text-xs tracking-[0.28em] uppercase"
+                      style={{ color: "rgba(79, 122, 106, 0.85)" }}
+                    >
+                      Environmental intelligence
+                    </div>
+
+                    <h1
+                      className="mt-2 text-4xl md:text-6xl font-light tracking-tight"
+                      style={{
+                        color: THEME.ink,
+                        fontFamily: "ui-serif, Georgia, Cambria, Times New Roman, Times, serif",
+                      }}
+                    >
+                      Environmental Ledger
+                    </h1>
+
+                    <div
+                      className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] uppercase tracking-[0.22em]"
+                      style={{ color: "rgba(20, 35, 55, 0.58)" }}
+                    >
+                      <span>Daily Brief</span>
+                      <span>•</span>
+                      <span>{formatEditionDate()}</span>
+                      <span>•</span>
+                      <span>
+                        Updated{" "}
+                        {new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                      </span>
+                    </div>
+
+                    <p
+                      className="mt-4 text-sm md:text-base font-light max-w-3xl leading-relaxed"
+                      style={{ color: "rgba(20, 35, 55, 0.70)" }}
+                    >
+                      Official sources, edited into a front page. Latest first—context where it matters.
+                    </p>
                   </div>
 
-                  <h1
-                    className="mt-3 text-3xl md:text-4xl font-light tracking-tight"
-                    style={{
-                      color: THEME.ink,
-                      fontFamily: "ui-serif, Georgia, Cambria, Times New Roman, Times, serif",
-                    }}
-                  >
-                    News &amp; Regulatory Updates
-                  </h1>
-
-                  <p
-                    className="mt-4 text-sm md:text-base font-light max-w-3xl leading-relaxed"
-                    style={{ color: "rgba(20, 35, 55, 0.70)" }}
-                  >
-                    Official sources, organized for clarity. Facts first—room for context, and eventually human reporting.
-                  </p>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setShowFilters((v) => !v)}
+                      className="px-4 py-2 rounded-full border text-sm bg-white/60 hover:bg-white/70 transition"
+                      style={{ borderColor: THEME.border, color: THEME.ink }}
+                    >
+                      {showFilters ? "Close" : "Refine"}
+                    </button>
+                  </div>
                 </div>
 
-                <div className="text-[11px] font-light md:text-right" style={{ color: "rgba(20, 35, 55, 0.55)" }}>
-                  Updated:{" "}
-                  {new Date().toLocaleDateString("en-US", {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </div>
+                {showFilters && (
+                  <div className="grid grid-cols-1 md:grid-cols-[1fr_220px_180px] gap-3">
+                    <input
+                      type="text"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Search the archive (rules, permits, enforcement, comment periods)…"
+                      className="px-4 py-3 border text-sm focus:outline-none rounded-2xl bg-white/70"
+                      style={{ borderColor: THEME.border }}
+                    />
+
+                    <select
+                      value={categoryFilter}
+                      onChange={(e) => setCategoryFilter(e.target.value)}
+                      className="px-4 py-3 border text-sm focus:outline-none rounded-2xl bg-white/70"
+                      style={{ borderColor: THEME.border }}
+                    >
+                      {categories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={impactFilter}
+                      onChange={(e) => setImpactFilter(e.target.value as any)}
+                      className="px-4 py-3 border text-sm focus:outline-none rounded-2xl bg-white/70"
+                      style={{ borderColor: THEME.border }}
+                    >
+                      <option value="All">All impact</option>
+                      <option value="high">High</option>
+                      <option value="medium">Medium</option>
+                      <option value="low">Low</option>
+                    </select>
+
+                    <div className="md:col-span-3 text-[11px]" style={{ color: "rgba(20, 35, 55, 0.55)" }}>
+                      Tip: the front page prioritizes the last {RECENCY_DAYS_FOR_HOME} days. Searching expands beyond that.
+                    </div>
+                  </div>
+                )}
               </div>
-
-              {/* Filters */}
-              <div className="mt-7 grid grid-cols-1 md:grid-cols-[1fr_220px_180px] gap-3">
-                <input
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search (rules, permits, enforcement, comment periods)…"
-                  className="px-4 py-3 border text-sm focus:outline-none rounded-2xl bg-white/70"
-                  style={{ borderColor: THEME.border }}
-                />
-
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="px-4 py-3 border text-sm focus:outline-none rounded-2xl bg-white/70"
-                  style={{ borderColor: THEME.border }}
-                >
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={impactFilter}
-                  onChange={(e) => setImpactFilter(e.target.value as any)}
-                  className="px-4 py-3 border text-sm focus:outline-none rounded-2xl bg-white/70"
-                  style={{ borderColor: THEME.border }}
-                >
-                  <option value="All">All impact</option>
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
-                </select>
-              </div>
-            </div>
+            </header>
 
             {/* Body */}
             <div className="mt-10">
@@ -267,7 +340,7 @@ export default function EnvironmentalNews() {
                   }}
                 >
                   <div className="font-light text-xl" style={{ color: THEME.ink }}>
-                    Gathering latest updates…
+                    Printing today’s edition…
                   </div>
                   <div className="text-sm mt-2" style={{ color: "rgba(20, 35, 55, 0.68)" }}>
                     EPA • TCEQ • USFWS • Federal Register
@@ -291,85 +364,12 @@ export default function EnvironmentalNews() {
               )}
 
               {!loading && !error && filtered.length > 0 && (
-                <>
-                  {/* Key dates */}
-                  {keyDates.length > 0 && (
-                    <section className="mb-10">
-                      <div
-                        className="rounded-3xl p-7 md:p-8"
-                        style={{
-                          backgroundColor: THEME.surfaceStrong,
-                          border: `1px solid ${THEME.border}`,
-                          backdropFilter: "blur(10px)",
-                        }}
-                      >
-                        <div
-                          className="flex items-end justify-between gap-4 border-b pb-4 mb-6"
-                          style={{ borderColor: THEME.border }}
-                        >
-                          <h2
-                            className="text-xl md:text-2xl font-light"
-                            style={{
-                              color: THEME.ink,
-                              fontFamily: "ui-serif, Georgia, Cambria, Times New Roman, Times, serif",
-                            }}
-                          >
-                            Key dates &amp; comment periods
-                          </h2>
-                          <div className="text-[11px]" style={{ color: "rgba(20, 35, 55, 0.62)" }}>
-                            Neutral calendar items
-                          </div>
-                        </div>
-
-                        <div className="space-y-5">
-                          {keyDates.slice(0, 6).map((item) => (
-                            <article
-                              key={item.link}
-                              className="p-6 rounded-2xl"
-                              style={{
-                                backgroundColor: "rgba(255,255,255,0.80)",
-                                border: `1px solid ${THEME.border}`,
-                              }}
-                            >
-                              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-3">
-                                <h3 className="text-lg md:text-xl font-light leading-snug" style={{ color: THEME.ink }}>
-                                  <a href={item.link} target="_blank" rel="noreferrer" className="hover:underline">
-                                    {item.title}
-                                  </a>
-                                </h3>
-
-                                {item.deadline && (
-                                  <div
-                                    className="px-4 py-2 text-[11px] uppercase rounded-full w-fit border"
-                                    style={{
-                                      borderColor: "rgba(47, 93, 140, 0.30)",
-                                      color: THEME.leviBlue,
-                                      backgroundColor: "rgba(47, 93, 140, 0.08)",
-                                    }}
-                                  >
-                                    Date: {formatDate(item.deadline)}
-                                  </div>
-                                )}
-                              </div>
-
-                              {item.summary && (
-                                <p className="text-sm leading-relaxed mb-3" style={{ color: "rgba(20, 35, 55, 0.78)" }}>
-                                  {item.summary}
-                                </p>
-                              )}
-
-                              <MetaRow item={item} />
-                            </article>
-                          ))}
-                        </div>
-                      </div>
-                    </section>
-                  )}
-
-                  {/* Featured */}
-                  {featured.length > 0 && (
-                    <section className="mb-10">
-                      <div
+                <div className="grid lg:grid-cols-[1.65fr_1fr] gap-6">
+                  {/* LEFT COLUMN: Front page */}
+                  <div className="space-y-6">
+                    {/* Lead story */}
+                    {lead && (
+                      <section
                         className="p-8 md:p-10 rounded-3xl"
                         style={{
                           backgroundColor: THEME.surfaceStrong,
@@ -377,179 +377,375 @@ export default function EnvironmentalNews() {
                           backdropFilter: "blur(10px)",
                         }}
                       >
-                        {featured.map((item) => (
-                          <article key={item.link}>
-                            {item.category && (
-                              <div
-                                className="text-[10px] font-bold tracking-[0.2em] uppercase mb-3"
-                                style={{ color: "rgba(79, 122, 106, 0.85)" }}
-                              >
-                                {item.category}
+                        <div className="flex items-center justify-between gap-4 border-b pb-4 mb-6" style={{ borderColor: THEME.border }}>
+                          <div
+                            className="text-[11px] uppercase tracking-[0.26em]"
+                            style={{ color: "rgba(20, 35, 55, 0.55)" }}
+                          >
+                            Front Page
+                          </div>
+
+                          <div className="text-[11px] uppercase tracking-[0.18em]" style={{ color: "rgba(20, 35, 55, 0.55)" }}>
+                            Latest first
+                          </div>
+                        </div>
+
+                        {lead.category && (
+                          <div
+                            className="text-[10px] font-bold tracking-[0.22em] uppercase mb-3"
+                            style={{ color: "rgba(79, 122, 106, 0.85)" }}
+                          >
+                            {lead.category}
+                          </div>
+                        )}
+
+                        <h2
+                          className="text-3xl md:text-5xl font-light leading-tight"
+                          style={{
+                            color: THEME.ink,
+                            fontFamily: "ui-serif, Georgia, Cambria, Times New Roman, Times, serif",
+                          }}
+                        >
+                          <a href={lead.link} target="_blank" rel="noreferrer" className="hover:underline">
+                            {lead.title}
+                          </a>
+                        </h2>
+
+                        <div className="mt-4 flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-wide"
+                             style={{ color: "rgba(20, 35, 55, 0.62)" }}>
+                          <span className="font-bold" style={{ color: THEME.ink }}>
+                            {lead.source}
+                          </span>
+                          {(lead.publishedAt || lead.deadline) && (
+                            <span>• {formatDate(lead.publishedAt || lead.deadline || "")}</span>
+                          )}
+                          {lead.impact && <span>• Impact: {lead.impact}</span>}
+                        </div>
+
+                        {lead.summary && (
+                          <p
+                            className="mt-6 text-base md:text-lg leading-relaxed border-l-4 pl-6"
+                            style={{ borderColor: THEME.border, color: "rgba(20, 35, 55, 0.78)" }}
+                          >
+                            {lead.summary}
+                          </p>
+                        )}
+
+                        {/* “Old man newspaper” rule */}
+                        <div className="mt-7 pt-5 border-t" style={{ borderColor: THEME.border }}>
+                          <div className="grid md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <div className="text-[10px] uppercase tracking-[0.22em]" style={{ color: "rgba(20,35,55,0.55)" }}>
+                                Section
                               </div>
-                            )}
-
-                            <h2
-                              className="text-3xl md:text-5xl font-light leading-tight mb-5"
-                              style={{
-                                color: THEME.ink,
-                                fontFamily: "ui-serif, Georgia, Cambria, Times New Roman, Times, serif",
-                              }}
-                            >
-                              <a href={item.link} target="_blank" rel="noreferrer" className="hover:underline">
-                                {item.title}
-                              </a>
-                            </h2>
-
-                            {item.summary && (
-                              <p
-                                className="text-base md:text-lg leading-relaxed mb-5 border-l-4 pl-6"
-                                style={{ borderColor: THEME.border, color: "rgba(20, 35, 55, 0.78)" }}
-                              >
-                                {item.summary}
-                              </p>
-                            )}
-
-                            <div
-                              className="flex flex-wrap gap-4 text-xs uppercase tracking-wide border-t pt-4"
-                              style={{ borderColor: THEME.border, color: "rgba(20, 35, 55, 0.62)" }}
-                            >
-                              <span className="font-bold" style={{ color: THEME.ink }}>
-                                {item.source}
-                              </span>
-                              {item.publishedAt && <span>• {formatDate(item.publishedAt)}</span>}
+                              <div className="mt-1" style={{ color: THEME.ink }}>
+                                {lead.category || "General"}
+                              </div>
                             </div>
-                          </article>
-                        ))}
-                      </div>
-                    </section>
-                  )}
 
-                  {/* Secondary */}
-                  {secondary.length > 0 && (
-                    <section className="mb-10">
-                      <div className="grid md:grid-cols-2 gap-6">
-                        {secondary.map((item) => (
-                          <article
-                            key={item.link}
-                            className="p-7 rounded-3xl"
+                            <div>
+                              <div className="text-[10px] uppercase tracking-[0.22em]" style={{ color: "rgba(20,35,55,0.55)" }}>
+                                Source
+                              </div>
+                              <div className="mt-1" style={{ color: THEME.ink }}>
+                                {lead.source}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="text-[10px] uppercase tracking-[0.22em]" style={{ color: "rgba(20,35,55,0.55)" }}>
+                                Filed
+                              </div>
+                              <div className="mt-1" style={{ color: THEME.ink }}>
+                                {(lead.publishedAt || lead.deadline) ? formatDate(lead.publishedAt || lead.deadline || "") : "—"}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </section>
+                    )}
+
+                    {/* Top stories */}
+                    {topStories.length > 0 && (
+                      <section
+                        className="rounded-3xl p-7 md:p-8"
+                        style={{
+                          backgroundColor: THEME.surfaceStrong,
+                          border: `1px solid ${THEME.border}`,
+                          backdropFilter: "blur(10px)",
+                        }}
+                      >
+                        <div className="flex items-end justify-between gap-4 border-b pb-4 mb-6" style={{ borderColor: THEME.border }}>
+                          <h3
+                            className="text-xl md:text-2xl font-light"
                             style={{
-                              backgroundColor: THEME.surfaceStrong,
-                              border: `1px solid ${THEME.border}`,
-                              backdropFilter: "blur(10px)",
+                              color: THEME.ink,
+                              fontFamily: "ui-serif, Georgia, Cambria, Times New Roman, Times, serif",
                             }}
                           >
-                            {item.category && (
-                              <div
-                                className="text-[9px] font-bold tracking-[0.2em] uppercase mb-2"
-                                style={{ color: "rgba(79, 122, 106, 0.85)" }}
-                              >
-                                {item.category}
+                            Top stories
+                          </h3>
+
+                          <div className="text-[11px] uppercase tracking-[0.18em]" style={{ color: "rgba(20, 35, 55, 0.55)" }}>
+                            {topStories.length} headlines
+                          </div>
+                        </div>
+
+                        <div className="space-y-5">
+                          {topStories.map((item, idx) => (
+                            <article key={item.link} className="pb-5 border-b last:border-b-0 last:pb-0" style={{ borderColor: THEME.border }}>
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                  <div
+                                    className="text-[10px] uppercase tracking-[0.22em] mb-1"
+                                    style={{ color: "rgba(20,35,55,0.55)" }}
+                                  >
+                                    {String(idx + 1).padStart(2, "0")} • {item.category || "General"}
+                                  </div>
+
+                                  <h4
+                                    className="text-lg md:text-xl font-light leading-snug"
+                                    style={{
+                                      color: THEME.ink,
+                                      fontFamily: "ui-serif, Georgia, Cambria, Times New Roman, Times, serif",
+                                    }}
+                                  >
+                                    <a href={item.link} target="_blank" rel="noreferrer" className="hover:underline">
+                                      {item.title}
+                                    </a>
+                                  </h4>
+
+                                  {item.summary && (
+                                    <p className="mt-2 text-sm leading-relaxed line-clamp-2" style={{ color: "rgba(20,35,55,0.78)" }}>
+                                      {item.summary}
+                                    </p>
+                                  )}
+
+                                  <div className="mt-2 flex flex-wrap gap-3 text-[10px] uppercase tracking-wide" style={{ color: "rgba(20,35,55,0.62)" }}>
+                                    <span className="font-bold" style={{ color: THEME.ink }}>
+                                      {item.source}
+                                    </span>
+                                    {(item.publishedAt || item.deadline) && (
+                                      <span>• {formatDate(item.publishedAt || item.deadline || "")}</span>
+                                    )}
+                                    {item.impact && <span>• Impact: {item.impact}</span>}
+                                  </div>
+                                </div>
+
+                                {item.impact === "high" && (
+                                  <span
+                                    className="shrink-0 px-3 py-1 text-[10px] uppercase rounded-full border"
+                                    style={{
+                                      borderColor: "rgba(224, 122, 95, 0.30)",
+                                      color: "rgba(224, 122, 95, 0.95)",
+                                      backgroundColor: "rgba(224, 122, 95, 0.08)",
+                                    }}
+                                  >
+                                    noteworthy
+                                  </span>
+                                )}
                               </div>
-                            )}
+                            </article>
+                          ))}
+                        </div>
+                      </section>
+                    )}
+                  </div>
 
-                            <h3
-                              className="text-xl md:text-2xl font-light leading-tight mb-4"
-                              style={{
-                                color: THEME.ink,
-                                fontFamily: "ui-serif, Georgia, Cambria, Times New Roman, Times, serif",
-                              }}
-                            >
-                              <a href={item.link} target="_blank" rel="noreferrer" className="hover:underline">
-                                {item.title}
-                              </a>
-                            </h3>
-
-                            {item.summary && (
-                              <p className="text-sm leading-relaxed mb-4" style={{ color: "rgba(20, 35, 55, 0.78)" }}>
-                                {item.summary}
-                              </p>
-                            )}
-
-                            <div
-                              className="flex flex-wrap gap-3 text-[11px] uppercase tracking-wide border-t pt-3"
-                              style={{ borderColor: THEME.border, color: "rgba(20, 35, 55, 0.62)" }}
-                            >
-                              <span className="font-bold" style={{ color: THEME.ink }}>
-                                {item.source}
-                              </span>
-                              {item.publishedAt && <span>• {formatDate(item.publishedAt)}</span>}
-                            </div>
-                          </article>
-                        ))}
+                  {/* RIGHT COLUMN: The Brief + Key Dates (and future game placeholder) */}
+                  <aside className="space-y-6">
+                    {/* The Brief */}
+                    <section
+                      className="rounded-3xl p-7 md:p-8"
+                      style={{
+                        backgroundColor: THEME.surfaceStrong,
+                        border: `1px solid ${THEME.border}`,
+                        backdropFilter: "blur(10px)",
+                      }}
+                    >
+                      <div className="flex items-end justify-between gap-4 border-b pb-4 mb-6" style={{ borderColor: THEME.border }}>
+                        <h3
+                          className="text-xl md:text-2xl font-light"
+                          style={{
+                            color: THEME.ink,
+                            fontFamily: "ui-serif, Georgia, Cambria, Times New Roman, Times, serif",
+                          }}
+                        >
+                          The Brief
+                        </h3>
+                        <div className="text-[11px]" style={{ color: "rgba(20, 35, 55, 0.62)" }}>
+                          Quick reads
+                        </div>
                       </div>
-                    </section>
-                  )}
 
-                  {/* More */}
-                  {more.length > 0 && (
-                    <section>
-                      <div className="grid md:grid-cols-3 gap-4">
-                        {more.map((item) => (
-                          <article
-                            key={item.link}
-                            className="p-6 rounded-3xl"
+                      {briefs.length === 0 ? (
+                        <div className="text-sm" style={{ color: "rgba(20,35,55,0.70)" }}>
+                          No additional items in this edition yet.
+                        </div>
+                      ) : (
+                        <ol className="space-y-4">
+                          {briefs.map((item, idx) => (
+                            <li key={item.link} className="flex gap-3">
+                              <div
+                                className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] border"
+                                style={{
+                                  borderColor: THEME.border,
+                                  color: "rgba(20,35,55,0.70)",
+                                  backgroundColor: "rgba(255,255,255,0.55)",
+                                }}
+                              >
+                                {idx + 1}
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="text-[10px] uppercase tracking-[0.18em]" style={{ color: "rgba(20,35,55,0.55)" }}>
+                                  {item.category || "General"}
+                                </div>
+
+                                <div className="mt-1 text-sm leading-snug" style={{ color: THEME.ink }}>
+                                  <a href={item.link} target="_blank" rel="noreferrer" className="hover:underline">
+                                    {item.title}
+                                  </a>
+                                </div>
+
+                                <div className="mt-1 text-[10px] uppercase tracking-wide" style={{ color: "rgba(20,35,55,0.62)" }}>
+                                  <span className="font-bold" style={{ color: THEME.ink }}>
+                                    {item.source}
+                                  </span>
+                                  {(item.publishedAt || item.deadline) && (
+                                    <span> • {formatDate(item.publishedAt || item.deadline || "")}</span>
+                                  )}
+                                  {item.impact && <span> • {item.impact}</span>}
+                                </div>
+                              </div>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                    </section>
+
+                    {/* Key dates & comment periods */}
+                    {keyDates.length > 0 && (
+                      <section
+                        className="rounded-3xl p-7 md:p-8"
+                        style={{
+                          backgroundColor: THEME.surfaceStrong,
+                          border: `1px solid ${THEME.border}`,
+                          backdropFilter: "blur(10px)",
+                        }}
+                      >
+                        <div className="flex items-end justify-between gap-4 border-b pb-4 mb-6" style={{ borderColor: THEME.border }}>
+                          <h3
+                            className="text-xl md:text-2xl font-light"
                             style={{
-                              backgroundColor: THEME.surfaceStrong,
-                              border: `1px solid ${THEME.border}`,
-                              backdropFilter: "blur(10px)",
+                              color: THEME.ink,
+                              fontFamily: "ui-serif, Georgia, Cambria, Times New Roman, Times, serif",
                             }}
                           >
-                            {item.category && (
-                              <div className="text-[10px] font-bold tracking-wider uppercase mb-2" style={{ color: "rgba(79, 122, 106, 0.85)" }}>
-                                {item.category}
-                              </div>
-                            )}
+                            Calendar
+                          </h3>
+                          <div className="text-[11px]" style={{ color: "rgba(20, 35, 55, 0.62)" }}>
+                            Deadlines & comment periods
+                          </div>
+                        </div>
 
-                            <h4
-                              className="text-base font-light leading-tight mb-2"
+                        <div className="space-y-4">
+                          {keyDates.map((item) => (
+                            <article
+                              key={item.link}
+                              className="p-5 rounded-2xl"
                               style={{
-                                color: THEME.ink,
-                                fontFamily: "ui-serif, Georgia, Cambria, Times New Roman, Times, serif",
+                                backgroundColor: "rgba(255,255,255,0.80)",
+                                border: `1px solid ${THEME.border}`,
                               }}
                             >
-                              <a href={item.link} target="_blank" rel="noreferrer" className="hover:underline">
-                                {item.title}
-                              </a>
-                            </h4>
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="text-[10px] uppercase tracking-[0.18em]" style={{ color: "rgba(20,35,55,0.55)" }}>
+                                    {item.category || "Calendar"}
+                                  </div>
 
-                            {item.summary && (
-                              <p className="text-xs leading-relaxed mb-3 line-clamp-3" style={{ color: "rgba(20, 35, 55, 0.78)" }}>
-                                {item.summary}
-                              </p>
-                            )}
+                                  <div
+                                    className="mt-1 text-sm leading-snug"
+                                    style={{
+                                      color: THEME.ink,
+                                      fontFamily: "ui-serif, Georgia, Cambria, Times New Roman, Times, serif",
+                                    }}
+                                  >
+                                    <a href={item.link} target="_blank" rel="noreferrer" className="hover:underline">
+                                      {item.title}
+                                    </a>
+                                  </div>
 
-                            <div className="text-[10px] uppercase" style={{ color: "rgba(20, 35, 55, 0.62)" }}>
-                              <span className="font-bold" style={{ color: THEME.ink }}>
-                                {item.source}
-                              </span>
-                              {item.publishedAt && <span> • {formatDate(item.publishedAt)}</span>}
-                            </div>
-                          </article>
-                        ))}
+                                  <div className="mt-2 text-[10px] uppercase tracking-wide" style={{ color: "rgba(20,35,55,0.62)" }}>
+                                    <span className="font-bold" style={{ color: THEME.ink }}>
+                                      {item.source}
+                                    </span>
+                                    {item.deadline && <span> • Due {formatDate(item.deadline)}</span>}
+                                  </div>
+                                </div>
+
+                                {item.deadline && (
+                                  <div
+                                    className="shrink-0 px-3 py-2 text-[10px] uppercase rounded-full w-fit border"
+                                    style={{
+                                      borderColor: "rgba(47, 93, 140, 0.30)",
+                                      color: THEME.leviBlue,
+                                      backgroundColor: "rgba(47, 93, 140, 0.08)",
+                                    }}
+                                  >
+                                    {formatDate(item.deadline)}
+                                  </div>
+                                )}
+                              </div>
+
+                              {item.summary && (
+                                <p className="mt-3 text-xs leading-relaxed line-clamp-3" style={{ color: "rgba(20, 35, 55, 0.78)" }}>
+                                  {item.summary}
+                                </p>
+                              )}
+                            </article>
+                          ))}
+                        </div>
+                      </section>
+                    )}
+
+                    {/* Placeholder for your future daily environmental game */}
+                    <section
+                      className="rounded-3xl p-7 md:p-8"
+                      style={{
+                        backgroundColor: THEME.surface,
+                        border: `1px solid ${THEME.border}`,
+                        backdropFilter: "blur(10px)",
+                      }}
+                    >
+                      <div className="flex items-end justify-between gap-4 border-b pb-4 mb-5" style={{ borderColor: THEME.border }}>
+                        <h3
+                          className="text-xl md:text-2xl font-light"
+                          style={{
+                            color: THEME.ink,
+                            fontFamily: "ui-serif, Georgia, Cambria, Times New Roman, Times, serif",
+                          }}
+                        >
+                          The Daily Game
+                        </h3>
+                        <div className="text-[11px]" style={{ color: "rgba(20, 35, 55, 0.62)" }}>
+                          Coming soon
+                        </div>
                       </div>
+
+                      <p className="text-sm leading-relaxed" style={{ color: "rgba(20, 35, 55, 0.70)" }}>
+                        A small daily environmental puzzle will live here (one-minute play, one good fact). For now: front page only.
+                      </p>
                     </section>
-                  )}
-                </>
+                  </aside>
+                </div>
               )}
             </div>
           </div>
         </section>
       </main>
     </SiteShell>
-  );
-}
-
-function MetaRow({ item }: { item: FeedItem }) {
-  return (
-    <div className="flex flex-wrap gap-3 text-[10px] uppercase tracking-wide" style={{ color: "rgba(20, 35, 55, 0.62)" }}>
-      <span className="font-bold" style={{ color: THEME.ink }}>
-        {item.source}
-      </span>
-      {item.publishedAt && <span>• {formatDate(item.publishedAt)}</span>}
-      {item.category && <span>• {item.category}</span>}
-      {item.impact && <span>• Impact: {item.impact}</span>}
-      {item.deadline && <span>• Date: {formatDate(item.deadline)}</span>}
-    </div>
   );
 }
 
