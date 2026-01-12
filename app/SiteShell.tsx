@@ -93,10 +93,8 @@ function Header() {
     >
       <div className="max-w-6xl mx-auto px-6 lg:px-10 py-4">
         <div className="flex items-center justify-between gap-4">
-          {/* Brand / logo */}
+          {/* Brand (TEXT ONLY — no image) */}
           <a href="/" className="flex items-center gap-3">
-            {/* If you have /public/logo.png, this will show. If not, remove the img. */}
-            <img src="/logo.png" alt="Ceto Interactive" className="h-8 w-auto" />
             <div className="text-xl md:text-2xl font-light tracking-wide" style={{ color: THEME.ink }}>
               <span style={{ color: THEME.ink }}>Ceto</span>
               <span style={{ color: THEME.leviBlue, fontWeight: 400 }}>Interactive</span>
@@ -135,7 +133,7 @@ function Header() {
           </nav>
         </div>
 
-        {/* Mobile nav row: ALWAYS show all links */}
+        {/* Mobile nav row */}
         <div className="md:hidden mt-3 flex items-center justify-between gap-2">
           {[...NAV, CONTACT].map((item) => (
             <a
@@ -171,13 +169,12 @@ function Footer() {
         >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
             <div>
-              <div className="flex items-center gap-3">
-                <img src="/logo.png" alt="Ceto Interactive" className="h-7 w-auto" />
-                <div className="text-2xl font-light tracking-wide" style={{ color: THEME.ink }}>
-                  <span style={{ color: THEME.ink }}>Ceto</span>
-                  <span style={{ color: THEME.leviBlue, fontWeight: 400 }}>Interactive</span>
-                </div>
+              {/* Brand (TEXT ONLY — no image) */}
+              <div className="text-2xl font-light tracking-wide" style={{ color: THEME.ink }}>
+                <span style={{ color: THEME.ink }}>Ceto</span>
+                <span style={{ color: THEME.leviBlue, fontWeight: 400 }}>Interactive</span>
               </div>
+
               <div className="mt-2 text-sm font-light" style={{ color: "rgba(20, 35, 55, 0.70)" }}>
                 Environmental Technology &amp; Consulting • Intelligence • Compliance • Monitoring
               </div>
@@ -200,9 +197,7 @@ function Footer() {
           </div>
 
           <div className="mt-8 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-xs font-light">
-            <div style={{ color: "rgba(20, 35, 55, 0.60)" }}>
-              © {new Date().getFullYear()} Ceto Interactive. All rights reserved.
-            </div>
+            <div style={{ color: "rgba(20, 35, 55, 0.60)" }}>© {new Date().getFullYear()} Ceto Interactive. All rights reserved.</div>
             <div style={{ color: "rgba(20, 35, 55, 0.60)" }}>
               Built for clarity: data, permits, habitats, and real-world decisions.
             </div>
