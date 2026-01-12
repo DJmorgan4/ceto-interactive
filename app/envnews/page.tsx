@@ -228,7 +228,7 @@ export default function EnvironmentalNews() {
                         fontFamily: "ui-serif, Georgia, Cambria, Times New Roman, Times, serif",
                       }}
                     >
-                      Environmental Ledger
+                      Our Environmental updates
                     </h1>
 
                     <div
