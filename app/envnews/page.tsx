@@ -1,7 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useMemo } from 'react';
-import Image from 'next/image';
+import { useEffect, useMemo, useState } from "react";
+import { SiteShell } from "../SiteShell"; // if SiteShell is in /app/SiteShell.tsx
+
+type Impact = "high" | "medium" | "low";
 
 type FeedItem = {
   title: string;
@@ -10,335 +12,341 @@ type FeedItem = {
   publishedAt?: string;
   summary?: string;
   category?: string;
-  impact?: 'high' | 'medium' | 'low';
+  impact?: Impact;
   deadline?: string;
+};
+
+const BRAND = {
+  paper: "#F9F7F4",
+  ink: "#101C2E",
+  teal: "#254A4F",
+  deepTeal: "#163D42",
+  blue: "#335684",
 };
 
 export default function EnvironmentalNews() {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [query, setQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [impactFilter, setImpactFilter] = useState<"All" | Impact>("All");
 
   useEffect(() => {
     let alive = true;
+
     async function load() {
       setLoading(true);
       setError(null);
+
       try {
-        const res = await fetch('/api/updates', { cache: 'no-store' });
+        const res = await fetch("/api/updates", { cache: "no-store" });
         if (!res.ok) throw new Error(`Request failed (${res.status})`);
         const data = (await res.json()) as { items: FeedItem[] };
         if (!alive) return;
-        setItems(data.items || []);
+        setItems(Array.isArray(data.items) ? data.items : []);
       } catch (e: any) {
         if (!alive) return;
-        setError(e?.message || 'Failed to load updates.');
+        setError(e?.message || "Failed to load updates.");
       } finally {
         if (!alive) return;
         setLoading(false);
       }
     }
+
     load();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const categories = useMemo(() => {
-    const cats = new Set(items.map(i => i.category).filter(Boolean));
-    return ['All', ...Array.from(cats)];
+    const cats = new Set(items.map((i) => i.category).filter(Boolean) as string[]);
+    return ["All", ...Array.from(cats)];
   }, [items]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items.filter((it) => {
-      const categoryOk = categoryFilter === 'All' ? true : it.category === categoryFilter;
-      const queryOk = q ? (it.title || '').toLowerCase().includes(q) || (it.source || '').toLowerCase().includes(q) || (it.summary || '').toLowerCase().includes(q) : true;
-      return categoryOk && queryOk;
+      const categoryOk = categoryFilter === "All" ? true : it.category === categoryFilter;
+      const impactOk = impactFilter === "All" ? true : it.impact === impactFilter;
+      const queryOk = q
+        ? (it.title || "").toLowerCase().includes(q) ||
+          (it.source || "").toLowerCase().includes(q) ||
+          (it.summary || "").toLowerCase().includes(q) ||
+          (it.category || "").toLowerCase().includes(q)
+        : true;
+      return categoryOk && impactOk && queryOk;
     });
-  }, [items, query, categoryFilter]);
+  }, [items, query, categoryFilter, impactFilter]);
 
-  const urgentItems = filtered.filter(i => i.impact === 'high' && i.deadline);
-  const topStories = filtered.filter(i => i.impact === 'high' && !i.deadline).slice(0, 1);
-  const secondTier = filtered.filter(i => i.impact === 'high' && !i.deadline).slice(1, 3);
-  const regularItems = filtered.filter(i => i.impact !== 'high');
+  const urgentItems = filtered.filter((i) => i.impact === "high" && i.deadline);
+  const topStories = filtered.filter((i) => i.impact === "high" && !i.deadline).slice(0, 1);
+  const secondTier = filtered.filter((i) => i.impact === "high" && !i.deadline).slice(1, 3);
+  const regularItems = filtered.filter((i) => i.impact !== "high");
 
   return (
-    <main className="min-h-screen bg-white">
-      {/* Top info bar - like WSJ */}
-      <div className="border-b border-gray-300">
-        <div className="max-w-[1400px] mx-auto px-8 py-2">
-          <div className="flex items-center justify-between text-[11px] text-gray-600">
-            <div className="tracking-wide">McKinney, Texas</div>
-            <div className="tracking-wide">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Masthead - Fortune 500 clean */}
-      <header className="border-b-4 border-black bg-white">
-        <div className="max-w-[1400px] mx-auto px-8 py-12">
-          <div className="text-center">
-            {/* Logo */}
-            <div className="mb-6">
-              <Image 
-                src="/logo.png" 
-                alt="Ceto Interactive" 
-                width={200}
-                height={80}
-                className="mx-auto"
-                priority
-              />
+    <SiteShell>
+      <section className="px-6 lg:px-10 pt-10 pb-8">
+        <div className="max-w-[1200px] mx-auto">
+          {/* Page title */}
+          <div
+            className="rounded-3xl border p-7 md:p-9"
+            style={{
+              backgroundColor: "rgba(255,255,255,0.62)",
+              borderColor: "rgba(20, 35, 55, 0.14)",
+              backdropFilter: "blur(10px)",
+            }}
+          >
+            <div className="text-xs tracking-[0.28em] uppercase" style={{ color: BRAND.teal }}>
+              Environmental Intelligence
             </div>
-
-            {/* Main title */}
-            <h1 className="font-serif text-[72px] font-bold text-black mb-1 tracking-tight leading-none">
-              CETO INTERACTIVE
+            <h1 className="mt-2 text-3xl md:text-4xl font-light" style={{ color: BRAND.ink }}>
+              News &amp; Regulatory Updates
             </h1>
-            
-            {/* Subtitle */}
-            <div className="text-[15px] font-semibold text-black tracking-[0.15em] mb-4">
-              ENVIRONMENTAL INTELLIGENCE
-            </div>
+            <p className="mt-3 text-sm md:text-base font-light" style={{ color: "rgba(20, 35, 55, 0.70)" }}>
+              Official sources, prioritized for impact: deadlines, enforcement, rules, and guidance.
+            </p>
 
-            {/* Issue info */}
-            <div className="flex items-center justify-center gap-3 text-[11px] text-gray-600 tracking-wide">
-              <span>VOL. 1</span>
-              <span>•</span>
-              <span>NO. {Math.floor((Date.now() - new Date('2025-01-01').getTime()) / (1000 * 60 * 60 * 24 * 7))}</span>
-              <span>•</span>
-              <span className="font-semibold text-black">{items.length} REPORTS</span>
-            </div>
-          </div>
-        </div>
+            {/* Search row */}
+            <div className="mt-6 grid md:grid-cols-[1fr_auto_auto] gap-3">
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search (rules, enforcement, permits, comment periods)…"
+                className="px-4 py-2 border-2 text-sm focus:outline-none bg-white/70"
+                style={{ borderColor: "rgba(20, 35, 55, 0.18)" }}
+              />
 
-        {/* Navigation bar */}
-        <div className="border-t border-gray-300 bg-white">
-          <div className="max-w-[1400px] mx-auto px-8 py-3">
-            <div className="flex items-center justify-between">
-              <nav className="flex gap-8 text-[13px] font-semibold">
-                <a href="/" className="hover:text-gray-600 transition">HOME</a>
-                <a href="/services" className="hover:text-gray-600 transition">SERVICES</a>
-                <span className="text-black">LATEST UPDATES</span>
-              </nav>
-              <div className="text-[11px] text-gray-600 tracking-wide">
-                UPDATED WEEKLY
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Search bar */}
-      <div className="border-b border-gray-200 bg-gray-50">
-        <div className="max-w-[1400px] mx-auto px-8 py-4">
-          <div className="flex gap-4 max-w-2xl">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search reports..."
-              className="flex-1 px-4 py-2 border border-gray-300 text-sm focus:outline-none focus:border-black transition"
-            />
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 text-sm focus:outline-none focus:border-black transition bg-white"
-            >
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div className="max-w-[1400px] mx-auto px-8 py-12">
-        {error && (
-          <div className="border-4 border-red-600 bg-red-50 p-8 mb-12 text-center">
-            <div className="text-xl font-bold text-red-900 mb-2">SERVICE INTERRUPTION</div>
-            <div className="text-sm text-red-700">{error}</div>
-          </div>
-        )}
-
-        {loading && !error && (
-          <div className="text-center py-24">
-            <div className="text-2xl font-serif font-bold text-black mb-4">Loading Intelligence...</div>
-            <div className="text-sm text-gray-600">Monitoring EPA • TCEQ • USFWS • Federal Register</div>
-          </div>
-        )}
-
-        {!loading && !error && filtered.length === 0 && (
-          <div className="text-center py-24">
-            <div className="text-xl text-gray-600">No reports match your search.</div>
-          </div>
-        )}
-
-        {!loading && !error && filtered.length > 0 && (
-          <>
-            {/* URGENT - Banner */}
-            {urgentItems.length > 0 && (
-              <section className="mb-16 border-t-4 border-red-600 pt-8">
-                <div className="mb-8">
-                  <h2 className="text-[11px] font-bold tracking-[0.2em] text-red-600 mb-2">URGENT</h2>
-                  <div className="text-3xl font-serif font-bold text-black">Action Required</div>
-                </div>
-                
-                <div className="space-y-8">
-                  {urgentItems.map((item) => (
-                    <article key={item.link} className="border-l-4 border-red-600 pl-6">
-                      <div className="flex items-start justify-between gap-8 mb-3">
-                        <h3 className="text-2xl font-serif font-bold text-black leading-tight flex-1">
-                          <a href={item.link} target="_blank" rel="noreferrer" className="hover:text-gray-600 transition">
-                            {item.title}
-                          </a>
-                        </h3>
-                        {item.deadline && (
-                          <div className="bg-red-600 text-white px-4 py-2 text-xs font-bold tracking-wider shrink-0">
-                            {formatDate(item.deadline)}
-                          </div>
-                        )}
-                      </div>
-                      {item.summary && (
-                        <p className="text-[15px] leading-relaxed text-gray-700 mb-4">{item.summary}</p>
-                      )}
-                      <div className="flex gap-4 text-[11px] text-gray-600">
-                        <span className="font-semibold text-black">{item.source}</span>
-                        {item.publishedAt && <span>{formatDate(item.publishedAt)}</span>}
-                        {item.category && <span>{item.category}</span>}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* TOP STORY - Full width feature */}
-            {topStories.length > 0 && (
-              <section className="mb-16 border-t-4 border-black pt-8">
-                {topStories.map((item) => (
-                  <article key={item.link}>
-                    {item.category && (
-                      <div className="text-[11px] font-bold tracking-[0.2em] text-black mb-3">{item.category}</div>
-                    )}
-                    <h2 className="text-5xl font-serif font-bold text-black leading-tight mb-6">
-                      <a href={item.link} target="_blank" rel="noreferrer" className="hover:text-gray-600 transition">
-                        {item.title}
-                      </a>
-                    </h2>
-                    {item.summary && (
-                      <p className="text-xl leading-relaxed text-gray-700 mb-6 max-w-4xl">{item.summary}</p>
-                    )}
-                    <div className="flex gap-4 text-[11px] text-gray-600 pb-8 border-b border-gray-300">
-                      <span className="font-semibold text-black">{item.source}</span>
-                      {item.publishedAt && <span>{formatDate(item.publishedAt)}</span>}
-                    </div>
-                  </article>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="px-4 py-2 border-2 text-sm focus:outline-none bg-white/70"
+                style={{ borderColor: "rgba(20, 35, 55, 0.18)" }}
+              >
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
                 ))}
-              </section>
-            )}
+              </select>
 
-            {/* SECOND TIER - 2 column */}
-            {secondTier.length > 0 && (
-              <section className="mb-16">
-                <div className="grid md:grid-cols-2 gap-12">
-                  {secondTier.map((item) => (
-                    <article key={item.link} className="border-t-2 border-black pt-6">
-                      {item.category && (
-                        <div className="text-[11px] font-bold tracking-[0.2em] text-black mb-3">{item.category}</div>
-                      )}
-                      <h3 className="text-2xl font-serif font-bold text-black leading-tight mb-4">
-                        <a href={item.link} target="_blank" rel="noreferrer" className="hover:text-gray-600 transition">
-                          {item.title}
-                        </a>
-                      </h3>
-                      {item.summary && (
-                        <p className="text-[15px] leading-relaxed text-gray-700 mb-4">{item.summary}</p>
-                      )}
-                      <div className="flex gap-4 text-[11px] text-gray-600">
-                        <span className="font-semibold text-black">{item.source}</span>
-                        {item.publishedAt && <span>{formatDate(item.publishedAt)}</span>}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            )}
+              <select
+                value={impactFilter}
+                onChange={(e) => setImpactFilter(e.target.value as any)}
+                className="px-4 py-2 border-2 text-sm focus:outline-none bg-white/70"
+                style={{ borderColor: "rgba(20, 35, 55, 0.18)" }}
+              >
+                <option value="All">All Impact</option>
+                <option value="high">High Impact</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
 
-            {/* REGULAR - 3 column compact */}
-            {regularItems.length > 0 && (
-              <section className="border-t border-gray-300 pt-8">
-                <div className="grid md:grid-cols-3 gap-8">
-                  {regularItems.map((item) => (
-                    <article key={item.link} className="border-l border-gray-300 pl-4">
-                      {item.category && (
-                        <div className="text-[10px] font-bold tracking-wider text-black mb-2">{item.category}</div>
-                      )}
-                      <h4 className="text-lg font-serif font-bold text-black leading-tight mb-3">
-                        <a href={item.link} target="_blank" rel="noreferrer" className="hover:text-gray-600 transition">
-                          {item.title}
-                        </a>
-                      </h4>
-                      {item.summary && (
-                        <p className="text-[13px] leading-relaxed text-gray-700 mb-3">{item.summary}</p>
-                      )}
-                      <div className="text-[10px] text-gray-600">
-                        <span className="font-semibold text-black">{item.source}</span>
-                        {item.publishedAt && <> • {formatDate(item.publishedAt)}</>}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            )}
-          </>
-        )}
-
-        {/* CTA */}
-        {!loading && !error && (
-          <div className="mt-20 border-4 border-black p-12 text-center">
-            <div className="max-w-2xl mx-auto">
-              <h3 className="text-3xl font-serif font-bold text-black mb-4">Subscribe to Weekly Intelligence</h3>
-              <p className="text-[15px] text-gray-700 mb-8 leading-relaxed">
-                Receive curated environmental regulatory updates, compliance deadlines, and industry analysis delivered to your inbox every week.
-              </p>
-              <a href="/contact" className="inline-block bg-black text-white px-8 py-3 text-sm font-bold tracking-wider hover:bg-gray-800 transition">
-                SUBSCRIBE NOW →
-              </a>
+            <div className="mt-4 text-[11px] font-light" style={{ color: "rgba(20, 35, 55, 0.60)" }}>
+              Updated: {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Footer */}
-      <footer className="border-t-4 border-black bg-white py-12 mt-20">
-        <div className="max-w-[1400px] mx-auto px-8 text-center">
-          <div className="mb-6">
-            <div className="text-2xl font-serif font-bold text-black mb-2">CETO INTERACTIVE</div>
-            <div className="text-[13px] text-gray-600 tracking-wide">Environmental Technology & Consulting</div>
-          </div>
-          <div className="text-[11px] text-gray-600 mb-6">
-            Sources: EPA • TCEQ • USFWS • USACE • Federal Register • State Environmental Agencies
-          </div>
-          <div className="flex justify-center gap-8 text-[11px] font-semibold text-black mb-6">
-            <a href="/about" className="hover:text-gray-600">ABOUT</a>
-            <a href="/services" className="hover:text-gray-600">SERVICES</a>
-            <a href="/contact" className="hover:text-gray-600">CONTACT</a>
-          </div>
-          <div className="text-[10px] text-gray-500">
-            © 2026 Ceto Interactive. All reports sourced from official government publications.
+          {/* Content */}
+          <div className="mt-8">
+            {error && (
+              <div className="bg-red-50 border-4 p-6 mb-10" style={{ borderColor: "#b91c1c" }}>
+                <div className="text-center">
+                  <div className="font-bold text-red-900 text-lg mb-2">Service Unavailable</div>
+                  <div className="text-red-800 text-sm">{error}</div>
+                </div>
+              </div>
+            )}
+
+            {loading && !error && (
+              <div className="text-center py-16 bg-white/70 border-2 rounded-3xl" style={{ borderColor: "rgba(20, 35, 55, 0.18)" }}>
+                <div className="font-light text-xl" style={{ color: BRAND.ink }}>
+                  Gathering latest intelligence…
+                </div>
+                <div className="text-sm text-gray-600 mt-2">EPA • TCEQ • USFWS • Federal Register</div>
+              </div>
+            )}
+
+            {!loading && !error && filtered.length === 0 && (
+              <div className="text-center py-16 bg-white/70 border-2 rounded-3xl" style={{ borderColor: "rgba(20, 35, 55, 0.18)" }}>
+                <div className="font-light text-lg" style={{ color: BRAND.ink }}>
+                  No reports match your search.
+                </div>
+              </div>
+            )}
+
+            {!loading && !error && filtered.length > 0 && (
+              <>
+                {/* URGENT */}
+                {urgentItems.length > 0 && (
+                  <section className="mb-10">
+                    <div className="bg-red-100 border-4 p-6 rounded-3xl" style={{ borderColor: "#b91c1c" }}>
+                      <div className="border-b-2 pb-3 mb-6" style={{ borderColor: "#b91c1c" }}>
+                        <h2 className="text-2xl md:text-3xl font-light" style={{ color: "#7f1d1d" }}>
+                          Immediate Action Required
+                        </h2>
+                      </div>
+
+                      <div className="space-y-6">
+                        {urgentItems.map((item) => (
+                          <article key={item.link} className="bg-white border-2 p-5 rounded-2xl" style={{ borderColor: "#b91c1c" }}>
+                            <div className="flex items-start justify-between gap-6 mb-3">
+                              <h3 className="text-xl md:text-2xl font-light leading-tight flex-1" style={{ color: BRAND.ink }}>
+                                <a href={item.link} target="_blank" rel="noreferrer" className="hover:underline">
+                                  {item.title}
+                                </a>
+                              </h3>
+
+                              {item.deadline && (
+                                <div className="text-white px-4 py-2 text-xs font-bold uppercase shrink-0 rounded-full" style={{ backgroundColor: "#b91c1c" }}>
+                                  Deadline: {formatDate(item.deadline)}
+                                </div>
+                              )}
+                            </div>
+
+                            {item.summary && (
+                              <p className="text-sm leading-relaxed text-gray-800 mb-3 border-l-4 pl-4" style={{ borderColor: "#b91c1c" }}>
+                                {item.summary}
+                              </p>
+                            )}
+
+                            <MetaRow item={item} />
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* LEAD STORY */}
+                {topStories.length > 0 && (
+                  <section className="mb-10">
+                    <div className="bg-white/80 border-2 p-8 rounded-3xl" style={{ borderColor: "rgba(20, 35, 55, 0.18)" }}>
+                      {topStories.map((item) => (
+                        <article key={item.link}>
+                          {item.category && (
+                            <div className="text-[10px] font-bold tracking-[0.2em] uppercase mb-3" style={{ color: BRAND.teal }}>
+                              {item.category}
+                            </div>
+                          )}
+
+                          <h2 className="text-3xl md:text-5xl font-light leading-tight mb-5" style={{ color: BRAND.ink }}>
+                            <a href={item.link} target="_blank" rel="noreferrer" className="hover:underline">
+                              {item.title}
+                            </a>
+                          </h2>
+
+                          {item.summary && (
+                            <p className="text-base md:text-lg leading-relaxed text-gray-800 mb-5 border-l-4 pl-6" style={{ borderColor: BRAND.ink }}>
+                              {item.summary}
+                            </p>
+                          )}
+
+                          <div className="flex flex-wrap gap-4 text-xs uppercase tracking-wide text-gray-700 border-t pt-4" style={{ borderColor: "rgba(20, 35, 55, 0.18)" }}>
+                            <span className="font-bold" style={{ color: BRAND.ink }}>
+                              {item.source}
+                            </span>
+                            {item.publishedAt && <span>• {formatDate(item.publishedAt)}</span>}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* SECONDARY */}
+                {secondTier.length > 0 && (
+                  <section className="mb-10">
+                    <div className="grid md:grid-cols-2 gap-6">
+                      {secondTier.map((item) => (
+                        <article key={item.link} className="bg-white/80 border-2 p-6 rounded-3xl" style={{ borderColor: "rgba(20, 35, 55, 0.18)" }}>
+                          {item.category && (
+                            <div className="text-[9px] font-bold tracking-[0.2em] uppercase mb-2" style={{ color: BRAND.teal }}>
+                              {item.category}
+                            </div>
+                          )}
+
+                          <h3 className="text-xl md:text-2xl font-light leading-tight mb-4" style={{ color: BRAND.ink }}>
+                            <a href={item.link} target="_blank" rel="noreferrer" className="hover:underline">
+                              {item.title}
+                            </a>
+                          </h3>
+
+                          {item.summary && <p className="text-sm leading-relaxed text-gray-800 mb-4">{item.summary}</p>}
+
+                          <div className="flex flex-wrap gap-3 text-[11px] uppercase tracking-wide text-gray-700 border-t pt-3" style={{ borderColor: "rgba(20, 35, 55, 0.18)" }}>
+                            <span className="font-bold" style={{ color: BRAND.ink }}>
+                              {item.source}
+                            </span>
+                            {item.publishedAt && <span>• {formatDate(item.publishedAt)}</span>}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* REGULAR GRID */}
+                {regularItems.length > 0 && (
+                  <section>
+                    <div className="grid md:grid-cols-3 gap-4">
+                      {regularItems.map((item) => (
+                        <article key={item.link} className="bg-white/80 border-2 p-4 rounded-3xl" style={{ borderColor: "rgba(20, 35, 55, 0.18)" }}>
+                          {item.category && (
+                            <div className="text-[10px] font-bold tracking-wider uppercase mb-2" style={{ color: BRAND.deepTeal }}>
+                              {item.category}
+                            </div>
+                          )}
+
+                          <h4 className="text-base font-light leading-tight mb-2" style={{ color: BRAND.ink }}>
+                            <a href={item.link} target="_blank" rel="noreferrer" className="hover:underline">
+                              {item.title}
+                            </a>
+                          </h4>
+
+                          {item.summary && <p className="text-xs leading-relaxed text-gray-700 mb-2 line-clamp-3">{item.summary}</p>}
+
+                          <div className="text-[10px] uppercase text-gray-600">
+                            <span className="font-bold" style={{ color: BRAND.ink }}>
+                              {item.source}
+                            </span>
+                            {item.publishedAt && <span> • {formatDate(item.publishedAt)}</span>}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </>
+            )}
           </div>
         </div>
-      </footer>
-    </main>
+      </section>
+    </SiteShell>
+  );
+}
+
+function MetaRow({ item }: { item: FeedItem }) {
+  return (
+    <div className="flex flex-wrap gap-3 text-[10px] uppercase tracking-wide text-gray-700">
+      <span className="font-bold" style={{ color: "#101C2E" }}>
+        {item.source}
+      </span>
+      {item.publishedAt && <span>• {formatDate(item.publishedAt)}</span>}
+      {item.category && <span>• {item.category}</span>}
+      {item.impact && <span>• Impact: {item.impact}</span>}
+    </div>
   );
 }
 
 function formatDate(iso: string): string {
   try {
-    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
+    return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }).toUpperCase();
   } catch {
     return iso;
   }
 }
+

@@ -168,19 +168,7 @@ export default function Home() {
               </a>
             </div>
 
-            {/* Scroll cue (tiny sunset accent) */}
-            <div className="mt-10 flex flex-col items-center" style={{ color: 'rgba(20, 35, 55, 0.58)' }}>
-              <span className="text-xs tracking-[0.22em] uppercase">Scroll</span>
-              <div
-                className="mt-2 h-10 w-[2px] rounded-full relative overflow-hidden"
-                style={{ backgroundColor: 'rgba(20, 35, 55, 0.18)' }}
-              >
-                <div
-                  className="absolute top-2 left-0 right-0 h-3 rounded-full animate-[pulse_1.6s_ease-in-out_infinite]"
-                  style={{ backgroundColor: 'rgba(224, 122, 95, 0.55)' }}
-                />
-              </div>
-            </div>
+            
           </div>
         </section>
 
