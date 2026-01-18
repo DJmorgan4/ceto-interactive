@@ -1,8 +1,25 @@
+/**
+ * /app/api/texas-updates/route.ts
+ * 
+ * TEXAS ENVIRONMENTAL INTELLIGENCE
+ * 
+ * Focus: Land development, construction permits, hunting access,
+ * conservation, public land, infrastructure projects
+ * 
+ * Sources:
+ * - TCEQ (Texas Commission on Environmental Quality)
+ * - Texas Parks & Wildlife Department
+ * - Texas Tribune (environment/land use)
+ * - Austin Monitor (development/permits)
+ * - Houston Chronicle (development)
+ * - Dallas Morning News (development)
+ */
+
 import Parser from "rss-parser";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 3600;
 
 type Impact = "high" | "medium" | "low";
 
@@ -15,67 +32,355 @@ type FeedItem = {
   category?: string;
   impact?: Impact;
   deadline?: string;
+  location?: string;
 };
 
 const parser = new Parser({
   timeout: 12000,
   headers: {
-    "User-Agent": "CetoInteractive/1.0 (+https://cetointeractive.com)",
+    "User-Agent": "Texas-Environmental-Intelligence/1.0",
     Accept: "application/rss+xml, application/xml;q=0.9, */*;q=0.8",
   },
 });
 
-// Official-first RSS (press + agency updates)
-const RSS_FEEDS = [
-  { url: "https://www.epa.gov/newsreleases/search/rss", source: "EPA" },
-  { url: "https://www.epa.gov/newsreleases/search/rss/field_press_office/region-6-south-central-234", source: "EPA Region 6" },
-  { url: "https://www.fws.gov/news/rss.xml", source: "USFWS" },
-  { url: "https://www.tceq.texas.gov/news/news-releases.rss", source: "TCEQ" },
+/**
+ * TEXAS-SPECIFIC SOURCES
+ */
+const TEXAS_FEEDS = [
+  // State agencies
+  { url: "https://www.tceq.texas.gov/news/news-releases.rss", source: "TCEQ", priority: "high" },
+  { url: "https://tpwd.texas.gov/newsmedia/releases/rss.xml", source: "TPWD", priority: "high" },
+  
+  // News outlets covering development/land
+  { url: "https://www.texastribune.org/feeds/topic/energy-environment/", source: "Texas Tribune", priority: "high" },
+  { url: "https://www.houstonchronicle.com/business/energy/rss/", source: "Houston Chronicle", priority: "medium" },
 ] as const;
 
-// Categories tuned for “developer environmental intel”
-const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  "NEPA / Permitting": ["nepa", "environmental impact statement", "eis", "environmental assessment", "ea", "permit", "permitting", "public notice"],
-  "Air (CAA)": ["clean air act", "caa", "sip", "ozone", "naaqs", "pm2.5", "emissions", "air quality"],
-  "Water (CWA)": ["clean water act", "cwa", "npdes", "wastewater", "discharge", "effluent", "wotus", "wetland", "section 404", "waters of the united states"],
-  "Chemicals": ["tsca", "pesticide", "tolerance", "toxic substances", "p fas", "pfas"],
-  "Waste / Superfund": ["superfund", "cercla", "rcra", "hazardous waste", "remediation"],
-  "Wildlife / ESA": ["endangered species", "esa", "critical habitat", "threatened", "incidental take"],
-  "Climate / GHG": ["greenhouse", "ghg", "climate", "methane", "carbon", "co2"],
-  "Enforcement": ["enforcement", "violation", "penalty", "notice of violation", "consent decree", "settlement"],
-  "Funding (Grants & Contracts)": ["grant", "funding opportunity", "cooperative agreement", "solicitation", "sam.gov", "assistance listing"],
-  "Jobs": ["usajobs", "vacancy", "hiring", "position", "job announcement"],
+/**
+ * TEXAS-FOCUSED CATEGORIES
+ */
+const TEXAS_CATEGORY_KEYWORDS: Record<string, string[]> = {
+  "Land Development": [
+    "land development",
+    "subdivision",
+    "master plan",
+    "commercial development",
+    "residential development",
+    "site plan",
+    "zoning",
+    "annexation",
+  ],
+  "Construction Permits": [
+    "construction permit",
+    "building permit",
+    "site development",
+    "grading permit",
+    "erosion control",
+    "stormwater permit",
+    "construction authorization",
+  ],
+  "Hunting & Wildlife": [
+    "hunting",
+    "hunting season",
+    "game management",
+    "wildlife",
+    "deer",
+    "waterfowl",
+    "dove",
+    "turkey",
+    "public hunting land",
+    "wildlife management area",
+    "wma",
+  ],
+  "Public Land": [
+    "public land",
+    "state park",
+    "public access",
+    "land acquisition",
+    "conservation easement",
+    "public hunting",
+    "recreational access",
+  ],
+  "Water Rights": [
+    "water rights",
+    "water permit",
+    "groundwater",
+    "surface water",
+    "river authority",
+    "water district",
+    "edwards aquifer",
+    "trinity aquifer",
+  ],
+  "Air Permits": [
+    "air permit",
+    "air quality",
+    "emissions",
+    "title v",
+    "prevention of significant deterioration",
+    "psd permit",
+    "nonattainment",
+  ],
+  "Infrastructure": [
+    "infrastructure",
+    "highway",
+    "pipeline",
+    "transmission line",
+    "utility",
+    "transportation project",
+    "txdot",
+  ],
+  "Coastal & Wetlands": [
+    "coastal",
+    "wetland",
+    "gulf coast",
+    "marsh",
+    "coastal zone",
+    "section 404",
+    "dredge and fill",
+  ],
+  "Energy & Mining": [
+    "oil and gas",
+    "pipeline",
+    "mining",
+    "quarry",
+    "aggregate",
+    "hydraulic fracturing",
+    "drilling",
+  ],
+  "Conservation": [
+    "conservation",
+    "habitat",
+    "restoration",
+    "mitigation",
+    "endangered species",
+    "biological opinion",
+  ],
 };
 
-const HIGH_IMPACT_KEYWORDS = [
-  "final rule",
-  "interim final",
-  "emergency",
-  "consent decree",
-  "settlement",
-  "penalty",
-  "nationwide permit",
-  "compliance",
+/**
+ * TEXAS CITIES/REGIONS
+ */
+const TEXAS_LOCATIONS = [
+  // Major metros
+  { keywords: ["austin", "travis county", "williamson county"], name: "Austin" },
+  { keywords: ["dallas", "fort worth", "dfw", "tarrant county", "collin county"], name: "DFW" },
+  { keywords: ["houston", "harris county", "montgomery county"], name: "Houston" },
+  { keywords: ["san antonio", "bexar county"], name: "San Antonio" },
+  
+  // Other major cities
+  { keywords: ["el paso"], name: "El Paso" },
+  { keywords: ["corpus christi", "nueces county"], name: "Corpus Christi" },
+  { keywords: ["lubbock"], name: "Lubbock" },
+  { keywords: ["amarillo"], name: "Amarillo" },
+  
+  // Growing areas
+  { keywords: ["mckinney", "frisco", "plano", "allen"], name: "North Dallas" },
+  { keywords: ["round rock", "georgetown", "cedar park"], name: "North Austin" },
+  { keywords: ["the woodlands", "conroe"], name: "North Houston" },
+  
+  // Regions
+  { keywords: ["west texas", "permian basin"], name: "West Texas" },
+  { keywords: ["south texas", "rio grande valley"], name: "South Texas" },
+  { keywords: ["east texas", "piney woods"], name: "East Texas" },
+  { keywords: ["texas coast", "gulf coast"], name: "Texas Coast" },
+  { keywords: ["hill country"], name: "Hill Country" },
+  { keywords: ["panhandle"], name: "Panhandle" },
 ];
 
-const MEDIUM_IMPACT_KEYWORDS = [
-  "proposed rule",
-  "notice of proposed rulemaking",
-  "draft",
-  "guidance",
-  "request for comment",
+/**
+ * HIGH-VALUE KEYWORDS FOR TEXAS
+ */
+const TEXAS_HIGH_IMPACT = [
+  "major development",
+  "master plan",
+  "billion",
+  "million",
+  "new hunting land",
+  "public land acquisition",
+  "conservation easement",
+  "infrastructure project",
+  "pipeline approval",
+  "major permit",
+  "zoning change",
+  "annexation",
+  "land purchase",
+  "hunting access",
+];
+
+const TEXAS_MEDIUM_IMPACT = [
+  "permit approved",
   "public notice",
   "comment period",
+  "planning commission",
+  "city council",
+  "hearing",
+  "application",
 ];
 
-const DEADLINE_PATTERNS: RegExp[] = [
-  /comment period closes?\s+([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})/i,
-  /deadline[:\s]+([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})/i,
-  /due\s+([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})/i,
-  /through\s+([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})/i,
+/**
+ * LOW-VALUE - FILTER OUT
+ */
+const TEXAS_LOW_VALUE = [
+  "office closed",
+  "holiday hours",
+  "staff announcement",
+  "awards ceremony",
+  "recognition",
 ];
 
-function cleanHtml(text: string): string {
+/**
+ * Fetch from Texas feeds with smart filtering
+ */
+async function fetchTexasFeed(feedConfig: (typeof TEXAS_FEEDS)[number]): Promise<FeedItem[]> {
+  try {
+    const feed = await parser.parseURL(feedConfig.url);
+
+    return (feed.items || [])
+      .slice(0, 30)
+      .filter((item) => {
+        const text = `${item.title || ""} ${(item as any).contentSnippet || ""}`.toLowerCase();
+
+        // Filter OUT low-value
+        if (TEXAS_LOW_VALUE.some((kw) => text.includes(kw))) {
+          return false;
+        }
+
+        // For TCEQ/TPWD: keep anything about land, hunting, permits, development
+        if (feedConfig.source === "TCEQ" || feedConfig.source === "TPWD") {
+          return (
+            text.includes("permit") ||
+            text.includes("land") ||
+            text.includes("hunting") ||
+            text.includes("development") ||
+            text.includes("construction") ||
+            text.includes("water") ||
+            text.includes("air") ||
+            text.includes("public")
+          );
+        }
+
+        // For news outlets: keep if matches high/medium keywords
+        return (
+          TEXAS_HIGH_IMPACT.some((kw) => text.includes(kw)) ||
+          TEXAS_MEDIUM_IMPACT.some((kw) => text.includes(kw)) ||
+          text.includes("development") ||
+          text.includes("construction") ||
+          text.includes("permit") ||
+          text.includes("land") ||
+          text.includes("hunting")
+        );
+      })
+      .map((item) => {
+        const title = cleanText(item.title || "");
+        const summaryRaw = cleanText((item as any).contentSnippet || (item as any).content || "");
+        const summary = summaryRaw.substring(0, 350);
+
+        const category = categorizeTexasItem(title, summaryRaw);
+        const location = extractTexasLocation(title, summaryRaw);
+        const impact = assessTexasImpact(title, summaryRaw);
+        const deadline = extractDeadline(title, summaryRaw);
+
+        const publishedAt =
+          safeIsoDate((item as any).isoDate) ||
+          safeIsoDate(item.pubDate || "") ||
+          safeIsoDate((item as any).published) ||
+          new Date().toISOString();
+
+        const link = normalizeUrl(item.link || (item as any).guid || "");
+
+        return {
+          title,
+          link,
+          source: feedConfig.source,
+          publishedAt,
+          summary,
+          category,
+          location,
+          impact,
+          deadline,
+        };
+      });
+  } catch (error) {
+    console.error(`[TEXAS-INTEL] Failed to fetch ${feedConfig.source}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Categorize Texas items
+ */
+function categorizeTexasItem(title: string, summary: string): string | undefined {
+  const text = `${title} ${summary}`.toLowerCase();
+  
+  for (const [category, keywords] of Object.entries(TEXAS_CATEGORY_KEYWORDS)) {
+    if (keywords.some((k) => text.includes(k))) {
+      return category;
+    }
+  }
+  
+  return undefined;
+}
+
+/**
+ * Extract Texas location
+ */
+function extractTexasLocation(title: string, summary: string): string | undefined {
+  const text = `${title} ${summary}`.toLowerCase();
+  
+  for (const loc of TEXAS_LOCATIONS) {
+    if (loc.keywords.some((k) => text.includes(k))) {
+      return loc.name;
+    }
+  }
+  
+  return undefined;
+}
+
+/**
+ * Assess impact for Texas items
+ */
+function assessTexasImpact(title: string, summary: string): Impact {
+  const text = `${title} ${summary}`.toLowerCase();
+
+  if (TEXAS_HIGH_IMPACT.some((k) => text.includes(k))) {
+    return "high";
+  }
+  
+  if (TEXAS_MEDIUM_IMPACT.some((k) => text.includes(k))) {
+    return "medium";
+  }
+  
+  return "low";
+}
+
+/**
+ * Extract deadlines
+ */
+function extractDeadline(title: string, summary: string): string | undefined {
+  const text = `${title} ${summary}`;
+  const patterns = [
+    /by\s+([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})/i,
+    /deadline[:\s]+([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})/i,
+    /comment period closes?\s+([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})/i,
+    /due\s+([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})/i,
+    /through\s+([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})/i,
+  ];
+
+  for (const pattern of patterns) {
+    const m = text.match(pattern);
+    if (m?.[1]) {
+      const iso = safeIsoDate(m[1]);
+      if (iso) return iso;
+    }
+  }
+  
+  return undefined;
+}
+
+/**
+ * Utility functions
+ */
+function cleanText(text: string): string {
   if (!text) return "";
   return text
     .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
@@ -94,251 +399,102 @@ function cleanHtml(text: string): string {
 function safeIsoDate(input?: string): string | undefined {
   if (!input) return undefined;
   const d = new Date(input);
-  if (!Number.isNaN(d.getTime())) return d.toISOString();
+  if (!isNaN(d.getTime())) return d.toISOString();
   return undefined;
 }
 
 function normalizeUrl(url: string): string {
   try {
     const u = new URL(url);
-    ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"].forEach((p) => u.searchParams.delete(p));
+    ["utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"].forEach((p) =>
+      u.searchParams.delete(p)
+    );
     return u.toString();
   } catch {
     return url;
   }
 }
 
-function categorizeItem(title: string, summary: string): string {
-  const text = `${title} ${summary}`.toLowerCase();
-  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-    if (keywords.some((k) => text.includes(k))) return category;
-  }
-  return "General";
-}
-
-function extractDeadline(title: string, summary: string): string | undefined {
-  const text = `${title} ${summary}`;
-  for (const pattern of DEADLINE_PATTERNS) {
-    const m = text.match(pattern);
-    if (m?.[1]) {
-      const iso = safeIsoDate(m[1]);
-      if (iso) return iso;
-    }
-  }
-  return undefined;
-}
-
-function assessImpact(title: string, summary: string, deadline?: string): Impact {
-  // Deadline soon => higher impact (devs love actionable dates)
-  if (deadline) {
-    const t = Date.parse(deadline);
-    if (Number.isFinite(t)) {
-      const days = (t - Date.now()) / (1000 * 60 * 60 * 24);
-      if (days <= 14 && days >= -1) return "high";
-      if (days <= 30 && days >= -1) return "medium";
-    }
-  }
-
-  const text = `${title} ${summary}`.toLowerCase();
-  if (HIGH_IMPACT_KEYWORDS.some((k) => text.includes(k))) return "high";
-  if (MEDIUM_IMPACT_KEYWORDS.some((k) => text.includes(k))) return "medium";
-  return "low";
-}
-
-function toTime(iso?: string) {
-  const t = iso ? Date.parse(iso) : NaN;
-  return Number.isFinite(t) ? t : 0;
-}
-
-function primaryTime(item: FeedItem) {
-  return Math.max(toTime(item.publishedAt), toTime(item.deadline));
-}
-
-async function fetchTextWithTimeout(url: string, ms = 12000): Promise<string> {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), ms);
-  try {
-    const res = await fetch(url, { signal: controller.signal, cache: "no-store" });
-    if (!res.ok) throw new Error(`Fetch failed ${res.status}`);
-    return await res.text();
-  } finally {
-    clearTimeout(t);
-  }
-}
-
-// ---- RSS ingest (press releases etc.) ----
-async function fetchRssFeed(feedConfig: (typeof RSS_FEEDS)[number]): Promise<FeedItem[]> {
-  try {
-    const xml = await fetchTextWithTimeout(feedConfig.url, 12000);
-    const feed = await parser.parseString(xml);
-
-    return (feed.items || [])
-      .slice(0, 25)
-      .map((item) => {
-        const title = cleanHtml(item.title || "");
-        const summaryRaw = cleanHtml((item as any).contentSnippet || (item as any).content || "");
-        const summary = summaryRaw ? summaryRaw.slice(0, 360) : undefined;
-
-        const link = normalizeUrl(item.link || (item as any).guid || "");
-
-        // IMPORTANT: do NOT default to now — it breaks recency ranking
-        const publishedAt =
-          safeIsoDate((item as any).isoDate) ||
-          safeIsoDate(item.pubDate || "") ||
-          safeIsoDate((item as any).published);
-
-        const deadline = extractDeadline(title, summaryRaw);
-        const category = categorizeItem(title, summaryRaw);
-        const impact = assessImpact(title, summaryRaw, deadline);
-
-        return { title, link, source: feedConfig.source, publishedAt, summary, category, impact, deadline };
-      })
-      .filter((x) => x.title && x.link);
-  } catch (error) {
-    console.error(`Failed RSS ${feedConfig.source}:`, error);
-    return [];
-  }
-}
-
-// ---- Federal Register (best official “laws changing”) ----
-async function fetchFederalRegisterEPA(): Promise<FeedItem[]> {
-  try {
-    const url =
-      "https://www.federalregister.gov/api/v1/articles.json" +
-      "?per_page=40&order=newest" +
-      "&conditions[agencies][]=environmental-protection-agency" +
-      "&conditions[type][]=RULE&conditions[type][]=PRORULE";
-
-    const text = await fetchTextWithTimeout(url, 12000);
-    const json = JSON.parse(text);
-    const results = Array.isArray(json?.results) ? json.results : [];
-
-    return results
-      .map((r: any): FeedItem => {
-        const title = String(r?.title || "").trim();
-        const link = String(r?.html_url || r?.pdf_url || "").trim();
-        const summary = cleanHtml(String(r?.abstract || "")).slice(0, 360) || undefined;
-
-        const publishedAt = r?.publication_date ? new Date(r.publication_date).toISOString() : undefined;
-        const deadline = r?.comment_end_date ? new Date(r.comment_end_date).toISOString() : undefined;
-
-        const category = categorizeItem(title, summary || "");
-        const impact = assessImpact(title, summary || "", deadline);
-
-        return { title, link, source: "Federal Register (EPA)", publishedAt, summary, category, impact, deadline };
-      })
-      .filter((x: FeedItem) => x.title && x.link);
-  } catch (e) {
-    console.error("Failed Federal Register (EPA):", e);
-    return [];
-  }
-}
-
-// ---- Regulations.gov (comment periods / docket deadlines) ----
-// This uses the public v4 API. If their schema changes, log will show it; route continues.
-async function fetchRegulationsGov(): Promise<FeedItem[]> {
-  try {
-    const url = "https://api.regulations.gov/v4/documents?filter[searchTerm]=environmental%20protection%20agency&sort=-postedDate&page[size]=25";
-    const text = await fetchTextWithTimeout(url, 12000);
-    const json = JSON.parse(text);
-
-    const data = Array.isArray(json?.data) ? json.data : [];
-    const items: FeedItem[] = [];
-
-    for (const row of data) {
-      const attr = row?.attributes || {};
-      const title = cleanHtml(String(attr?.title || attr?.documentTitle || "")).trim();
-      if (!title) continue;
-
-      const docId = String(row?.id || attr?.documentId || "").trim();
-      if (!docId) continue;
-
-      const link = `https://www.regulations.gov/document/${encodeURIComponent(docId)}`;
-      const summary = cleanHtml(String(attr?.abstract || attr?.summary || "")).slice(0, 360) || undefined;
-
-      const publishedAt =
-        safeIsoDate(attr?.postedDate) ||
-        safeIsoDate(attr?.publishDate) ||
-        safeIsoDate(attr?.datePosted);
-
-      // comment end date if available
-      const deadline =
-        safeIsoDate(attr?.commentEndDate) ||
-        safeIsoDate(attr?.commentDueDate) ||
-        extractDeadline(title, summary || "");
-
-      const category = categorizeItem(title, summary || "");
-      const impact = assessImpact(title, summary || "", deadline);
-
-      // Narrow to higher-signal docs (optional): prefer rules / notices
-      const docType = String(attr?.documentType || "").toLowerCase();
-      if (docType && !["rule", "proposed rule", "notice", "supporting & related material"].some((t) => docType.includes(t))) {
-        // keep it if deadline exists (still actionable)
-        if (!deadline) continue;
-      }
-
-      items.push({
-        title,
-        link,
-        source: "Regulations.gov",
-        publishedAt,
-        summary,
-        category,
-        impact,
-        deadline,
-      });
-    }
-
-    return items;
-  } catch (e) {
-    console.error("Failed Regulations.gov:", e);
-    return [];
-  }
-}
-
+/**
+ * Main GET handler
+ */
 export async function GET() {
   try {
-    const [fr, regs, ...rss] = await Promise.all([
-      fetchFederalRegisterEPA(),
-      fetchRegulationsGov(),
-      ...RSS_FEEDS.map(fetchRssFeed),
-    ]);
+    console.log("[TEXAS-INTEL] Fetching Texas environmental intelligence...");
 
-    const all = [...fr, ...regs, ...rss.flat()].filter((x) => x.title && x.link);
+    // Fetch from all Texas sources
+    const results = await Promise.all(TEXAS_FEEDS.map((feed) => fetchTexasFeed(feed)));
 
-    // Dedupe: link OR source+title
+    const allItems = results.flat().filter((x) => x.title && x.link);
+
+    console.log(`[TEXAS-INTEL] Fetched ${allItems.length} total items`);
+
+    // Deduplicate
     const seen = new Set<string>();
     const deduped: FeedItem[] = [];
-    for (const it of all) {
-      const keyLink = (it.link || "").toLowerCase();
-      const keyTitle = `${it.source}::${it.title}`.toLowerCase();
-      if ((keyLink && seen.has(keyLink)) || seen.has(keyTitle)) continue;
-      if (keyLink) seen.add(keyLink);
-      seen.add(keyTitle);
-      deduped.push(it);
+
+    for (const item of allItems) {
+      const linkKey = item.link.toLowerCase();
+      const titleKey = `${item.source}::${item.title}`.toLowerCase();
+
+      if (seen.has(linkKey) || seen.has(titleKey)) continue;
+
+      seen.add(linkKey);
+      seen.add(titleKey);
+      deduped.push(item);
     }
 
-    // Sort newest by publishedAt OR deadline (calendar items float correctly)
-    deduped.sort((a, b) => primaryTime(b) - primaryTime(a));
+    // Sort by date (newest first)
+    deduped.sort((a, b) => {
+      const dateA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+      const dateB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+      return dateB - dateA;
+    });
 
-    const items = deduped.slice(0, 90);
+    const items = deduped.slice(0, 50);
+
+    // Log distribution
+    const categoryDist: Record<string, number> = {};
+    const locationDist: Record<string, number> = {};
+    
+    items.forEach((item) => {
+      const cat = item.category || "General";
+      const loc = item.location || "Statewide";
+      categoryDist[cat] = (categoryDist[cat] || 0) + 1;
+      locationDist[loc] = (locationDist[loc] || 0) + 1;
+    });
+
+    console.log("[TEXAS-INTEL] Category distribution:", categoryDist);
+    console.log("[TEXAS-INTEL] Location distribution:", locationDist);
+    console.log(`[TEXAS-INTEL] Returning ${items.length} items`);
 
     return Response.json(
-      { items, count: items.length, generatedAt: new Date().toISOString() },
+      {
+        items,
+        count: items.length,
+        generatedAt: new Date().toISOString(),
+        sources: ["TCEQ", "TPWD", "Texas Tribune", "Houston Chronicle"],
+        focusAreas: ["Land Development", "Construction", "Hunting Access", "Public Land", "Infrastructure"],
+      },
       {
         headers: {
-          "Cache-Control": "no-store, must-revalidate",
-          "CDN-Cache-Control": "no-store",
-          "Vercel-CDN-Cache-Control": "no-store",
+          "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=7200",
         },
       }
     );
   } catch (error) {
-    console.error("Failed to fetch environmental updates:", error);
+    console.error("[TEXAS-INTEL] Fatal error:", error);
+
     return Response.json(
-      { items: [], error: "Unable to fetch updates at this time. Please try again later." },
-      { status: 500, headers: { "Cache-Control": "no-store" } }
+      {
+        items: [],
+        error: "Unable to fetch Texas environmental updates. Please try again later.",
+        generatedAt: new Date().toISOString(),
+      },
+      {
+        status: 500,
+        headers: { "Cache-Control": "no-store" },
+      }
     );
   }
 }
-
