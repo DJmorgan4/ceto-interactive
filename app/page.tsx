@@ -59,56 +59,6 @@ export default function Home() {
       </div>
 
       <div className="relative z-10">
-        {/* Header */}
-        <header
-          className="sticky top-0 z-50"
-          style={{
-            backgroundColor: THEME.surfaceStrong,
-            borderBottom: `1px solid ${THEME.border}`
-          }}
-        >
-          <div className="max-w-6xl mx-auto px-6 lg:px-10 py-4">
-            <div className="flex justify-between items-center">
-              <a href="/" className="text-2xl font-light tracking-wide" style={{ color: THEME.ink }}>
-                <span style={{ color: THEME.ink }}>Ceto</span>
-                <span style={{ color: THEME.leviBlue, fontWeight: 400 }}>Interactive</span>
-              </a>
-
-              <nav className="hidden md:flex gap-10 items-center">
-                <a
-                  href="/services"
-                  className="font-light text-base transition-colors duration-200"
-                  style={{ color: 'rgba(20, 35, 55, 0.78)' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = THEME.leviBlue)}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(20, 35, 55, 0.78)')}
-                >
-                  Services
-                </a>
-
-                <a
-                  href="/envnews"
-                  className="font-light text-base transition-colors duration-200"
-                  style={{ color: 'rgba(20, 35, 55, 0.78)' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = THEME.leviBlue)}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(20, 35, 55, 0.78)')}
-                >
-                  News &amp; Updates
-                </a>
-
-                <a
-                  href="/contact"
-                  className="text-white px-6 py-2.5 rounded-full font-light transition-colors duration-200 shadow-sm"
-                  style={{ backgroundColor: THEME.leviBlue }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = THEME.leviBlueDark)}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = THEME.leviBlue)}
-                >
-                  Connect
-                </a>
-              </nav>
-            </div>
-          </div>
-        </header>
-
         {/* Hero */}
         <section className="pt-14 pb-10 px-6 lg:px-10">
           <div className="max-w-5xl mx-auto text-center">
@@ -167,8 +117,6 @@ export default function Home() {
                 Start Conversation
               </a>
             </div>
-
-            
           </div>
         </section>
 
