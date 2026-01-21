@@ -1,5 +1,6 @@
 /**
  * /app/api/texas-updates/route.ts
+ * FIXED VERSION - More permissive filtering and verified RSS feeds
  */
 
 import Parser from "rss-parser";
@@ -30,6 +31,7 @@ const parser = new Parser({
   },
 });
 
+// VERIFIED WORKING FEEDS
 const TEXAS_FEEDS = [
   { 
     url: "https://www.tceq.texas.gov/news/news-releases.rss", 
@@ -47,10 +49,10 @@ const TEXAS_FEEDS = [
     url: "https://www.texastribune.org/feeds/latest/", 
     source: "Texas Tribune", 
     priority: "high" as const,
-    requiresTexas: true 
+    requiresTexas: false // Changed to false - Tribune is already Texas-focused
   },
   { 
-    url: "https://www.federalregister.gov/api/v1/documents.rss?conditions%5Bterm%5D=Texas%20environmental&conditions%5Btype%5D%5B%5D=RULE&order=newest", 
+    url: "https://www.federalregister.gov/api/v1/documents.rss?conditions%5Bterm%5D=Texas&conditions%5Btype%5D%5B%5D=RULE&order=newest", 
     source: "Federal Register", 
     priority: "medium" as const,
     requiresTexas: true 
@@ -93,27 +95,52 @@ const TEXAS_LOCATIONS = [
 
 const TEXAS_HIGH_IMPACT = ["major development", "master plan", "billion", "million", "new hunting land", "public land acquisition", "conservation easement", "infrastructure project", "pipeline approval", "major permit", "zoning change", "annexation", "land purchase", "hunting access", "emergency order", "enforcement action", "settlement"];
 const TEXAS_MEDIUM_IMPACT = ["permit approved", "public notice", "comment period", "planning commission", "city council", "hearing", "application", "proposed rule", "authorization"];
-const TEXAS_LOW_VALUE = ["office closed", "holiday hours", "staff announcement", "awards ceremony", "recognition", "employee spotlight"];
+
+// REDUCED LOW-VALUE FILTERS - Only filter obvious noise
+const TEXAS_LOW_VALUE = ["office closed", "holiday hours", "awards ceremony"];
 
 async function fetchTexasFeed(feedConfig: typeof TEXAS_FEEDS[number]): Promise<FeedItem[]> {
   try {
     console.log(`[TEXAS-INTEL] Fetching ${feedConfig.source}...`);
     const feed = await parser.parseURL(feedConfig.url);
 
+    if (!feed.items || feed.items.length === 0) {
+      console.warn(`[TEXAS-INTEL] ${feedConfig.source} returned no items`);
+      return [];
+    }
+
+    console.log(`[TEXAS-INTEL] ${feedConfig.source} raw items: ${feed.items.length}`);
+
     const items = (feed.items || [])
-      .slice(0, 40)
+      .slice(0, 50) // Increased from 40
       .filter((item) => {
         const title = item.title || "";
-        const text = `${title} ${(item as any).contentSnippet || ""}`.toLowerCase();
+        const content = (item as any).contentSnippet || (item as any).content || "";
+        const text = `${title} ${content}`.toLowerCase();
 
-        if (TEXAS_LOW_VALUE.some((kw) => text.includes(kw))) return false;
-        if (feedConfig.requiresTexas && !text.includes("texas")) return false;
-
-        if (feedConfig.source === "TCEQ" || feedConfig.source === "TPWD") {
-          return text.includes("permit") || text.includes("land") || text.includes("hunting") || text.includes("development") || text.includes("construction") || text.includes("water") || text.includes("air") || text.includes("public") || text.includes("wildlife") || text.includes("season");
+        // Filter OUT obvious noise
+        if (TEXAS_LOW_VALUE.some((kw) => text.includes(kw))) {
+          return false;
         }
 
-        return TEXAS_HIGH_IMPACT.some((kw) => text.includes(kw)) || TEXAS_MEDIUM_IMPACT.some((kw) => text.includes(kw)) || text.includes("development") || text.includes("construction") || text.includes("permit") || text.includes("land") || text.includes("hunting") || text.includes("wildlife") || text.includes("conservation");
+        // For Federal Register: must mention Texas
+        if (feedConfig.requiresTexas && !text.includes("texas")) {
+          return false;
+        }
+
+        // For state agencies (TCEQ/TPWD): Keep everything except noise
+        // These are already Texas-specific by nature
+        if (feedConfig.source === "TCEQ" || feedConfig.source === "TPWD") {
+          return true; // Accept all non-noise items
+        }
+
+        // For Texas Tribune: Keep all news (already Texas-focused)
+        if (feedConfig.source === "Texas Tribune") {
+          return true;
+        }
+
+        // For other sources: broad acceptance
+        return true;
       })
       .map((item) => {
         const title = cleanText(item.title || "");
@@ -230,6 +257,7 @@ export async function GET() {
     const allItems: FeedItem[] = [];
     results.forEach((result, idx) => {
       if (result.status === "fulfilled") {
+        console.log(`[TEXAS-INTEL] Feed ${TEXAS_FEEDS[idx].source}: ${result.value.length} items`);
         allItems.push(...result.value);
       } else {
         console.error(`[TEXAS-INTEL] Feed ${TEXAS_FEEDS[idx].source} failed:`, result.reason);
@@ -241,11 +269,18 @@ export async function GET() {
     if (allItems.length === 0) {
       console.warn("[TEXAS-INTEL] No items fetched from any source");
       return Response.json(
-        { items: [], count: 0, error: "No updates available at this time. Please try again later.", generatedAt: new Date().toISOString(), sources: ["TCEQ", "TPWD", "Texas Tribune", "Federal Register"] },
-        { headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600" } }
+        { 
+          items: [], 
+          count: 0, 
+          error: "No updates available. This could be a temporary issue with the RSS feeds. Please try again in a few minutes.", 
+          generatedAt: new Date().toISOString(), 
+          sources: ["TCEQ", "TPWD", "Texas Tribune", "Federal Register"] 
+        },
+        { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" } }
       );
     }
 
+    // Deduplicate
     const seen = new Set<string>();
     const deduped: FeedItem[] = [];
 
@@ -258,14 +293,16 @@ export async function GET() {
       deduped.push(item);
     }
 
+    // Sort by date (newest first)
     deduped.sort((a, b) => {
       const dateA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
       const dateB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
       return dateB - dateA;
     });
 
-    const items = deduped.slice(0, 60);
+    const items = deduped.slice(0, 80); // Increased from 60
 
+    // Stats
     const categoryDist: Record<string, number> = {};
     const locationDist: Record<string, number> = {};
     const sourceDist: Record<string, number> = {};
