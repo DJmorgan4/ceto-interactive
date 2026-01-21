@@ -16,7 +16,8 @@ export default function AboutPage() {
           About <span style={{ color: THEME.leviBlue, fontWeight: 400 }}>Ceto Interactive</span>
         </h1>
         <p className="text-lg font-light max-w-2xl mx-auto" style={{ color: "rgba(20, 35, 55, 0.70)" }}>
-          Where environmental expertise meets real-time intelligence for smarter, more sustainable decisions.
+          Environmental assurance and real-time intelligence—built to help projects move forward responsibly, predictably,
+          and with confidence.
         </p>
       </div>
 
@@ -33,9 +34,9 @@ export default function AboutPage() {
           Our Mission
         </h2>
         <p className="text-base font-light leading-relaxed" style={{ color: "rgba(20, 35, 55, 0.80)" }}>
-          We bridge the gap between environmental compliance and operational efficiency. Through cutting-edge IoT monitoring, 
-          regulatory intelligence, and field expertise, we help cities, developers, and conservationists make informed decisions 
-          that protect ecosystems while advancing projects with confidence.
+          Ceto Interactive helps organizations meet environmental obligations without sacrificing schedule or performance.
+          We unite field-verified science with modern IoT monitoring and regulatory intelligence so cities, developers, and
+          conservation partners can make decisions that protect ecosystems, reduce risk, and keep work moving.
         </p>
       </div>
 
@@ -57,26 +58,29 @@ export default function AboutPage() {
               Environmental Site Assessments
             </h3>
             <p className="text-sm font-light leading-relaxed" style={{ color: "rgba(20, 35, 55, 0.70)" }}>
-              Comprehensive Phase I ESAs, wetland delineations, and habitat surveys backed by professional expertise 
-              and regulatory knowledge.
+              Phase I Environmental Site Assessments (ESAs), wetland delineations, and habitat surveys delivered with
+              disciplined methodology, clear documentation, and practical guidance aligned to permitting and compliance
+              requirements.
             </p>
           </div>
+
           <div>
             <h3 className="text-lg font-light mb-2" style={{ color: THEME.ink }}>
               Real-Time Environmental Monitoring
             </h3>
             <p className="text-sm font-light leading-relaxed" style={{ color: "rgba(20, 35, 55, 0.70)" }}>
-              IoT sensor networks that track water quality, air conditions, and ecosystem health—delivering live data 
-              for proactive compliance and conservation.
+              Purpose-built IoT sensor networks that measure water quality, air conditions, and ecosystem indicators—streaming
+              live, reliable data to support proactive compliance, early issue detection, and defensible reporting.
             </p>
           </div>
+
           <div>
             <h3 className="text-lg font-light mb-2" style={{ color: THEME.ink }}>
               Regulatory Intelligence
             </h3>
             <p className="text-sm font-light leading-relaxed" style={{ color: "rgba(20, 35, 55, 0.70)" }}>
-              Curated news feeds, EPA rulings, enforcement actions, and permit updates—transforming regulatory noise 
-              into actionable business intelligence.
+              Curated updates across EPA actions, enforcement trends, and permit changes—translated into clear, actionable
+              intelligence that helps teams anticipate requirements, document decisions, and respond quickly.
             </p>
           </div>
         </div>
@@ -95,15 +99,17 @@ export default function AboutPage() {
           Our Approach
         </h2>
         <p className="text-base font-light leading-relaxed mb-6" style={{ color: "rgba(20, 35, 55, 0.80)" }}>
-          We combine boots-on-the-ground field work with sophisticated technology platforms. Whether it's monitoring 
-          wetlands during construction, tracking endangered species habitat, or keeping clients ahead of regulatory 
-          changes, we deliver clarity when it matters most.
+          We operate where compliance meets execution. Our teams pair on-site expertise with technology that delivers
+          continuous visibility—whether monitoring wetlands during active construction, tracking sensitive habitat, or
+          keeping stakeholders aligned as regulations evolve. The result is clarity you can act on, backed by evidence you
+          can stand behind.
         </p>
         <p className="text-base font-light leading-relaxed" style={{ color: "rgba(20, 35, 55, 0.80)" }}>
-          Based in McKinney, Texas, Ceto Interactive serves clients across diverse ecosystems and regulatory landscapes, 
-          bringing precision, transparency, and environmental stewardship to every project.
+          Headquartered in McKinney, Texas, we support clients across diverse ecosystems and regulatory environments with a
+          standard of precision, transparency, and stewardship that earns trust—from the field to the boardroom.
         </p>
       </div>
     </div>
   );
 }
+
