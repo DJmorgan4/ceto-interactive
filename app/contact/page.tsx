@@ -1,3 +1,5 @@
+"use client";
+
 export default function ContactPage() {
   const THEME = {
     bg: "#F6F7F8",
