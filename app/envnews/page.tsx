@@ -99,6 +99,261 @@ function formatDate(iso: string): string {
   }
 }
 
+// Component for section headers
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <h2
+      className="text-xs font-bold tracking-[0.15em] mb-4 flex items-center gap-2"
+      style={{ color: THEME.texasBlue }}
+    >
+      <span className="w-6 h-px" style={{ backgroundColor: THEME.lonestarGold }} />
+      {children}
+    </h2>
+  );
+}
+
+// Lead Story Component
+function LeadStory({ item }: { item: FeedItem }) {
+  const impactCfg = item.impact ? IMPACT_CONFIG[item.impact] : null;
+
+  return (
+    <article
+      className="rounded-2xl p-6 shadow-lg transition-all duration-300 hover:shadow-xl"
+      style={{
+        backgroundColor: THEME.surfaceStrong,
+        border: `1px solid ${THEME.border}`,
+      }}
+    >
+      <div className="flex items-start gap-4 mb-3">
+        {impactCfg && (
+          <span
+            className="px-3 py-1 rounded-md text-[10px] font-bold tracking-wider"
+            style={{ backgroundColor: impactCfg.bg, color: impactCfg.color }}
+          >
+            {impactCfg.label}
+          </span>
+        )}
+        {item.category && (
+          <span
+            className="px-3 py-1 rounded-md text-[10px] font-semibold tracking-wide"
+            style={{ backgroundColor: "rgba(0,40,104,0.06)", color: THEME.texasBlue }}
+          >
+            {item.category}
+          </span>
+        )}
+      </div>
+
+      <h3
+        className="text-2xl font-bold mb-3 leading-tight"
+        style={{ color: THEME.ink }}
+      >
+        <a
+          href={item.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          {item.title}
+        </a>
+      </h3>
+
+      {item.summary && (
+        <p className="text-sm leading-relaxed mb-4" style={{ color: THEME.inkMuted }}>
+          {item.summary}
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-4 text-xs" style={{ color: THEME.inkMuted }}>
+        <span className="font-semibold" style={{ color: THEME.texasBlue }}>
+          {item.source}
+        </span>
+        <span>•</span>
+        <span>{formatDate(item.publishedAt)}</span>
+        {item.location && (
+          <>
+            <span>•</span>
+            <span>{item.location}</span>
+          </>
+        )}
+        {item.deadline && (
+          <>
+            <span>•</span>
+            <span className="font-semibold" style={{ color: THEME.sunset }}>
+              Deadline: {formatDate(item.deadline)}
+            </span>
+          </>
+        )}
+      </div>
+    </article>
+  );
+}
+
+// Featured Card Component
+function FeaturedCard({ item }: { item: FeedItem }) {
+  const impactCfg = item.impact ? IMPACT_CONFIG[item.impact] : null;
+
+  return (
+    <article
+      className="rounded-xl p-4 shadow transition-all duration-300 hover:shadow-lg"
+      style={{
+        backgroundColor: THEME.surface,
+        border: `1px solid ${THEME.border}`,
+      }}
+    >
+      <div className="flex items-start gap-2 mb-2">
+        {impactCfg && (
+          <span
+            className="px-2 py-0.5 rounded text-[9px] font-bold tracking-wider"
+            style={{ backgroundColor: impactCfg.bg, color: impactCfg.color }}
+          >
+            {impactCfg.label}
+          </span>
+        )}
+        {item.category && (
+          <span
+            className="px-2 py-0.5 rounded text-[9px] font-semibold"
+            style={{ backgroundColor: "rgba(0,40,104,0.05)", color: THEME.texasBlue }}
+          >
+            {item.category}
+          </span>
+        )}
+      </div>
+
+      <h3 className="text-base font-bold mb-2 leading-tight" style={{ color: THEME.ink }}>
+        <a
+          href={item.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          {item.title}
+        </a>
+      </h3>
+
+      {item.summary && (
+        <p
+          className="text-xs leading-relaxed mb-3 line-clamp-2"
+          style={{ color: THEME.inkMuted }}
+        >
+          {item.summary}
+        </p>
+      )}
+
+      <div
+        className="flex flex-wrap items-center gap-2 text-[10px]"
+        style={{ color: THEME.inkMuted }}
+      >
+        <span className="font-semibold" style={{ color: THEME.texasBlue }}>
+          {item.source}
+        </span>
+        <span>•</span>
+        <span>{formatDate(item.publishedAt)}</span>
+        {item.location && (
+          <>
+            <span>•</span>
+            <span>{item.location}</span>
+          </>
+        )}
+      </div>
+    </article>
+  );
+}
+
+// Headline Item Component
+function HeadlineItem({ item }: { item: FeedItem }) {
+  return (
+    <article className="py-3 border-b" style={{ borderColor: THEME.border }}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <h4 className="text-sm font-semibold mb-1.5 leading-snug" style={{ color: THEME.ink }}>
+            <a
+              href={item.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline"
+            >
+              {item.title}
+            </a>
+          </h4>
+
+          <div
+            className="flex flex-wrap items-center gap-2 text-[10px]"
+            style={{ color: THEME.inkMuted }}
+          >
+            <span className="font-semibold" style={{ color: THEME.texasBlue }}>
+              {item.source}
+            </span>
+            {item.category && (
+              <>
+                <span>•</span>
+                <span>{item.category}</span>
+              </>
+            )}
+            {item.location && (
+              <>
+                <span>•</span>
+                <span>{item.location}</span>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col items-end gap-1">
+          <span className="text-[10px] font-medium whitespace-nowrap" style={{ color: THEME.inkMuted }}>
+            {formatDate(item.publishedAt)}
+          </span>
+          {item.impact && (
+            <span
+              className="px-2 py-0.5 rounded text-[8px] font-bold tracking-wider whitespace-nowrap"
+              style={{
+                backgroundColor: IMPACT_CONFIG[item.impact].bg,
+                color: IMPACT_CONFIG[item.impact].color,
+              }}
+            >
+              {IMPACT_CONFIG[item.impact].label}
+            </span>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+// Brief Item Component
+function BriefItem({ item }: { item: FeedItem }) {
+  return (
+    <article className="py-2 border-b" style={{ borderColor: THEME.border }}>
+      <h5 className="text-xs font-medium mb-1 leading-snug" style={{ color: THEME.ink }}>
+        <a
+          href={item.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          {item.title}
+        </a>
+      </h5>
+
+      <div
+        className="flex flex-wrap items-center gap-2 text-[9px]"
+        style={{ color: THEME.inkMuted }}
+      >
+        <span className="font-semibold" style={{ color: THEME.texasBlue }}>
+          {item.source}
+        </span>
+        <span>•</span>
+        <span>{formatDate(item.publishedAt)}</span>
+        {item.category && (
+          <>
+            <span>•</span>
+            <span>{item.category}</span>
+          </>
+        )}
+      </div>
+    </article>
+  );
+}
+
 export default function TexasEnvironmentalNews() {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -265,22 +520,332 @@ export default function TexasEnvironmentalNews() {
         <div className="max-w-[1400px] mx-auto">
           {/* Masthead */}
           <header
-            className="rounded-3xl p-6 sm:p-8 lg:p-12 shadow-xl"
+            className="rounded-3xl p-6 sm:p-8 lg:p-12 shadow-xl mb-8"
             style={{
               backgroundColor: THEME.surfaceStrong,
               border: `1px solid ${THEME.border}`,
               backdropFilter: "blur(20px)",
             }}
           >
-            {/* ... YOUR EXISTING CONTENT CONTINUES UNCHANGED ... */}
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <h1
+                  className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-2"
+                  style={{ color: THEME.texasBlue }}
+                >
+                  Texas Environmental Intelligence
+                </h1>
+                <p className="text-sm sm:text-base" style={{ color: THEME.inkMuted }}>
+                  Comprehensive regulatory intelligence for Texas developers, consultants, and agencies
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-semibold mb-1" style={{ color: THEME.lonestarGold }}>
+                  DAILY EDITION
+                </p>
+                <p className="text-xs" style={{ color: THEME.inkMuted }}>
+                  {formatEditionDate()}
+                </p>
+              </div>
+            </div>
+
+            {/* Search and Filter Bar */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                placeholder="Search updates..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="flex-1 px-4 py-2 rounded-lg text-sm border"
+                style={{
+                  backgroundColor: "rgba(255,255,255,0.8)",
+                  borderColor: THEME.border,
+                  color: THEME.ink,
+                }}
+              />
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                style={{
+                  backgroundColor: showFilters ? THEME.texasBlue : "rgba(0,40,104,0.1)",
+                  color: showFilters ? "white" : THEME.texasBlue,
+                }}
+              >
+                {showFilters ? "Hide Filters" : "Show Filters"}
+              </button>
+            </div>
+
+            {/* Filter Options */}
+            {showFilters && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="px-3 py-2 rounded-lg text-sm border"
+                  style={{ backgroundColor: "rgba(255,255,255,0.8)", borderColor: THEME.border }}
+                >
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={impactFilter}
+                  onChange={(e) => setImpactFilter(e.target.value as "All" | Impact)}
+                  className="px-3 py-2 rounded-lg text-sm border"
+                  style={{ backgroundColor: "rgba(255,255,255,0.8)", borderColor: THEME.border }}
+                >
+                  <option value="All">All Impact Levels</option>
+                  <option value="high">High Impact</option>
+                  <option value="medium">Medium Impact</option>
+                  <option value="low">Low Impact</option>
+                </select>
+
+                <select
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
+                  className="px-3 py-2 rounded-lg text-sm border"
+                  style={{ backgroundColor: "rgba(255,255,255,0.8)", borderColor: THEME.border }}
+                >
+                  {locations.map((loc) => (
+                    <option key={loc} value={loc}>
+                      {loc}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value as "All" | ArticleType)}
+                  className="px-3 py-2 rounded-lg text-sm border"
+                  style={{ backgroundColor: "rgba(255,255,255,0.8)", borderColor: THEME.border }}
+                >
+                  <option value="All">All Types</option>
+                  <option value="permit">Permits</option>
+                  <option value="enforcement">Enforcement</option>
+                  <option value="policy">Policy</option>
+                  <option value="hunting">Hunting</option>
+                  <option value="development">Development</option>
+                  <option value="conservation">Conservation</option>
+                  <option value="general">General</option>
+                </select>
+              </div>
+            )}
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
+              <div>
+                <p className="text-2xl font-bold" style={{ color: THEME.texasBlue }}>
+                  {filtered.length}
+                </p>
+                <p className="text-xs" style={{ color: THEME.inkMuted }}>
+                  Total Updates
+                </p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold" style={{ color: THEME.sunset }}>
+                  {upcomingDeadlines.length}
+                </p>
+                <p className="text-xs" style={{ color: THEME.inkMuted }}>
+                  Active Deadlines
+                </p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold" style={{ color: "#D97706" }}>
+                  {highImpactItems.length}
+                </p>
+                <p className="text-xs" style={{ color: THEME.inkMuted }}>
+                  High Impact
+                </p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold" style={{ color: THEME.sage }}>
+                  {new Set(filtered.map(i => i.source)).size}
+                </p>
+                <p className="text-xs" style={{ color: THEME.inkMuted }}>
+                  Active Sources
+                </p>
+              </div>
+            </div>
           </header>
 
-          {/* ... REST OF YOUR COMPONENTS / JSX UNCHANGED ... */}
+          {/* Loading State */}
+          {loading && (
+            <div className="text-center py-20">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-solid border-current border-r-transparent mb-4" style={{ color: THEME.texasBlue }}></div>
+              <p className="text-sm" style={{ color: THEME.inkMuted }}>
+                Loading Texas environmental intelligence...
+              </p>
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && !loading && (
+            <div
+              className="rounded-xl p-6 text-center"
+              style={{ backgroundColor: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.3)" }}
+            >
+              <p className="text-sm font-semibold mb-2" style={{ color: "#DC2626" }}>
+                {error}
+              </p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 rounded-lg text-sm font-semibold"
+                style={{ backgroundColor: THEME.texasBlue, color: "white" }}
+              >
+                Refresh Page
+              </button>
+            </div>
+          )}
+
+          {/* Main Content */}
+          {!loading && !error && filtered.length > 0 && (
+            <div className="space-y-8">
+              {/* Lead Story */}
+              {lead && (
+                <section>
+                  <SectionHeader>LEAD STORY</SectionHeader>
+                  <LeadStory item={lead} />
+                </section>
+              )}
+
+              {/* Featured Stories */}
+              {featured.length > 0 && (
+                <section>
+                  <SectionHeader>FEATURED</SectionHeader>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {featured.map((item) => (
+                      <FeaturedCard key={item.id} item={item} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Two Column Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Main Column - Headlines */}
+                <div className="lg:col-span-2 space-y-8">
+                  {headlines.length > 0 && (
+                    <section
+                      className="rounded-2xl p-6"
+                      style={{
+                        backgroundColor: THEME.surface,
+                        border: `1px solid ${THEME.border}`,
+                      }}
+                    >
+                      <SectionHeader>HEADLINES</SectionHeader>
+                      <div className="space-y-0">
+                        {headlines.map((item) => (
+                          <HeadlineItem key={item.id} item={item} />
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {briefs.length > 0 && (
+                    <section
+                      className="rounded-2xl p-6"
+                      style={{
+                        backgroundColor: THEME.surface,
+                        border: `1px solid ${THEME.border}`,
+                      }}
+                    >
+                      <SectionHeader>BRIEFS</SectionHeader>
+                      <div className="space-y-0">
+                        {briefs.map((item) => (
+                          <BriefItem key={item.id} item={item} />
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                </div>
+
+                {/* Sidebar */}
+                <div className="space-y-6">
+                  {/* Upcoming Deadlines */}
+                  {upcomingDeadlines.length > 0 && (
+                    <section
+                      className="rounded-2xl p-5 sticky top-4"
+                      style={{
+                        backgroundColor: THEME.surfaceStrong,
+                        border: `1px solid ${THEME.border}`,
+                      }}
+                    >
+                      <SectionHeader>UPCOMING DEADLINES</SectionHeader>
+                      <div className="space-y-3">
+                        {upcomingDeadlines.map((item) => (
+                          <div key={item.id} className="pb-3 border-b last:border-b-0" style={{ borderColor: THEME.border }}>
+                            <p className="text-xs font-bold mb-1" style={{ color: THEME.sunset }}>
+                              {formatDate(item.deadline!)}
+                            </p>
+                            <p className="text-xs font-medium mb-1 leading-snug" style={{ color: THEME.ink }}>
+                              <a href={item.link} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                {item.title}
+                              </a>
+                            </p>
+                            <p className="text-[10px]" style={{ color: THEME.inkMuted }}>
+                              {item.source}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* High Impact Items */}
+                  {highImpactItems.length > 0 && (
+                    <section
+                      className="rounded-2xl p-5"
+                      style={{
+                        backgroundColor: THEME.surfaceStrong,
+                        border: `1px solid ${THEME.border}`,
+                      }}
+                    >
+                      <SectionHeader>HIGH IMPACT</SectionHeader>
+                      <div className="space-y-3">
+                        {highImpactItems.map((item) => (
+                          <div key={item.id} className="pb-3 border-b last:border-b-0" style={{ borderColor: THEME.border }}>
+                            <p className="text-xs font-medium mb-1 leading-snug" style={{ color: THEME.ink }}>
+                              <a href={item.link} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                {item.title}
+                              </a>
+                            </p>
+                            <div className="flex items-center gap-2 text-[10px]" style={{ color: THEME.inkMuted }}>
+                              <span className="font-semibold" style={{ color: THEME.texasBlue }}>
+                                {item.source}
+                              </span>
+                              {item.category && (
+                                <>
+                                  <span>•</span>
+                                  <span>{item.category}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!loading && !error && filtered.length === 0 && (
+            <div className="text-center py-20">
+              <p className="text-lg font-semibold mb-2" style={{ color: THEME.ink }}>
+                No updates found
+              </p>
+              <p className="text-sm" style={{ color: THEME.inkMuted }}>
+                Try adjusting your filters or search query
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </main>
   );
 }
-
-// (Everything below here stays exactly the same: SectionHeader, LeadStory, FeaturedCard, etc.)
-

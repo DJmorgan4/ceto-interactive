@@ -18,17 +18,21 @@ export const dynamic = "force-dynamic";
 export const revalidate = 1800; // 30 minutes
 
 type Impact = "high" | "medium" | "low";
+type ArticleType = "permit" | "enforcement" | "policy" | "hunting" | "development" | "conservation" | "general";
 
 type FeedItem = {
+  id?: string;
   title: string;
   link: string;
   source: string;
-  publishedAt?: string;
+  publishedAt: string;
   summary?: string;
   category?: string;
   impact?: Impact;
   deadline?: string;
   location?: string;
+  type?: ArticleType;
+  tags?: string[];
 };
 
 const parser = new Parser({
@@ -65,7 +69,7 @@ const COMPREHENSIVE_FEEDS = [
     source: "TX General Land Office", 
     priority: "medium" as const,
   },
-  
+
   // ==================== TEXAS NEWS OUTLETS ====================
   { 
     url: "https://www.texastribune.org/feeds/latest/", 
@@ -97,7 +101,7 @@ const COMPREHENSIVE_FEEDS = [
     source: "San Antonio Express-News", 
     priority: "medium" as const,
   },
-  
+
   // ==================== FEDERAL SOURCES ====================
   { 
     url: "https://www.federalregister.gov/api/v1/documents.rss?conditions%5Bterm%5D=Texas%20environmental&conditions%5Btype%5D%5B%5D=RULE&order=newest", 
@@ -119,7 +123,7 @@ const COMPREHENSIVE_FEEDS = [
     source: "US Army Corps (Galveston)", 
     priority: "medium" as const,
   },
-  
+
   // ==================== REGIONAL SOURCES ====================
   { 
     url: "https://www.mysanantonio.com/rss/feed/mySA-Environment-11668.php", 
@@ -131,7 +135,7 @@ const COMPREHENSIVE_FEEDS = [
     source: "Chron Texas", 
     priority: "low" as const,
   },
-  
+
   // ==================== INDUSTRY & TRADE ====================
   { 
     url: "https://www.texasmonthly.com/feed/", 
@@ -274,9 +278,8 @@ const LOW_VALUE_FILTERS = [
 async function fetchFeed(feedConfig: typeof COMPREHENSIVE_FEEDS[number]): Promise<FeedItem[]> {
   try {
     console.log(`[TX-INTEL] Fetching ${feedConfig.source}...`);
-    
     const feed = await parser.parseURL(feedConfig.url);
-
+    
     if (!feed.items || feed.items.length === 0) {
       console.warn(`[TX-INTEL] ${feedConfig.source} returned no items`);
       return [];
@@ -321,15 +324,16 @@ async function fetchFeed(feedConfig: typeof COMPREHENSIVE_FEEDS[number]): Promis
 
         return isRelevant;
       })
-      .map((item) => {
+      .map((item, idx) => {
         const title = cleanText(item.title || "");
         const summaryRaw = cleanText((item as any).contentSnippet || (item as any).content || "");
         const summary = summaryRaw.substring(0, 400);
-
         const category = categorizeItem(title, summaryRaw);
         const location = extractLocation(title, summaryRaw);
         const impact = assessImpact(title, summaryRaw);
         const deadline = extractDeadline(title, summaryRaw);
+        const type = determineType(title, summaryRaw, category);
+        const tags = extractTags(title, summaryRaw);
 
         const publishedAt = 
           safeIsoDate((item as any).isoDate) || 
@@ -338,8 +342,10 @@ async function fetchFeed(feedConfig: typeof COMPREHENSIVE_FEEDS[number]): Promis
           new Date().toISOString();
 
         const link = normalizeUrl(item.link || (item as any).guid || "");
+        const id = `${feedConfig.source}-${idx}-${link.substring(link.length - 10)}`;
 
         return { 
+          id,
           title, 
           link, 
           source: feedConfig.source, 
@@ -348,13 +354,14 @@ async function fetchFeed(feedConfig: typeof COMPREHENSIVE_FEEDS[number]): Promis
           category, 
           location, 
           impact, 
-          deadline 
+          deadline,
+          type,
+          tags
         };
       });
 
     console.log(`[TX-INTEL] ${feedConfig.source}: ${items.length} items after filtering`);
     return items;
-
   } catch (error) {
     console.error(`[TX-INTEL] Failed to fetch ${feedConfig.source}:`, error);
     return [];
@@ -363,29 +370,63 @@ async function fetchFeed(feedConfig: typeof COMPREHENSIVE_FEEDS[number]): Promis
 
 function categorizeItem(title: string, summary: string): string | undefined {
   const text = `${title} ${summary}`.toLowerCase();
+  
   for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
     if (keywords.some((k) => text.includes(k))) return category;
   }
+  
   return undefined;
 }
 
 function extractLocation(title: string, summary: string): string | undefined {
   const text = `${title} ${summary}`.toLowerCase();
+  
   for (const loc of TEXAS_LOCATIONS) {
     if (loc.keywords.some((k) => text.includes(k))) return loc.name;
   }
+  
   return undefined;
 }
 
 function assessImpact(title: string, summary: string): Impact {
   const text = `${title} ${summary}`.toLowerCase();
+  
   if (HIGH_IMPACT_KEYWORDS.some((k) => text.includes(k))) return "high";
   if (MEDIUM_IMPACT_KEYWORDS.some((k) => text.includes(k))) return "medium";
   return "low";
 }
 
+function determineType(title: string, summary: string, category?: string): ArticleType {
+  const text = `${title} ${summary}`.toLowerCase();
+  
+  if (text.includes("permit") || category === "Construction Permits") return "permit";
+  if (text.includes("enforcement") || text.includes("violation") || text.includes("fine")) return "enforcement";
+  if (text.includes("policy") || text.includes("rule") || text.includes("regulation")) return "policy";
+  if (category === "Hunting & Wildlife" || text.includes("hunting") || text.includes("season")) return "hunting";
+  if (category === "Land Development" || text.includes("development") || text.includes("construction")) return "development";
+  if (category === "Conservation & Habitat" || text.includes("conservation")) return "conservation";
+  
+  return "general";
+}
+
+function extractTags(title: string, summary: string): string[] {
+  const text = `${title} ${summary}`.toLowerCase();
+  const tags: string[] = [];
+  
+  if (text.includes("urgent") || text.includes("emergency")) tags.push("urgent");
+  if (text.includes("deadline") || text.includes("comment period")) tags.push("deadline");
+  if (text.includes("new") || text.includes("announced")) tags.push("new");
+  if (text.includes("public hearing") || text.includes("public meeting")) tags.push("public-input");
+  if (text.includes("federal")) tags.push("federal");
+  if (text.includes("state")) tags.push("state");
+  if (text.includes("local") || text.includes("city") || text.includes("county")) tags.push("local");
+  
+  return tags;
+}
+
 function extractDeadline(title: string, summary: string): string | undefined {
   const text = `${title} ${summary}`;
+  
   const patterns = [
     /by\s+([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})/i,
     /deadline[:\s]+([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})/i,
@@ -394,7 +435,7 @@ function extractDeadline(title: string, summary: string): string | undefined {
     /through\s+([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})/i,
     /until\s+([A-Z][a-z]+\s+\d{1,2},?\s+\d{4})/i,
   ];
-
+  
   for (const pattern of patterns) {
     const m = text.match(pattern);
     if (m?.[1]) {
@@ -402,11 +443,13 @@ function extractDeadline(title: string, summary: string): string | undefined {
       if (iso) return iso;
     }
   }
+  
   return undefined;
 }
 
 function cleanText(text: string): string {
   if (!text) return "";
+  
   return text
     .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, "")
@@ -426,10 +469,12 @@ function cleanText(text: string): string {
 
 function safeIsoDate(input?: string): string | undefined {
   if (!input) return undefined;
+  
   try {
     const d = new Date(input);
     if (!isNaN(d.getTime())) return d.toISOString();
   } catch (e) {}
+  
   return undefined;
 }
 
@@ -488,13 +533,13 @@ export async function GET() {
     // Deduplicate
     const seen = new Set<string>();
     const deduped: FeedItem[] = [];
-
+    
     for (const item of allItems) {
       const linkKey = item.link.toLowerCase();
       const titleKey = `${item.source}::${item.title}`.toLowerCase().substring(0, 100);
-
+      
       if (seen.has(linkKey) || seen.has(titleKey)) continue;
-
+      
       seen.add(linkKey);
       seen.add(titleKey);
       deduped.push(item);
@@ -514,7 +559,7 @@ export async function GET() {
     const locationDist: Record<string, number> = {};
     const sourceDist: Record<string, number> = {};
     const impactDist: Record<string, number> = {};
-    
+
     items.forEach((item) => {
       const cat = item.category || "General";
       const loc = item.location || "Statewide";
@@ -554,7 +599,6 @@ export async function GET() {
         } 
       }
     );
-
   } catch (error) {
     console.error("[TX-INTEL] Fatal error:", error);
     return Response.json(
