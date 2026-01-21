@@ -1,10 +1,5 @@
 /**
- * /app/api/texas-updates/tx.route.ts
- * 
- * TEXAS ENVIRONMENTAL INTELLIGENCE
- * 
- * Focus: Land development, construction permits, hunting access,
- * conservation, public land, infrastructure projects
+ * /app/api/texas-updates/route.ts
  */
 
 import Parser from "rss-parser";
@@ -43,19 +38,19 @@ const TEXAS_FEEDS = [
     requiresTexas: false 
   },
   { 
-    url: "https://tpwd.texas.gov/newsmedia/releases/rss.xml", 
+    url: "https://tpwd.texas.gov/newsmedia/releases/?format=rss", 
     source: "TPWD", 
     priority: "high" as const,
     requiresTexas: false 
   },
   { 
-    url: "https://www.texastribune.org/feeds/topic/energy-environment/", 
+    url: "https://www.texastribune.org/feeds/latest/", 
     source: "Texas Tribune", 
     priority: "high" as const,
-    requiresTexas: false 
+    requiresTexas: true 
   },
   { 
-    url: "https://www.federalregister.gov/api/v1/documents.rss?conditions%5Bterm%5D=Texas&conditions%5Btype%5D%5B%5D=RULE&conditions%5Btype%5D%5B%5D=PRORULE&order=newest", 
+    url: "https://www.federalregister.gov/api/v1/documents.rss?conditions%5Bterm%5D=Texas%20environmental&conditions%5Btype%5D%5B%5D=RULE&order=newest", 
     source: "Federal Register", 
     priority: "medium" as const,
     requiresTexas: true 
