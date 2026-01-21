@@ -121,7 +121,7 @@ export default function TexasEnvironmentalNews() {
       try {
         const timeout = setTimeout(() => controller.abort(), 15000);
 
-        const res = await fetch("/api/texas-updates/tx", {
+        const res = await fetch("/api/texas-updates", {
           cache: "no-store",
           signal: controller.signal,
         });
