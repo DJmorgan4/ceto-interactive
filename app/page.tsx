@@ -186,6 +186,21 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Testimonials */}
+        <section className="py-16 bg-white">
+          <div className="max-w-4xl mx-auto px-6 lg:px-10 text-center">
+            <h2 className="text-4xl md:text-5xl font-light mb-8" style={{ color: THEME.ink }}>
+              What Our Clients Say
+            </h2>
+            <blockquote className="text-lg md:text-xl font-light leading-relaxed max-w-3xl mx-auto" style={{ color: 'rgba(20, 35, 55, 0.70)' }}>
+              "Your team has been a game-changer for our project. Their expertise and commitment to sustainability have made all the difference."
+              <footer className="mt-4 text-base font-light italic" style={{ color: 'rgba(20, 35, 55, 0.70)' }}>
+                - Jane Doe, Environmental Consultant
+              </footer>
+            </blockquote>
+          </div>
+        </section>
+
         {/* Final CTA (levi blue + whisper of sunset) */}
         <section
           className="text-white relative overflow-hidden"
@@ -292,4 +307,3 @@ function ServiceCard({
     </a>
   );
 }
-
