@@ -3,21 +3,23 @@ import { Resend } from "resend";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-let resend: Resend | null = null;
-
 function getResend() {
-  if (!resend) {
-    if (!process.env.RESEND_API_KEY) {
-      throw new Error("RESEND_API_KEY is not configured");
-    }
-    resend = new Resend(process.env.RESEND_API_KEY);
-  }
-  return resend;
+  const key = process.env.RESEND_API_KEY;
+  if (!key) throw new Error("RESEND_API_KEY is not configured");
+  return new Resend(key);
 }
 
 function isEmailValid(email: string) {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function escapeHtml(input: string) {
+  return input
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 export async function POST(request: Request) {
@@ -41,7 +43,6 @@ export async function POST(request: Request) {
       projectType = body?.projectType || "";
       message = body?.message || "";
     } else {
-      // multipart/form-data
       const fd = await request.formData();
       name = String(fd.get("name") || "");
       email = String(fd.get("email") || "");
@@ -53,8 +54,18 @@ export async function POST(request: Request) {
       file = maybeFile instanceof File ? maybeFile : null;
     }
 
+    name = name.trim();
+    email = email.trim();
+    phone = phone.trim();
+    company = company.trim();
+    projectType = projectType.trim();
+    message = message.trim();
+
     if (!name || !email || !message) {
-      return Response.json({ error: "Name, email, and message are required" }, { status: 400 });
+      return Response.json(
+        { error: "Name, email, and message are required" },
+        { status: 400 }
+      );
     }
 
     if (!isEmailValid(email)) {
@@ -71,61 +82,85 @@ export async function POST(request: Request) {
       timestamp: new Date().toISOString(),
     });
 
-    try {
-      const resendClient = getResend();
+    const resend = getResend();
 
-      const attachments: { filename: string; content: Buffer }[] = [];
-      if (file) {
-        // Keep attachments reasonable
-        const MAX_MB = 15;
-        if (file.size > MAX_MB * 1024 * 1024) {
-          return Response.json({ error: `File too large. Max ${MAX_MB}MB.` }, { status: 400 });
-        }
-        const bytes = Buffer.from(await file.arrayBuffer());
-        attachments.push({ filename: file.name || "attachment", content: bytes });
+    const attachments: { filename: string; content: Buffer }[] = [];
+    if (file) {
+      const MAX_MB = 15;
+      if (file.size > MAX_MB * 1024 * 1024) {
+        return Response.json(
+          { error: `File too large. Max ${MAX_MB}MB.` },
+          { status: 400 }
+        );
       }
-
-      await resendClient.emails.send({
-        from: "Ceto Interactive <contact@cetointeractive.com>",
-        to: "DJ@theblueduckllc.com",
-        replyTo: email,
-        subject: `New Contact Form: ${projectType || "General Inquiry"}`,
-        html: `
-          <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #0A1929; border-bottom: 3px solid #2E5C42; padding-bottom: 10px;">
-              New Contact Form Submission
-            </h2>
-            <div style="background: #F8F9FA; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <p style="margin: 10px 0;"><strong>Name:</strong> ${name}</p>
-              <p style="margin: 10px 0;"><strong>Email:</strong> ${email}</p>
-              <p style="margin: 10px 0;"><strong>Phone:</strong> ${phone || "Not provided"}</p>
-              <p style="margin: 10px 0;"><strong>Company:</strong> ${company || "Not provided"}</p>
-              <p style="margin: 10px 0;"><strong>Project Type:</strong> ${projectType || "Not specified"}</p>
-              <p style="margin: 10px 0;"><strong>Attachment:</strong> ${file ? file.name : "None"}</p>
-            </div>
-            <div style="margin: 20px 0;">
-              <h3 style="color: #0A1929;">Message:</h3>
-              <p style="white-space: pre-wrap; line-height: 1.6;">${message}</p>
-            </div>
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px;">
-              <p>Sent from cetointeractive.com contact form</p>
-              <p>Timestamp: ${new Date().toLocaleString("en-US", { timeZone: "America/Chicago" })} CST</p>
-            </div>
-          </div>
-        `,
-        attachments: attachments.length ? attachments : undefined,
-      });
-
-      console.log("[CONTACT FORM] Email sent successfully.");
-    } catch (emailError) {
-      console.error("[CONTACT FORM] Email send failed:", emailError);
-      // You can choose to return 500 here. Keeping your current behavior:
-      // still return success, but log the error.
+      const bytes = Buffer.from(await file.arrayBuffer());
+      attachments.push({ filename: file.name || "attachment", content: bytes });
     }
 
-    return Response.json({ success: true, message: "Contact form submitted successfully" }, { status: 200 });
-  } catch (error) {
-    console.error("[CONTACT FORM] Error:", error);
+    const DESTINATION = "dj@theblueduckllc.com";
+    const FROM = "The Blue Duck <no-reply@theblueduckllc.com>";
+
+    const subject = `New Contact Form: ${projectType || "General Inquiry"}`;
+
+    const text = [
+      "New Contact Form Submission",
+      "",
+      `Name: ${name}`,
+      `Email: ${email}`,
+      `Phone: ${phone || "Not provided"}`,
+      `Company: ${company || "Not provided"}`,
+      `Project Type: ${projectType || "Not specified"}`,
+      `Attachment: ${file ? file.name : "None"}`,
+      "",
+      "Message:",
+      message,
+      "",
+      `Timestamp: ${new Date().toISOString()}`,
+    ].join("\n");
+
+    const html = `
+      <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #0A1929; border-bottom: 3px solid #2E5C42; padding-bottom: 10px;">
+          New Contact Form Submission
+        </h2>
+        <div style="background: #F8F9FA; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <p><strong>Name:</strong> ${escapeHtml(name)}</p>
+          <p><strong>Email:</strong> ${escapeHtml(email)}</p>
+          <p><strong>Phone:</strong> ${escapeHtml(phone || "Not provided")}</p>
+          <p><strong>Company:</strong> ${escapeHtml(company || "Not provided")}</p>
+          <p><strong>Project Type:</strong> ${escapeHtml(projectType || "Not specified")}</p>
+          <p><strong>Attachment:</strong> ${escapeHtml(file ? file.name : "None")}</p>
+        </div>
+        <div>
+          <h3 style="color:#0A1929;">Message:</h3>
+          <p style="white-space: pre-wrap; line-height: 1.6;">${escapeHtml(message)}</p>
+        </div>
+      </div>
+    `;
+
+    const result = await resend.emails.send({
+      from: FROM,
+      to: [DESTINATION],
+      replyTo: email, // ✅ correct for resend@6.8.0 typings
+      subject,
+      text,
+      html,
+      attachments: attachments.length ? attachments : undefined,
+    });
+
+    if (result.error) {
+      console.error("[CONTACT FORM] Resend error:", result.error);
+      return Response.json(
+        { error: "Email could not be sent", details: result.error },
+        { status: 502 }
+      );
+    }
+
+    console.log("[CONTACT FORM] Email sent:", result.data?.id);
+
+    return Response.json({ success: true, id: result.data?.id }, { status: 200 });
+  } catch (err) {
+    console.error("[CONTACT FORM] Error:", err);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
