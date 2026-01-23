@@ -461,22 +461,38 @@ export default function TexasEnvironmentalNews() {
     return base.sort((a, b) => sortScore(b) - sortScore(a));
   }, [items, query, categoryFilter, impactFilter, locationFilter, typeFilter]);
 
+  // Main sections
   const lead = filtered[0] || null;
   const featured = filtered.slice(1, 5);
   const headlines = filtered.slice(5, 15);
   const briefs = filtered.slice(15, 30);
 
+  // Track which items have been shown in main sections
+  const shownIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (lead?.id) ids.add(lead.id);
+    featured.forEach(item => item.id && ids.add(item.id));
+    headlines.forEach(item => item.id && ids.add(item.id));
+    briefs.forEach(item => item.id && ids.add(item.id));
+    return ids;
+  }, [lead, featured, headlines, briefs]);
+
+  // Sidebar sections - EXCLUDE items already shown in main sections
   const upcomingDeadlines = useMemo(() => {
     const now = Date.now();
     return filtered
+      .filter((i) => !shownIds.has(i.id!)) // EXCLUDE already shown items
       .filter((i) => i.deadline && toTime(i.deadline) >= now)
       .sort((a, b) => toTime(a.deadline!) - toTime(b.deadline!))
       .slice(0, 8);
-  }, [filtered]);
+  }, [filtered, shownIds]);
 
   const highImpactItems = useMemo(() => {
-    return filtered.filter((i) => i.impact === "high").slice(0, 5);
-  }, [filtered]);
+    return filtered
+      .filter((i) => !shownIds.has(i.id!)) // EXCLUDE already shown items
+      .filter((i) => i.impact === "high")
+      .slice(0, 5);
+  }, [filtered, shownIds]);
 
   return (
     <main className="relative min-h-screen" style={{ backgroundColor: THEME.bg }}>
