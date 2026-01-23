@@ -860,6 +860,44 @@ export default function TexasEnvironmentalNews() {
               </p>
             </div>
           )}
+
+          {/* Legal Disclaimer Footer */}
+          {!loading && !error && filtered.length > 0 && (
+            <footer 
+              className="mt-16 pt-8 pb-4 border-t-2 text-center"
+              style={{ borderColor: THEME.border }}
+            >
+              <div className="max-w-3xl mx-auto space-y-3">
+                <p className="text-xs font-semibold" style={{ color: THEME.texasBlue }}>
+                  CONTENT ATTRIBUTION & DISCLAIMER
+                </p>
+                <p className="text-xs leading-relaxed" style={{ color: THEME.inkMuted }}>
+                  All content is aggregated from publicly available RSS feeds provided by government agencies, 
+                  news organizations, and other sources. Headlines, summaries, and links are used under fair use 
+                  principles for informational and educational purposes.
+                </p>
+                <p className="text-xs leading-relaxed" style={{ color: THEME.inkMuted }}>
+                  <strong style={{ color: THEME.ink }}>All articles and content © their respective sources.</strong> 
+                  {" "}Click article headlines to read full content at the original source. 
+                  Ceto Interactive does not claim ownership of any aggregated content.
+                </p>
+                <p className="text-xs leading-relaxed" style={{ color: THEME.inkMuted }}>
+                  This intelligence platform is provided as a professional service for Texas environmental 
+                  consultants, developers, and regulatory professionals. If you are a content owner and would 
+                  like your feed removed, please contact us.
+                </p>
+                <div className="flex items-center justify-center gap-2 pt-2">
+                  <span className="text-xs font-mono" style={{ color: THEME.lonestarGold }}>
+                    CETO INTERACTIVE
+                  </span>
+                  <span className="text-xs" style={{ color: THEME.inkMuted }}>•</span>
+                  <span className="text-xs" style={{ color: THEME.inkMuted }}>
+                    Texas Environmental Consulting
+                  </span>
+                </div>
+              </div>
+            </footer>
+          )}
         </div>
       </div>
     </main>

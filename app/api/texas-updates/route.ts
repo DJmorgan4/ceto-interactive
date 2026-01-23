@@ -407,7 +407,7 @@ async function fetchFeed(feedConfig: typeof COMPREHENSIVE_FEEDS[number]): Promis
       .map((item, idx) => {
         const title = cleanText(item.title || "");
         const summaryRaw = cleanText((item as any).contentSnippet || (item as any).content || "");
-        const summary = summaryRaw.substring(0, 400);
+        const summary = summaryRaw.substring(0, 250); // Limited to 250 chars for fair use
         const category = categorizeItem(title, summaryRaw);
         const location = extractLocation(title, summaryRaw);
         const impact = assessImpact(title, summaryRaw);
