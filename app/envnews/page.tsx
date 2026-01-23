@@ -544,15 +544,20 @@ export default function TexasEnvironmentalNews() {
             }}
           >
             <div className="flex items-start justify-between mb-6">
-              <div>
-                <h1
-                  className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-2"
-                  style={{ color: THEME.texasBlue }}
-                >
-                  Texas Environmental Intelligence
-                </h1>
-                <p className="text-sm sm:text-base" style={{ color: THEME.inkMuted }}>
-                  Comprehensive regulatory intelligence for Texas developers, consultants, and agencies
+              <div className="flex-1">
+                <div className="flex items-baseline gap-4 mb-3">
+                  <h1
+                    className="text-3xl sm:text-4xl lg:text-6xl font-black tracking-tight"
+                    style={{ color: THEME.texasBlue, letterSpacing: '-0.02em' }}
+                  >
+                    TEXAS INTEL
+                  </h1>
+                  <span className="text-xs sm:text-sm font-bold tracking-widest opacity-80" style={{ color: THEME.lonestarGold }}>
+                    BY CETO INTERACTIVE
+                  </span>
+                </div>
+                <p className="text-sm sm:text-base font-medium" style={{ color: THEME.inkMuted }}>
+                  Your Source for Texas
                 </p>
               </div>
               <div className="text-right">
@@ -882,9 +887,9 @@ export default function TexasEnvironmentalNews() {
                   Ceto Interactive does not claim ownership of any aggregated content.
                 </p>
                 <p className="text-xs leading-relaxed" style={{ color: THEME.inkMuted }}>
-                  This intelligence platform is provided as a professional service for Texas environmental 
-                  consultants, developers, and regulatory professionals. If you are a content owner and would 
-                  like your feed removed, please contact us.
+                  This intelligence platform is provided as a professional service for Texas landowners, 
+                  developers, ranchers, consultants, and regulatory professionals. If you are a content owner 
+                  and would like your feed removed, please contact us.
                 </p>
                 <div className="flex items-center justify-center gap-2 pt-2">
                   <span className="text-xs font-mono" style={{ color: THEME.lonestarGold }}>
@@ -892,7 +897,7 @@ export default function TexasEnvironmentalNews() {
                   </span>
                   <span className="text-xs" style={{ color: THEME.inkMuted }}>•</span>
                   <span className="text-xs" style={{ color: THEME.inkMuted }}>
-                    Texas Environmental Consulting
+                    Texas Environmental & Land Intelligence
                   </span>
                 </div>
               </div>
