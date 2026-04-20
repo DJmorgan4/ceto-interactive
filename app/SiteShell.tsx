@@ -176,7 +176,7 @@ function Footer() {
               </div>
 
               <div className="mt-2 text-sm font-light" style={{ color: "rgba(20, 35, 55, 0.70)" }}>
-                Environmental Technology &amp; Consulting • Intelligence • Compliance • Monitoring
+                Environmental • Technology • Consulting • Intelligence • Compliance • Monitoring
               </div>
             </div>
 
