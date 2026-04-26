@@ -1,5 +1,6 @@
 'use client';
 import { ParcelPanel } from './ParcelPanel';
+import RiskMap, { generateNearestFacilityNarrative, generateRiskInterpretation } from './RiskMap';
 
 import { useState, useCallback, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -514,7 +515,13 @@ TCEQ: Manual STEERS search required for ${r.county}
 
 Overall Risk Assessment: ${r.overallRisk.summary}
 
-Incorporate ALL of the above into appropriate report sections with proper citations to source databases.`;
+Incorporate ALL of the above into appropriate report sections with proper citations to source databases.
+
+NEAREST FACILITY NARRATIVE (use verbatim in Section 5):
+${generateNearestFacilityNarrative(r)}
+
+RISK INTERPRETATION (use verbatim in Conclusions):
+${generateRiskInterpretation(r)}`;
 
   const generate = async () => {
     if (!projectName.trim() || !notes.trim()) return;
@@ -628,6 +635,7 @@ Generate a complete ${rType?.label} with all standard sections including Executi
               <div style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: T.muted, marginBottom: 10 }}>Regulatory Intelligence + Risk Score</div>
               <RegPanel data={reg} loading={regLoading} error={regError} />
               <ParcelPanel data={parcel} loading={parcelLoading} />
+              {reg && <RiskMap reg={reg} projectName={projectName} />}
             </div>
 
             {/* Col 3: Generated Report */}
