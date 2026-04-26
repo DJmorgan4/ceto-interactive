@@ -640,3 +640,21 @@ export default function ReportsPage() {
     </Suspense>
   );
 }
+// PDF export function - add this export to window for use by the reports page button
+if (typeof window !== 'undefined') {
+  (window as unknown as Record<string, unknown>).exportCetoPDF = async (reportData: unknown) => {
+    const res = await fetch('/api/portal/generate-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reportData),
+    });
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'CETO-Report.pdf';
+      a.click();
+    }
+  };
+}
