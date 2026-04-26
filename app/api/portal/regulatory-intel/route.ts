@@ -284,3 +284,5 @@ export async function POST(req: NextRequest) {
 }
 // Map URL injection is handled client-side using NEXT_PUBLIC_MAPBOX_TOKEN
 // See lib/mapUrls.ts — called from the reports page after Pull completes
+// Parcel intel is fetched client-side after coordinates resolve
+// Call /api/portal/parcel-intel with { lat, lng, county } after Pull completes
