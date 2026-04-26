@@ -23,7 +23,7 @@ export async function exportCetoPDF(params: {
   let recommendedAction = '';
 
   if (reg) {
-    const input = deriveScoreInput(reg, notes);
+    const input = deriveScoreInput(reg, null, notes);
     const score = computeCetoScore(input);
     cetoScore = score.finalScore;
     rating = score.rating;
