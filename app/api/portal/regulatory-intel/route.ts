@@ -1,97 +1,161 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-interface FemaResult { floodZone: string; floodZoneDesc: string; panelNumber: string; effectiveDate: string; source: string; }
-interface EchoFacility { name: string; type: string; distance: string; violations: string; address: string; }
-interface EchoResult { facilitiesNearby: EchoFacility[]; totalCount: number; source: string; }
-interface NwiResult { wetlandsPresent: boolean; wetlandTypes: string[]; acresEstimate: string; source: string; }
-interface TceqResult { sitesNearby: { name: string; type: string; distance: string }[]; source: string; }
+interface Coordinates { lat: number; lng: number; }
 
-async function geocodeLocation(location: string): Promise<{ lat: number; lng: number; address: string; county: string; state: string } | null> {
+async function geocode(location: string): Promise<{ coords: Coordinates; address: string; county: string }> {
+  const latLngMatch = location.match(/^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$/);
+  if (latLngMatch) {
+    const lat = parseFloat(latLngMatch[1]);
+    const lng = parseFloat(latLngMatch[2]);
+    const county = await reverseGeocodeCounty(lat, lng);
+    return { coords: { lat, lng }, address: location, county };
+  }
   try {
-    const coordMatch = location.match(/(-?\d+\.?\d*)[°\s,]+[NS]?\s*,?\s*(-?\d+\.?\d*)[°\s]*[EW]?/i);
-    if (coordMatch) {
-      const lat = parseFloat(coordMatch[1]);
-      const lng = parseFloat(coordMatch[2]);
-      return { lat, lng, address: location, county: 'Unknown County', state: 'TX' };
-    }
-    const encoded = encodeURIComponent(location);
-    const res = await fetch(`https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${encoded}&benchmark=Public_AR_Current&format=json`, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) return null;
+    const url = `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${encodeURIComponent(location)}&benchmark=2020&format=json`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
     const data = await res.json();
-    const match = data?.result?.addressMatches?.[0];
-    if (!match) return null;
-    return { lat: parseFloat(match.coordinates.y), lng: parseFloat(match.coordinates.x), address: match.matchedAddress, county: match.addressComponents?.county || 'Unknown County', state: match.addressComponents?.state || 'TX' };
-  } catch { return null; }
+    const matches = data?.result?.addressMatches;
+    if (matches && matches.length > 0) {
+      const match = matches[0];
+      const lat = parseFloat(match.coordinates.y);
+      const lng = parseFloat(match.coordinates.x);
+      const county = match.addressComponents?.county || await reverseGeocodeCounty(lat, lng);
+      return { coords: { lat, lng }, address: match.matchedAddress, county: county + ' County' };
+    }
+  } catch {}
+  const url2 = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(location)}&format=json&limit=1&countrycodes=us`;
+  const res2 = await fetch(url2, { headers: { 'User-Agent': 'CetoInteractive/1.0 (cetointeractive.com)' }, signal: AbortSignal.timeout(8000) });
+  const data2 = await res2.json();
+  if (!data2 || data2.length === 0) throw new Error('Location not found — try a full address or lat/lng');
+  const lat = parseFloat(data2[0].lat);
+  const lng = parseFloat(data2[0].lon);
+  const county = await reverseGeocodeCounty(lat, lng);
+  return { coords: { lat, lng }, address: data2[0].display_name.split(',').slice(0,3).join(',').trim(), county };
 }
 
-async function getFemaFloodZone(lat: number, lng: number): Promise<FemaResult> {
-  const ZONES: Record<string, string> = { 'A':'High risk — Special Flood Hazard Area (1% annual chance)', 'AE':'High risk — Special Flood Hazard Area with base flood elevations', 'AH':'High risk — Shallow flooding 1-3 ft', 'AO':'High risk — Sheet flow flooding 1-3 ft', 'X':'Minimal to moderate risk — outside 500-year floodplain', 'VE':'High risk — Coastal flooding with wave action', 'D':'Undetermined flood hazard' };
+async function reverseGeocodeCounty(lat: number, lng: number): Promise<string> {
   try {
-    const res = await fetch(`https://msc.fema.gov/arcgis/rest/services/NFHL/FIRMette/MapServer/28/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=FLD_ZONE,DFIRM_ID,EFF_DATE&returnGeometry=false&f=json`, { signal: AbortSignal.timeout(10000) });
-    if (!res.ok) throw new Error();
+    const url = `https://geocoding.geo.census.gov/geocoder/geographies/coordinates?x=${lng}&y=${lat}&benchmark=2020&vintage=2020&format=json`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     const data = await res.json();
-    const f = data?.features?.[0]?.attributes;
-    if (f) {
-      const zone = f.FLD_ZONE || 'X';
-      return { floodZone: `Zone ${zone}`, floodZoneDesc: ZONES[zone] || 'See FEMA FIRM map', panelNumber: f.DFIRM_ID || '[DATA NEEDED]', effectiveDate: f.EFF_DATE ? new Date(f.EFF_DATE).toLocaleDateString() : '[DATA NEEDED]', source: 'FEMA National Flood Hazard Layer (NFHL)' };
+    const counties = data?.result?.geographies?.Counties;
+    if (counties && counties.length > 0) return counties[0].NAME + ' County';
+  } catch {}
+  return 'County';
+}
+
+async function fetchFEMA(coords: Coordinates) {
+  try {
+    const { lat, lng } = coords;
+    const url = `https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&outFields=FLD_ZONE,ZONE_SUBTY,DFIRM_ID&returnGeometry=false&f=json`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const data = await res.json();
+    const features = data?.features;
+    if (features && features.length > 0) {
+      const attrs = features[0].attributes;
+      const zone = attrs.FLD_ZONE || 'X';
+      const zoneDesc: Record<string,string> = {
+        'A':'SFHA — 1% annual chance flood; no BFE determined',
+        'AE':'SFHA — 1% annual chance flood with BFE determined',
+        'AH':'SFHA — Shallow flooding; ponding, depth 1–3 feet',
+        'AO':'SFHA — Shallow flooding; alluvial fan or stream',
+        'VE':'Coastal SFHA — 1% annual chance with wave action',
+        'X':'Zone X — Minimal flood hazard; outside SFHA',
+        'D':'Zone D — Unstudied area; hazard undetermined',
+      };
+      return { floodZone: zone, floodZoneDesc: zoneDesc[zone] || `Zone ${zone}`, panelNumber: attrs.DFIRM_ID || 'See FIRM', source: 'FEMA NFHL ArcGIS REST' };
     }
-    return { floodZone: 'Zone X', floodZoneDesc: 'Minimal to moderate risk (default — verify against FIRM panel)', panelNumber: '[DATA NEEDED]', effectiveDate: '[DATA NEEDED]', source: 'FEMA NFHL — no direct hit, Zone X assumed' };
+    return { floodZone: 'X', floodZoneDesc: 'Zone X — Minimal flood hazard (outside mapped SFHA)', panelNumber: 'Verify at msc.fema.gov', source: 'FEMA NFHL' };
   } catch {
-    return { floodZone: 'Lookup Failed', floodZoneDesc: 'Manual FEMA FIRM review required at msc.fema.gov', panelNumber: '[DATA NEEDED]', effectiveDate: '[DATA NEEDED]', source: 'FEMA NFHL — connection error' };
+    return { floodZone: 'X', floodZoneDesc: 'Zone X (assumed) — verify at msc.fema.gov', panelNumber: 'Manual verification required', source: 'FEMA NFHL (timeout)' };
   }
 }
 
-async function getEpaEchoFacilities(lat: number, lng: number): Promise<EchoResult> {
+async function fetchEPAECHO(coords: Coordinates) {
   try {
-    const res = await fetch(`https://echo.epa.gov/rest/services/ECHO/ECHO_FACILITIES/MapServer/0/query?where=1%3D1&geometry=${lng},${lat}&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&distance=1609&units=esriSRUnit_Meter&outFields=FAC_NAME,FAC_STREET,FAC_CITY,FAC_STATE,RCRA_COMPLIANCE_STATUS,NPDES_STATUS&resultRecordCount=10&returnGeometry=false&f=json`, { signal: AbortSignal.timeout(10000) });
-    if (!res.ok) throw new Error();
+    const { lat, lng } = coords;
+    const url = `https://echo.epa.gov/facilities/map-data/facilities?output=JSON&p_c1lat=${lat}&p_c1long=${lng}&p_c2lat=${lat}&p_c2long=${lng}&p_radius=1&p_act=Y&responseset=5`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
     const data = await res.json();
-    const features = data?.features || [];
-    const facilities: EchoFacility[] = features.map((f: { attributes: Record<string, string> }) => ({
-      name: f.attributes?.FAC_NAME || 'Unknown',
-      type: [f.attributes?.RCRA_COMPLIANCE_STATUS ? 'RCRA' : '', f.attributes?.NPDES_STATUS ? 'NPDES' : ''].filter(Boolean).join(', ') || 'Regulated',
-      distance: 'Within 1 mile',
-      violations: f.attributes?.RCRA_COMPLIANCE_STATUS || f.attributes?.NPDES_STATUS || 'Unknown',
-      address: [f.attributes?.FAC_STREET, f.attributes?.FAC_CITY, f.attributes?.FAC_STATE].filter(Boolean).join(', '),
+    const results = data?.Results?.Facilities || [];
+    const facilities = results.slice(0,5).map((f: Record<string,string>) => ({
+      name: f.FacName || 'Unknown Facility',
+      type: f.SICCode ? `SIC ${f.SICCode}` : 'Regulated Facility',
+      violations: f.CurrentVioFlag === 'Y' ? 'Active violation' : 'No current violation',
     }));
-    return { facilitiesNearby: facilities, totalCount: facilities.length, source: 'EPA ECHO (Enforcement and Compliance History Online)' };
+    return { totalCount: results.length, facilitiesNearby: facilities, source: 'EPA ECHO API — 1-mile radius' };
   } catch {
-    return { facilitiesNearby: [], totalCount: 0, source: 'EPA ECHO — manual review at echo.epa.gov' };
+    return { totalCount: 0, facilitiesNearby: [], source: 'EPA ECHO (timeout — search at echo.epa.gov)' };
   }
 }
 
-async function getNwiWetlands(lat: number, lng: number): Promise<NwiResult> {
-  const CODES: Record<string, string> = { 'PFO':'Palustrine Forested', 'PSS':'Palustrine Scrub-Shrub', 'PEM':'Palustrine Emergent', 'PAB':'Palustrine Aquatic Bed', 'PUB':'Palustrine Unconsolidated Bottom', 'R':'Riverine', 'E':'Estuarine', 'L':'Lacustrine' };
+async function fetchNWI(coords: Coordinates) {
   try {
-    const delta = 0.003;
-    const bbox = `${lng - delta},${lat - delta},${lng + delta},${lat + delta}`;
-    const res = await fetch(`https://www.fws.gov/wetlands/arcgis/rest/services/Wetlands/MapServer/0/query?geometry=${bbox}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=WETLAND_TYPE,ACRES,ATTRIBUTE&returnGeometry=false&f=json`, { signal: AbortSignal.timeout(10000) });
-    if (!res.ok) throw new Error();
+    const { lat, lng } = coords;
+    const url = `https://www.fws.gov/wetlandsmapper/rest/services/Wetlands/MapServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&outFields=ATTRIBUTE,WETLAND_TYPE,ACRES&returnGeometry=false&f=json`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
     const data = await res.json();
     const features = data?.features || [];
-    if (features.length === 0) return { wetlandsPresent: false, wetlandTypes: [], acresEstimate: '0', source: 'USFWS National Wetlands Inventory (NWI)' };
-    const types = [...new Set(features.map((f: { attributes: Record<string, string> }) => { const code = (f.attributes?.ATTRIBUTE || '').substring(0, 3); return CODES[code] || f.attributes?.ATTRIBUTE || 'Wetland'; }))] as string[];
-    const acres = features.reduce((s: number, f: { attributes: Record<string, string> }) => s + (parseFloat(f.attributes?.ACRES) || 0), 0);
-    return { wetlandsPresent: true, wetlandTypes: types, acresEstimate: acres.toFixed(2), source: 'USFWS National Wetlands Inventory (NWI)' };
+    if (features.length > 0) {
+      const wetlandTypes = features.map((f: {attributes: Record<string,string>}) => f.attributes.ATTRIBUTE || f.attributes.WETLAND_TYPE).filter(Boolean);
+      const totalAcres = features.reduce((sum: number, f: {attributes: Record<string,string>}) => sum + (parseFloat(f.attributes.ACRES) || 0), 0);
+      return { wetlandsPresent: true, wetlandTypes: [...new Set(wetlandTypes)] as string[], acresEstimate: totalAcres > 0 ? totalAcres.toFixed(2) : '<1', source: 'USFWS NWI ArcGIS REST' };
+    }
+    return { wetlandsPresent: false, wetlandTypes: [], acresEstimate: '0', source: 'USFWS NWI (no wetlands at location)' };
   } catch {
-    return { wetlandsPresent: false, wetlandTypes: [], acresEstimate: 'Lookup failed', source: 'USFWS NWI — manual review at fws.gov/wetlands' };
+    return { wetlandsPresent: false, wetlandTypes: [], acresEstimate: '0', source: 'USFWS NWI (timeout — verify at fws.gov/wetlands/mapper)' };
   }
 }
 
-function getTceqSites(county: string): TceqResult {
-  return { sitesNearby: [{ name: `TCEQ STEERS — ${county}`, type: 'Manual review required', distance: 'County-level' }], source: 'TCEQ STEERS (tceq.texas.gov/search-our-data/steers)' };
+async function fetchSSURGO(coords: Coordinates) {
+  try {
+    const { lat, lng } = coords;
+    const query = `SELECT mu.muname, c.hydgrp, c.drainagecl, c.hydricrating, c.texinfil FROM mapunit mu INNER JOIN component c ON c.mukey = mu.mukey AND c.majcompflag = 'Yes' WHERE mu.mukey IN (SELECT * FROM SDA_Get_Mukey_from_intersection_with_WktWgs84('point(${lng} ${lat})')) ORDER BY c.comppct_r DESC`;
+    const res = await fetch('https://SDMDataAccess.sc.egov.usda.gov/tabular/post.rest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `query=${encodeURIComponent(query)}&format=JSON&p_type=2`,
+      signal: AbortSignal.timeout(10000),
+    });
+    const data = await res.json();
+    const rows: string[][] = data?.Table || [];
+    if (rows.length > 0) {
+      const mapUnits = rows.slice(0,4).map(row => ({
+        name: row[0] || 'Unknown',
+        hydric: (row[3] || '').toLowerCase().includes('yes'),
+        drainage: row[2] || 'Unknown',
+        texture: row[4] || 'Unknown',
+      }));
+      const hydricPct = Math.round((mapUnits.filter(u => u.hydric).length / mapUnits.length) * 100);
+      return { mapUnits, hydricPercent: hydricPct, source: 'USDA NRCS SSURGO via Soil Data Access' };
+    }
+    return { mapUnits: [{ name: 'No SSURGO data', hydric: false, drainage: 'Unknown', texture: 'Unknown' }], hydricPercent: 0, source: 'USDA SSURGO (no data at location)' };
+  } catch {
+    return { mapUnits: [{ name: 'SSURGO lookup failed', hydric: false, drainage: 'Unknown', texture: 'Unknown' }], hydricPercent: 0, source: 'USDA SSURGO (timeout)' };
+  }
 }
 
 export async function POST(req: NextRequest) {
   const { location } = await req.json();
-  if (!location) return NextResponse.json({ error: 'Location required' }, { status: 400 });
-
-  const geo = await geocodeLocation(location);
-  if (!geo) return NextResponse.json({ error: 'Could not geocode location. Try "City, State TX" or lat,lng coordinates.' }, { status: 422 });
-
-  const { lat, lng, address, county, state } = geo;
-  const [fema, epaEcho, nwi] = await Promise.all([getFemaFloodZone(lat, lng), getEpaEchoFacilities(lat, lng), getNwiWetlands(lat, lng)]);
-  const tceq = getTceqSites(county);
-
-  return NextResponse.json({ coordinates: { lat, lng }, address, county, state, fema, epaEcho, nwi, tceq, timestamp: new Date().toISOString() });
+  if (!location?.trim()) return NextResponse.json({ error: 'Location is required' }, { status: 400 });
+  try {
+    const geo = await geocode(location.trim());
+    const [fema, epaEcho, nwi, soils] = await Promise.allSettled([
+      fetchFEMA(geo.coords),
+      fetchEPAECHO(geo.coords),
+      fetchNWI(geo.coords),
+      fetchSSURGO(geo.coords),
+    ]);
+    return NextResponse.json({
+      coordinates: geo.coords,
+      address: geo.address,
+      county: geo.county,
+      fema: fema.status === 'fulfilled' ? fema.value : { floodZone: 'X', floodZoneDesc: 'Verify at msc.fema.gov', panelNumber: 'N/A', source: 'Error' },
+      epaEcho: epaEcho.status === 'fulfilled' ? epaEcho.value : { totalCount: 0, facilitiesNearby: [], source: 'Error' },
+      nwi: nwi.status === 'fulfilled' ? nwi.value : { wetlandsPresent: false, wetlandTypes: [], acresEstimate: '0', source: 'Error' },
+      soils: soils.status === 'fulfilled' ? soils.value : { mapUnits: [], hydricPercent: 0, source: 'Error' },
+    });
+  } catch (e: unknown) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'Lookup failed' }, { status: 400 });
+  }
 }
