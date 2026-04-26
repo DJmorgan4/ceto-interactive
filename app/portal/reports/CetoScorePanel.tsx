@@ -217,3 +217,19 @@ export function CetoScorePanel({ reg, parcelData, fieldNotes }: { reg: any; parc
     </div>
   );
 }
+
+// Export traced inputs formatter for use in report generation
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function formatTracedInputsForReport(tracedInputs: any): string {
+  if (!tracedInputs) return '';
+  return `
+VERIFIED DATA SOURCES (traceable):
+- Hydric Soils: ${tracedInputs.hydricPercent?.value}% — ${tracedInputs.hydricPercent?.source} (${tracedInputs.hydricPercent?.confidence}) — ${tracedInputs.hydricPercent?.timestamp}
+- Flood Zone: ${tracedInputs.floodZone?.value} — ${tracedInputs.floodZone?.source} (${tracedInputs.floodZone?.confidence}) — ${tracedInputs.floodZone?.timestamp}
+- Wetlands: ${tracedInputs.wetlandsPresent?.value ? 'Present' : 'Absent'} — ${tracedInputs.wetlandsPresent?.source} (${tracedInputs.wetlandsPresent?.confidence}) — ${tracedInputs.wetlandsPresent?.timestamp}
+- EPA Facilities: ${tracedInputs.facilitiesCount?.value} within 1 mile — ${tracedInputs.facilitiesCount?.source} (${tracedInputs.facilitiesCount?.confidence}) — ${tracedInputs.facilitiesCount?.timestamp}
+- Current Use: ${tracedInputs.currentUse?.value} — ${tracedInputs.currentUse?.source} (${tracedInputs.currentUse?.confidence}) — ${tracedInputs.currentUse?.timestamp}
+- Site Class: ${tracedInputs.siteClass?.value} — ${tracedInputs.siteClass?.source} (${tracedInputs.siteClass?.confidence}) — ${tracedInputs.siteClass?.timestamp}
+- Soil Series: ${tracedInputs.soilSeries?.value} — ${tracedInputs.soilSeries?.source} (${tracedInputs.soilSeries?.confidence}) — ${tracedInputs.soilSeries?.timestamp}
+- Geology: ${tracedInputs.geology?.value} — ${tracedInputs.geology?.source} (${tracedInputs.geology?.confidence}) — ${tracedInputs.geology?.timestamp}`;
+}

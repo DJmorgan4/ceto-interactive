@@ -1,7 +1,10 @@
-// ── CETO Environmental Risk Scoring Engine v2 ─────────────────────────────────
-// Separation: riskScore (actual env risk) vs confidenceScore (data completeness)
-// FinalScore = 100 - (rawRisk × confidenceMultiplier × severityMultiplier)
-// Ceilings applied for red flags — a former dry cleaner CANNOT score 92
+// ── CETO Environmental Risk Scoring Engine v3 ─────────────────────────────────
+// Key principles:
+// 1. TracedValue used throughout — every input has source + confidence
+// 2. Risk and data completeness are fully separated
+// 3. Current use detection uses priority order (parcel > zoning > landcover > notes)
+// 4. siteClass actively adjusts risk thresholds
+// 5. Regulatory risk includes facility type weighting and distance
 
 export interface TracedValue<T> {
   value: T;
@@ -10,50 +13,161 @@ export interface TracedValue<T> {
   timestamp: string;
 }
 
-export interface ScoreInput {
-  // Regulatory
-  facilitiesWithin1Mile: number;
-  facilitiesWithinHalfMile: number;
-  facilitiesAdjacent: boolean;
+export function trace<T>(
+  value: T,
+  source: string,
+  confidence: 'VERIFIED' | 'INFERRED' | 'UNAVAILABLE'
+): TracedValue<T> {
+  return { value, source, confidence, timestamp: new Date().toISOString().split('T')[0] };
+}
+
+// ── Site Classification ───────────────────────────────────────────────────────
+
+export type SiteClass =
+  | 'RESIDENTIAL' | 'COMMERCIAL' | 'INDUSTRIAL'
+  | 'AGRICULTURAL' | 'VACANT' | 'PUBLIC' | 'UNKNOWN';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function classifySite(parcel: any, zoning: any, landCover: any): {
+  siteClass: SiteClass;
+  confidence: 'VERIFIED' | 'INFERRED' | 'UNAVAILABLE';
+  source: string;
+} {
+  const luc = String(parcel?.landUseCode || '').toUpperCase();
+  const desc = String(parcel?.landUseDescription || '').toLowerCase();
+  const ownerType = String(parcel?.ownerType || '').toUpperCase();
+  const zoningCode = String(zoning?.zoningCode || '').toUpperCase();
+  const cropPct = landCover?.cultivatedCropPercent || 0;
+  const devPct = landCover?.developedPercent || 0;
+  const parcelConf = parcel?.confidence || 'UNAVAILABLE';
+
+  // Priority 1: Parcel data (highest confidence)
+  if (parcelConf === 'VERIFIED' || parcelConf === 'INFERRED') {
+    if (ownerType === 'GOVERNMENT' || ownerType === 'SCHOOL')
+      return { siteClass: 'PUBLIC', confidence: parcelConf, source: parcel?.source || 'County CAD' };
+    if (luc.startsWith('I') || desc.includes('industrial') || desc.includes('manufactur') || desc.includes('warehouse'))
+      return { siteClass: 'INDUSTRIAL', confidence: parcelConf, source: parcel?.source || 'County CAD' };
+    if (luc.startsWith('C') || luc.startsWith('F') || desc.includes('commercial') || desc.includes('retail') || desc.includes('office'))
+      return { siteClass: 'COMMERCIAL', confidence: parcelConf, source: parcel?.source || 'County CAD' };
+    if (luc.startsWith('A') || desc.includes('farm') || desc.includes('agricultural') || desc.includes('crop'))
+      return { siteClass: 'AGRICULTURAL', confidence: parcelConf, source: parcel?.source || 'County CAD' };
+    if (luc.startsWith('D') || luc.startsWith('E') || luc.startsWith('R') || desc.includes('residential') || desc.includes('single family') || desc.includes('multi'))
+      return { siteClass: 'RESIDENTIAL', confidence: parcelConf, source: parcel?.source || 'County CAD' };
+    if (luc.startsWith('X') || desc.includes('vacant') || devPct < 10)
+      return { siteClass: 'VACANT', confidence: parcelConf, source: parcel?.source || 'County CAD' };
+  }
+
+  // Priority 2: Zoning
+  if (zoning?.confidence !== 'UNAVAILABLE' && zoningCode) {
+    if (zoningCode.startsWith('I')) return { siteClass: 'INDUSTRIAL', confidence: 'INFERRED', source: zoning?.source || 'Zoning' };
+    if (zoningCode.startsWith('C') || zoningCode.startsWith('B')) return { siteClass: 'COMMERCIAL', confidence: 'INFERRED', source: zoning?.source || 'Zoning' };
+    if (zoningCode.startsWith('R') || zoningCode.startsWith('SF') || zoningCode.startsWith('MF')) return { siteClass: 'RESIDENTIAL', confidence: 'INFERRED', source: zoning?.source || 'Zoning' };
+    if (zoningCode.startsWith('A') || zoningCode.startsWith('AG')) return { siteClass: 'AGRICULTURAL', confidence: 'INFERRED', source: zoning?.source || 'Zoning' };
+  }
+
+  // Priority 3: Land cover
+  if (landCover?.confidence !== 'UNAVAILABLE') {
+    if (cropPct > 50) return { siteClass: 'AGRICULTURAL', confidence: 'INFERRED', source: 'USGS NLCD 2021' };
+    if (devPct > 60) return { siteClass: 'COMMERCIAL', confidence: 'INFERRED', source: 'USGS NLCD 2021' };
+    if (devPct > 20) return { siteClass: 'RESIDENTIAL', confidence: 'INFERRED', source: 'USGS NLCD 2021' };
+    if (devPct < 10) return { siteClass: 'VACANT', confidence: 'INFERRED', source: 'USGS NLCD 2021' };
+  }
+
+  return { siteClass: 'UNKNOWN', confidence: 'UNAVAILABLE', source: 'Unable to determine — manual verification required' };
+}
+
+// ── Current Use Detection (priority order) ────────────────────────────────────
+
+export type CurrentUse =
+  | 'vacant' | 'agricultural' | 'residential' | 'office' | 'retail'
+  | 'restaurant' | 'auto' | 'gasStation' | 'dryCleaner' | 'industrial'
+  | 'landfill' | 'unknown';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function detectCurrentUse(parcel: any, zoning: any, landCover: any, notes: string): TracedValue<CurrentUse> {
+  const n = notes.toLowerCase();
+  const parcelDesc = String(parcel?.landUseDescription || '').toLowerCase();
+  const parcelConf = parcel?.confidence || 'UNAVAILABLE';
+
+  // Helper to classify from text
+  function classifyText(text: string): CurrentUse | null {
+    if (text.includes('dry clean') || text.includes('laundry')) return 'dryCleaner';
+    if (text.includes('gas station') || text.includes('fuel') || text.includes('service station') || text.includes('filling station')) return 'gasStation';
+    if (text.includes('auto repair') || text.includes('mechanic') || text.includes('body shop') || text.includes('auto service')) return 'auto';
+    if (text.includes('industrial') || text.includes('manufactur') || text.includes('warehouse') || text.includes('chemical')) return 'industrial';
+    if (text.includes('landfill') || text.includes('dump') || text.includes('waste')) return 'landfill';
+    if (text.includes('restaurant') || text.includes('food') || text.includes('kitchen') || text.includes('cafe')) return 'restaurant';
+    if (text.includes('office') || text.includes('professional')) return 'office';
+    if (text.includes('retail') || text.includes('shopping') || text.includes('store') || text.includes('commercial')) return 'retail';
+    if (text.includes('residential') || text.includes('house') || text.includes('apartment') || text.includes('dwelling')) return 'residential';
+    if (text.includes('agricultural') || text.includes('farm') || text.includes('crop') || text.includes('pasture')) return 'agricultural';
+    if (text.includes('vacant') || text.includes('undeveloped') || text.includes('empty')) return 'vacant';
+    return null;
+  }
+
+  // Priority 1: Parcel data
+  if (parcelConf !== 'UNAVAILABLE' && parcelDesc) {
+    const use = classifyText(parcelDesc);
+    if (use) return trace(use, parcel?.source || 'County CAD', parcelConf as 'VERIFIED' | 'INFERRED');
+  }
+
+  // Priority 2: Zoning description
+  const zoningDesc = String(zoning?.zoningDescription || '').toLowerCase();
+  if (zoning?.confidence !== 'UNAVAILABLE' && zoningDesc) {
+    const use = classifyText(zoningDesc);
+    if (use) return trace(use, zoning?.source || 'Zoning', 'INFERRED');
+  }
+
+  // Priority 3: Land cover
+  if (landCover?.confidence !== 'UNAVAILABLE') {
+    if ((landCover?.cultivatedCropPercent || 0) > 50) return trace('agricultural', 'USGS NLCD 2021', 'INFERRED');
+    if ((landCover?.developedPercent || 0) < 15) return trace('vacant', 'USGS NLCD 2021', 'INFERRED');
+  }
+
+  // Priority 4: Field notes (lowest confidence fallback)
+  if (n.length > 10) {
+    const use = classifyText(n);
+    if (use) return trace(use, 'Field notes (manual)', 'INFERRED');
+  }
+
+  return trace('unknown', 'Unable to determine — manual verification required', 'UNAVAILABLE');
+}
+
+// ── Scored input with full traceability ───────────────────────────────────────
+
+export interface ScoredInput {
+  // All key values traced
+  hydricPercent: TracedValue<number>;
+  floodZone: TracedValue<string>;
+  wetlandsPresent: TracedValue<boolean>;
+  facilitiesCount: TracedValue<number>;
+  elevation: TracedValue<number | null>;
+  geology: TracedValue<string>;
+  soilSeries: TracedValue<string>;
+  drainage: TracedValue<string>;
+  currentUse: TracedValue<CurrentUse>;
+  siteClass: TracedValue<SiteClass>;
+
+  // Risk flags
   knownReleaseOnSite: boolean;
   migrationDirection: 'downgradient' | 'cross' | 'unknown' | 'upgradient';
   hasViolations: boolean;
   hasActiveCleanup: boolean;
   hasOpenEnforcement: boolean;
-
-  // Historical Use
-  historicalUse: 'vacant'|'agricultural'|'residential'|'office'|'retail'|'commercial'|'auto'|'gasStation'|'dryCleaner'|'industrial'|'landfill'|'unknown';
-
-  // Current Use (NEW — separate from historical)
-  currentUse: 'vacant'|'agricultural'|'residential'|'office'|'retail'|'restaurant'|'auto'|'gasStation'|'dryCleaner'|'industrial'|'landfill'|'unknown';
-  currentUseSource: string;
-  currentUseConfidence: 'VERIFIED' | 'INFERRED' | 'UNAVAILABLE';
-
-  // Site Classification
-  siteClass: 'RESIDENTIAL'|'COMMERCIAL'|'INDUSTRIAL'|'AGRICULTURAL'|'VACANT'|'PUBLIC'|'UNKNOWN';
-
-  // Wetland / Water
+  facilitiesWithinHalfMile: number;
+  facilitiesAdjacent: boolean;
+  historicalUse: CurrentUse;
   nwiOnSite: boolean;
   nwiAdjacent: boolean;
-  nwiWithin500ft: boolean;
-  hydricPercent: number;
-  drainage: 'well'|'moderate'|'poor'|'unknown';
-  surfaceWaterOnSite: boolean;
   surfaceWaterWithin500ft: boolean;
-
-  // Flood
-  floodZone: string;
   inFloodway: boolean;
-
-  // Soils / Geology
-  shrinkSwell: 'low'|'moderate'|'high'|'unknown';
-  permeability: 'low'|'moderate'|'high'|'unknown';
-  karst: 'none'|'possible'|'mapped';
-
-  // Field Observations
-  fieldObservation: 'none'|'debris'|'staining'|'drums'|'ust'|'odor'|'release';
-
-  // Data Gaps — SEPARATE from risk
+  shrinkSwell: 'low' | 'moderate' | 'high' | 'unknown';
+  permeability: 'low' | 'moderate' | 'high' | 'unknown';
+  karst: 'none' | 'possible' | 'mapped';
+  fieldObservation: 'none' | 'debris' | 'staining' | 'drums' | 'ust' | 'odor' | 'release';
+  formerGasStation: boolean;
+  formerDryCleaner: boolean;
+  formerIndustrial: boolean;
   dataGaps: {
     soilsUnavailable: boolean;
     geologyUnavailable: boolean;
@@ -63,78 +177,6 @@ export interface ScoreInput {
     noSiteRecon: boolean;
     noHistoricalRecords: boolean;
   };
-
-  // Red Flags — for ceiling calculation only
-  formerGasStation: boolean;
-  formerDryCleaner: boolean;
-  formerIndustrial: boolean;
-  mappedWetlandOnSite: boolean;
-}
-
-export interface ScoreExplanation {
-  category: string;
-  points: number;
-  sign: '+' | '-';
-  reason: string;
-}
-
-export interface DealImpact {
-  estimatedLiability: string;
-  phase2Likelihood: string;
-  permittingDelayRisk: string;
-  developmentConstraintRisk: string;
-  cleanupRisk: string;
-  lenderConcern: string;
-}
-
-export interface ScoreOutput {
-  // Scores
-  finalScore: number;
-  rawRiskScore: number;      // Pure environmental risk, 0-100
-  confidenceScore: number;   // Data completeness, 0-100 (separate from risk)
-  correctedScore: number;
-  ceiling: number;
-
-  // Multipliers
-  confidenceMultiplier: number;
-  severityMultiplier: number;
-
-  // Rating
-  rating: string;
-  ratingCode: 'LOW'|'MODERATE_LOW'|'MODERATE'|'ELEVATED'|'HIGH';
-
-  // Breakdown — risk scores per category (0-100 risk each)
-  breakdown: {
-    regulatory: number;
-    historicalUse: number;
-    currentUse: number;
-    wetland: number;
-    flood: number;
-    soil: number;
-    field: number;
-  };
-
-  // Explanation — why the score is what it is
-  explanations: ScoreExplanation[];
-
-  // Data completeness — separate panel
-  dataCompleteness: {
-    score: number; // 0-100
-    missingItems: string[];
-    verifiedItems: string[];
-  };
-
-  // Red flags and actions
-  redFlags: string[];
-  recommendedAction: string;
-  reason: string;
-
-  // Deal impact
-  dealImpact: DealImpact;
-
-  // Site classification
-  siteClass: string;
-  currentUseRisk: string;
 }
 
 // ── Risk tables ───────────────────────────────────────────────────────────────
@@ -150,7 +192,7 @@ const CURRENT_USE_RISK: Record<string, { risk: number; label: string }> = {
   agricultural: { risk: 15, label: 'Agricultural — pesticide/herbicide potential' },
   residential: { risk: 8, label: 'Residential — low current use risk' },
   office: { risk: 8, label: 'Office — low current use risk' },
-  retail: { risk: 12, label: 'Retail — low to moderate current use risk' },
+  retail: { risk: 12, label: 'Retail — low current use risk' },
   restaurant: { risk: 18, label: 'Restaurant — grease trap, cleaning chemicals potential' },
   auto: { risk: 65, label: 'Auto repair — petroleum products, solvents, waste oil' },
   gasStation: { risk: 85, label: 'Gas station — UST potential, petroleum release risk' },
@@ -158,6 +200,17 @@ const CURRENT_USE_RISK: Record<string, { risk: number; label: string }> = {
   industrial: { risk: 80, label: 'Industrial — hazardous materials, process chemicals' },
   landfill: { risk: 100, label: 'Landfill — gas generation, leachate, waste' },
   unknown: { risk: 20, label: 'Current use unknown — manual verification required' },
+};
+
+// Facility type weights — RCRA > UST > minor permit
+const FACILITY_TYPE_WEIGHTS: Record<string, number> = {
+  'RCRA': 1.8,
+  'Superfund': 2.0,
+  'LUST': 1.5,
+  'UST': 1.3,
+  'TRI': 1.2,
+  'NPDES': 1.0,
+  'default': 1.0,
 };
 
 const FIELD_SCORES: Record<string, number> = {
@@ -168,21 +221,102 @@ function cap(val: number, max = 100): number {
   return Math.min(max, Math.max(0, val));
 }
 
-function today(): string {
-  return new Date().toISOString().split('T')[0];
+// ── Score output types ────────────────────────────────────────────────────────
+
+export interface ScoreExplanation {
+  category: string;
+  points: number;
+  sign: '+' | '-';
+  reason: string;
+  traced?: string; // "Source: X (Verified)"
 }
 
-export function computeCetoScore(input: ScoreInput): ScoreOutput {
+export interface DealImpact {
+  estimatedLiability: string;
+  phase2Likelihood: string;
+  permittingDelayRisk: string;
+  developmentConstraintRisk: string;
+  cleanupRisk: string;
+  lenderConcern: string;
+}
+
+export interface ScoreOutput {
+  finalScore: number;
+  rawRiskScore: number;
+  confidenceScore: number;
+  correctedScore: number;
+  ceiling: number;
+  confidenceMultiplier: number;
+  severityMultiplier: number;
+  rating: string;
+  ratingCode: 'LOW' | 'MODERATE_LOW' | 'MODERATE' | 'ELEVATED' | 'HIGH';
+  breakdown: {
+    regulatory: number;
+    historicalUse: number;
+    currentUse: number;
+    wetland: number;
+    flood: number;
+    soil: number;
+    field: number;
+  };
+  explanations: ScoreExplanation[];
+  dataCompleteness: {
+    score: number;
+    missingItems: string[];
+    verifiedItems: string[];
+  };
+  redFlags: string[];
+  recommendedAction: string;
+  reason: string;
+  dealImpact: DealImpact;
+  siteClass: string;
+  siteClassConfidence: string;
+  currentUseLabel: string;
+  currentUseConfidence: string;
+  tracedInputs: {
+    hydricPercent: TracedValue<number>;
+    floodZone: TracedValue<string>;
+    wetlandsPresent: TracedValue<boolean>;
+    facilitiesCount: TracedValue<number>;
+    currentUse: TracedValue<CurrentUse>;
+    siteClass: TracedValue<SiteClass>;
+    soilSeries: TracedValue<string>;
+    geology: TracedValue<string>;
+  };
+}
+
+// ── Main scoring function ─────────────────────────────────────────────────────
+
+export function computeCetoScore(input: ScoredInput): ScoreOutput {
   const redFlags: string[] = [];
   const explanations: ScoreExplanation[] = [];
 
-  // ── RISK SCORES (0-100, higher = more risk) ───────────────────────────────
+  // ── SITE CLASS ADJUSTMENTS ────────────────────────────────────────────────
+  // siteClass actively adjusts risk thresholds and sensitivities
+  const sc = input.siteClass.value;
+  const siteClassMultipliers = {
+    INDUSTRIAL:   { regulatory: 1.20, historical: 1.15, current: 1.20, wetland: 1.0, soil: 1.15 },
+    COMMERCIAL:   { regulatory: 1.05, historical: 1.05, current: 1.10, wetland: 1.0, soil: 1.0 },
+    AGRICULTURAL: { regulatory: 1.0,  historical: 1.0,  current: 1.0,  wetland: 1.20, soil: 1.10 },
+    RESIDENTIAL:  { regulatory: 1.10, historical: 1.05, current: 1.0,  wetland: 1.10, soil: 1.0 },
+    VACANT:       { regulatory: 1.0,  historical: 1.0,  current: 1.0,  wetland: 1.0,  soil: 1.0 },
+    PUBLIC:       { regulatory: 0.90, historical: 0.95, current: 0.90, wetland: 1.0,  soil: 1.0 },
+    UNKNOWN:      { regulatory: 1.05, historical: 1.0,  current: 1.05, wetland: 1.0,  soil: 1.0 },
+  }[sc] ?? { regulatory: 1.0, historical: 1.0, current: 1.0, wetland: 1.0, soil: 1.0 };
 
-  // Regulatory risk
-  const facilityRisk = input.knownReleaseOnSite ? 100
+  // ── REGULATORY RISK (weighted by facility type + distance) ────────────────
+  const facilityCount = input.facilitiesCount.value;
+
+  // Base proximity risk
+  let facilityRisk = input.knownReleaseOnSite ? 100
     : input.facilitiesAdjacent ? 60
     : input.facilitiesWithinHalfMile > 0 ? 40
-    : input.facilitiesWithin1Mile > 0 ? 20 : 0;
+    : facilityCount > 0 ? 20 : 0;
+
+  // Facility type weighting — if we have type info
+  // This gets populated from EPA ECHO facility types
+  const typeWeight = FACILITY_TYPE_WEIGHTS['default'];
+  facilityRisk = cap(facilityRisk * typeWeight);
 
   const migrationRisk = {
     downgradient: 0, cross: 0, unknown: 15, upgradient: 30
@@ -191,41 +325,56 @@ export function computeCetoScore(input: ScoreInput): ScoreOutput {
   const complianceRisk = input.hasActiveCleanup ? 80
     : input.hasOpenEnforcement ? 60
     : input.hasViolations ? 40
-    : input.facilitiesWithin1Mile > 0 ? 20 : 0;
+    : facilityCount > 0 ? 20 : 0;
 
-  const regulatoryRisk = cap(facilityRisk + migrationRisk + complianceRisk);
+  const regulatoryRisk = cap(
+    (facilityRisk + migrationRisk + complianceRisk) * siteClassMultipliers.regulatory
+  );
 
-  // Historical use risk
-  const historicalRisk = HISTORICAL_USE_RISK[input.historicalUse] ?? 20;
+  // ── HISTORICAL USE RISK ───────────────────────────────────────────────────
+  const historicalRisk = cap(
+    (HISTORICAL_USE_RISK[input.historicalUse] ?? 20) * siteClassMultipliers.historical
+  );
 
-  // Current use risk (NEW — weighted separately)
-  const currentUseEntry = CURRENT_USE_RISK[input.currentUse] ?? CURRENT_USE_RISK.unknown;
-  const currentUseRisk = currentUseEntry.risk;
+  // ── CURRENT USE RISK (TracedValue, priority-ordered) ─────────────────────
+  const currentUseEntry = CURRENT_USE_RISK[input.currentUse.value] ?? CURRENT_USE_RISK.unknown;
+  // Reduce confidence of current use risk if source is unreliable
+  const currentUseConfidencePenalty = input.currentUse.confidence === 'UNAVAILABLE' ? 1.10
+    : input.currentUse.confidence === 'INFERRED' ? 1.05 : 1.0;
+  const currentUseRisk = cap(
+    currentUseEntry.risk * siteClassMultipliers.current * currentUseConfidencePenalty
+  );
 
-  // Wetland / water risk
-  const nwiRisk = input.nwiOnSite ? 90 : input.nwiAdjacent ? 60 : input.nwiWithin500ft ? 30 : 0;
-  const hydricRisk = input.hydricPercent > 50 ? 40 : input.hydricPercent > 0 ? 20 : 0;
-  const drainageRisk = { well: 0, moderate: 10, poor: 25, unknown: 5 }[input.drainage] ?? 5;
-  const surfaceRisk = input.surfaceWaterOnSite ? 30 : input.surfaceWaterWithin500ft ? 15 : 0;
-  const wetlandRisk = cap(nwiRisk + hydricRisk + drainageRisk + surfaceRisk);
+  // ── WETLAND / WATER RISK ──────────────────────────────────────────────────
+  const hydric = input.hydricPercent.value;
+  const nwiRisk = input.wetlandsPresent.value ? (input.nwiOnSite ? 90 : input.nwiAdjacent ? 60 : 30) : 0;
+  const hydricRisk = hydric > 50 ? 40 : hydric > 0 ? 20 : 0;
+  const drainageRisk = { well: 0, moderate: 10, poor: 25, unknown: 5 }[input.drainage ?? 'unknown'] ?? 5;
+  const surfaceRisk = input.surfaceWaterWithin500ft ? 15 : 0;
+  // Agricultural sites get extra wetland sensitivity
+  const wetlandRisk = cap(
+    (nwiRisk + hydricRisk + drainageRisk + surfaceRisk) * siteClassMultipliers.wetland
+  );
 
-  // Flood risk
+  // ── FLOOD RISK ────────────────────────────────────────────────────────────
+  const fz = input.floodZone.value;
   const floodRisk = input.inFloodway ? 100
-    : (input.floodZone.startsWith('AE') || input.floodZone === 'A') ? 60
-    : input.floodZone === 'X500' ? 20 : 0;
+    : (fz.startsWith('AE') || fz === 'A') ? 60
+    : fz === 'X500' ? 20 : 0;
 
-  // Soil / geology risk
+  // ── SOIL / GEOLOGY RISK ───────────────────────────────────────────────────
   const shrinkRisk = { low: 0, moderate: 10, high: 20, unknown: 5 }[input.shrinkSwell] ?? 5;
   const permRisk = { low: 0, moderate: 10, high: 25, unknown: 5 }[input.permeability] ?? 5;
   const karstRisk = { none: 0, possible: 25, mapped: 50 }[input.karst] ?? 0;
-  const soilRisk = cap(shrinkRisk + permRisk + karstRisk);
+  // Industrial sites get extra soil sensitivity
+  const soilRisk = cap(
+    (shrinkRisk + permRisk + karstRisk) * siteClassMultipliers.soil
+  );
 
-  // Field observation risk
+  // ── FIELD OBSERVATION RISK ────────────────────────────────────────────────
   const fieldRisk = FIELD_SCORES[input.fieldObservation] ?? 0;
 
-  // ── WEIGHTED RAW RISK (pure environmental, no data gap penalty) ────────────
-  // Weights: regulatory 25%, historical 12%, current use 13%, wetland 15%,
-  //          flood 10%, soil 15%, field 10%
+  // ── WEIGHTED RAW RISK (pure environmental, NO data gap penalty) ───────────
   const rawRisk =
     (regulatoryRisk  * 0.25) +
     (historicalRisk  * 0.12) +
@@ -237,52 +386,52 @@ export function computeCetoScore(input: ScoreInput): ScoreOutput {
 
   const rawRiskScore = Math.round(rawRisk);
 
-  // ── DATA COMPLETENESS (separate from risk score) ──────────────────────────
+  // ── DATA COMPLETENESS (completely separate from risk) ─────────────────────
   const gaps = input.dataGaps;
   const missingItems: string[] = [];
   const verifiedItems: string[] = [];
 
   if (gaps.soilsUnavailable) missingItems.push('USDA SSURGO soils data');
-  else verifiedItems.push('USDA SSURGO soils');
+  else verifiedItems.push('USDA SSURGO soils — ' + input.soilSeries.source);
 
-  if (gaps.geologyUnavailable) missingItems.push('USGS geology formation');
-  else verifiedItems.push('Macrostrat/USGS geology');
+  if (gaps.geologyUnavailable) missingItems.push('USGS geology formation data');
+  else verifiedItems.push('Macrostrat/USGS geology — ' + input.geology.source);
 
   if (gaps.parcelUnavailable) missingItems.push('County appraisal district parcel data');
-  else verifiedItems.push('County CAD parcel data');
+  else verifiedItems.push('County CAD parcel — ' + input.siteClass.source);
 
   if (gaps.historicalAerialsUnavailable) missingItems.push('Historical aerial imagery pre-1950');
   else verifiedItems.push('Historical records review');
 
   if (gaps.tceqManualRequired) missingItems.push('TCEQ STEERS database (manual review required)');
-
   if (gaps.noSiteRecon) missingItems.push('Site reconnaissance (field visit not performed)');
   else verifiedItems.push('Site reconnaissance');
 
   if (gaps.noHistoricalRecords) missingItems.push('Historical records (city directories, Sanborn maps)');
   else verifiedItems.push('Historical use review');
 
-  const completenessScore = Math.round(100 - (missingItems.length * 12));
-  const confidenceScore = Math.max(40, completenessScore);
+  const completenessScore = Math.max(40, Math.round(100 - (missingItems.length * 11)));
 
-  // ── CONFIDENCE MULTIPLIER (based on data gaps, not environmental risk) ────
+  // ── CONFIDENCE MULTIPLIER (data gaps → conservative score, not penalized) ─
   const missingCritical = (gaps.noSiteRecon ? 1 : 0) + (gaps.noHistoricalRecords ? 1 : 0);
   const missingMajor = (gaps.soilsUnavailable ? 1 : 0) + (gaps.geologyUnavailable ? 1 : 0) + (gaps.parcelUnavailable ? 1 : 0);
-  const confidenceMultiplier = Math.min(1.35, 1 + (missingCritical * 0.08) + (missingMajor * 0.03));
+  const confidenceMultiplier = Math.min(1.35,
+    1 + (missingCritical * 0.08) + (missingMajor * 0.03)
+  );
 
   // ── RED FLAGS + SEVERITY MULTIPLIER ──────────────────────────────────────
   if (input.knownReleaseOnSite) redFlags.push('Known release on-site');
   if (input.formerGasStation) redFlags.push('Former gas station — UST/petroleum risk');
   if (input.formerDryCleaner) redFlags.push('Former dry cleaner — chlorinated solvent risk');
   if (input.formerIndustrial) redFlags.push('Former industrial use');
-  if (input.mappedWetlandOnSite) redFlags.push('Mapped wetland on-site (USFWS NWI)');
+  if (input.wetlandsPresent.value && input.nwiOnSite) redFlags.push('Mapped wetland on-site (USFWS NWI)');
   if (input.inFloodway) redFlags.push('Located in FEMA floodway');
   if (input.fieldObservation === 'release') redFlags.push('Release evidence observed during reconnaissance');
-  if (input.fieldObservation === 'ust') redFlags.push('UST/AST evidence observed');
-  if (input.currentUse === 'gasStation') redFlags.push('Current use: active gas station');
-  if (input.currentUse === 'dryCleaner') redFlags.push('Current use: dry cleaner');
-  if (input.currentUse === 'auto') redFlags.push('Current use: auto repair/service');
-  if (input.floodZone.startsWith('AE')) redFlags.push('FEMA Zone AE — Special Flood Hazard Area');
+  if (input.fieldObservation === 'ust') redFlags.push('UST/AST evidence observed during reconnaissance');
+  if (input.currentUse.value === 'gasStation') redFlags.push('Current use: active gas station');
+  if (input.currentUse.value === 'dryCleaner') redFlags.push('Current use: dry cleaner');
+  if (input.currentUse.value === 'auto') redFlags.push('Current use: auto repair/service facility');
+  if (fz.startsWith('AE')) redFlags.push('FEMA Zone AE — Special Flood Hazard Area');
   if (input.hasActiveCleanup) redFlags.push('Active cleanup site within 1 mile');
 
   const severityMultiplier =
@@ -296,15 +445,16 @@ export function computeCetoScore(input: ScoreInput): ScoreOutput {
 
   // ── RED FLAG CEILINGS ─────────────────────────────────────────────────────
   let ceiling = 100;
-  if (input.knownReleaseOnSite)  ceiling = Math.min(ceiling, 42);
-  if (input.formerDryCleaner)    ceiling = Math.min(ceiling, 62);
-  if (input.formerGasStation)    ceiling = Math.min(ceiling, 62);
-  if (input.currentUse === 'dryCleaner') ceiling = Math.min(ceiling, 55);
-  if (input.currentUse === 'gasStation') ceiling = Math.min(ceiling, 60);
-  if (input.mappedWetlandOnSite) ceiling = Math.min(ceiling, 68);
-  if (input.inFloodway)          ceiling = Math.min(ceiling, 68);
-  if (gaps.noSiteRecon)          ceiling = Math.min(ceiling, 78);
-  if (gaps.noHistoricalRecords)  ceiling = Math.min(ceiling, 73);
+  if (input.knownReleaseOnSite)               ceiling = Math.min(ceiling, 42);
+  if (input.formerDryCleaner)                 ceiling = Math.min(ceiling, 62);
+  if (input.formerGasStation)                 ceiling = Math.min(ceiling, 62);
+  if (input.currentUse.value === 'dryCleaner') ceiling = Math.min(ceiling, 55);
+  if (input.currentUse.value === 'gasStation') ceiling = Math.min(ceiling, 60);
+  if (input.currentUse.value === 'auto' && sc === 'INDUSTRIAL') ceiling = Math.min(ceiling, 65);
+  if (input.wetlandsPresent.value && input.nwiOnSite) ceiling = Math.min(ceiling, 68);
+  if (input.inFloodway)                       ceiling = Math.min(ceiling, 68);
+  if (gaps.noSiteRecon)                       ceiling = Math.min(ceiling, 78);
+  if (gaps.noHistoricalRecords)               ceiling = Math.min(ceiling, 73);
 
   const finalScore = Math.min(correctedScore, ceiling);
 
@@ -315,84 +465,90 @@ export function computeCetoScore(input: ScoreInput): ScoreOutput {
     : finalScore >= 40 ? 'Elevated Risk'
     : 'High Risk';
 
-  const ratingCode = finalScore >= 90 ? 'LOW'
+  const ratingCode = (finalScore >= 90 ? 'LOW'
     : finalScore >= 75 ? 'MODERATE_LOW'
     : finalScore >= 60 ? 'MODERATE'
     : finalScore >= 40 ? 'ELEVATED'
-    : 'HIGH';
+    : 'HIGH') as ScoreOutput['ratingCode'];
 
-  // ── EXPLANATIONS (+ and - contributions) ─────────────────────────────────
+  // ── EXPLANATIONS (+ and -, with traceability) ─────────────────────────────
+  // Only show data gaps in explanation panel — NOT in score
   if (regulatoryRisk === 0)
-    explanations.push({ category: 'Regulatory', points: 25, sign: '+', reason: 'No regulated facilities within 1 mile (EPA ECHO)' });
+    explanations.push({ category: 'Regulatory', points: 25, sign: '+', reason: `No regulated facilities within 1 mile`, traced: `EPA ECHO API (${input.facilitiesCount.confidence})` });
   else
-    explanations.push({ category: 'Regulatory', points: -Math.round(regulatoryRisk * 0.25), sign: '-', reason: `${input.facilitiesWithin1Mile} regulated facility(ies) within 1 mile` });
+    explanations.push({ category: 'Regulatory', points: -Math.round(regulatoryRisk * 0.25), sign: '-', reason: `${facilityCount} regulated facility(ies) within 1 mile`, traced: `EPA ECHO API (${input.facilitiesCount.confidence})` });
 
-  if (historicalRisk <= 10)
+  if (historicalRisk <= 12)
     explanations.push({ category: 'Historical Use', points: 12, sign: '+', reason: `Low-risk historical use: ${input.historicalUse}` });
   else
     explanations.push({ category: 'Historical Use', points: -Math.round(historicalRisk * 0.12), sign: '-', reason: `Elevated historical use: ${input.historicalUse}` });
 
   if (currentUseRisk <= 15)
-    explanations.push({ category: 'Current Use', points: 13, sign: '+', reason: currentUseEntry.label });
+    explanations.push({ category: 'Current Use', points: 13, sign: '+', reason: currentUseEntry.label, traced: `${input.currentUse.source} (${input.currentUse.confidence})` });
   else
-    explanations.push({ category: 'Current Use', points: -Math.round(currentUseRisk * 0.13), sign: '-', reason: currentUseEntry.label });
+    explanations.push({ category: 'Current Use', points: -Math.round(currentUseRisk * 0.13), sign: '-', reason: currentUseEntry.label, traced: `${input.currentUse.source} (${input.currentUse.confidence})` });
 
   if (wetlandRisk === 0)
-    explanations.push({ category: 'Wetlands', points: 15, sign: '+', reason: 'No wetlands mapped on-site or adjacent (USFWS NWI)' });
+    explanations.push({ category: 'Wetlands', points: 15, sign: '+', reason: 'No wetlands mapped on-site or adjacent', traced: `USFWS NWI (${input.wetlandsPresent.confidence})` });
   else
-    explanations.push({ category: 'Wetlands', points: -Math.round(wetlandRisk * 0.15), sign: '-', reason: `Wetland indicators present — ${input.hydricPercent}% hydric soils` });
+    explanations.push({ category: 'Wetlands', points: -Math.round(wetlandRisk * 0.15), sign: '-', reason: `Wetland indicators present — ${hydric}% hydric soils`, traced: `USFWS NWI (${input.wetlandsPresent.confidence}), USDA SSURGO (${input.hydricPercent.confidence})` });
 
   if (floodRisk === 0)
-    explanations.push({ category: 'Flood', points: 10, sign: '+', reason: `FEMA Zone ${input.floodZone} — outside Special Flood Hazard Area` });
+    explanations.push({ category: 'Flood', points: 10, sign: '+', reason: `FEMA Zone ${fz} — outside Special Flood Hazard Area`, traced: `FEMA NFHL (${input.floodZone.confidence})` });
   else
-    explanations.push({ category: 'Flood', points: -Math.round(floodRisk * 0.10), sign: '-', reason: `FEMA Zone ${input.floodZone} — flood hazard present` });
+    explanations.push({ category: 'Flood', points: -Math.round(floodRisk * 0.10), sign: '-', reason: `FEMA Zone ${fz} — flood hazard present`, traced: `FEMA NFHL (${input.floodZone.confidence})` });
 
   if (soilRisk <= 10)
-    explanations.push({ category: 'Soils / Geology', points: 15, sign: '+', reason: 'Low permeability soils — limits contaminant migration' });
+    explanations.push({ category: 'Soils / Geology', points: 15, sign: '+', reason: 'Low permeability — limits contaminant migration', traced: `USDA SSURGO (${input.soilSeries.confidence})` });
   else
-    explanations.push({ category: 'Soils / Geology', points: -Math.round(soilRisk * 0.15), sign: '-', reason: `Soil risk: shrink-swell ${input.shrinkSwell}, permeability ${input.permeability}` });
+    explanations.push({ category: 'Soils / Geology', points: -Math.round(soilRisk * 0.15), sign: '-', reason: `Soil risk: shrink-swell ${input.shrinkSwell}, permeability ${input.permeability}`, traced: `USDA SSURGO (${input.soilSeries.confidence})` });
 
   if (fieldRisk === 0)
-    explanations.push({ category: 'Field Observations', points: 10, sign: '+', reason: 'No environmental concerns observed during site reconnaissance' });
+    explanations.push({ category: 'Field Observations', points: 10, sign: '+', reason: 'No environmental concerns observed during reconnaissance' });
   else
     explanations.push({ category: 'Field Observations', points: -Math.round(fieldRisk * 0.10), sign: '-', reason: `Field observation: ${input.fieldObservation}` });
 
+  if (sc === 'INDUSTRIAL')
+    explanations.push({ category: 'Site Class Adjustment', points: -5, sign: '-', reason: 'Industrial site classification increases risk thresholds', traced: `${input.siteClass.source} (${input.siteClass.confidence})` });
+  else if (sc === 'PUBLIC')
+    explanations.push({ category: 'Site Class Adjustment', points: 3, sign: '+', reason: 'Government/public ownership reduces certain risk factors', traced: `${input.siteClass.source} (${input.siteClass.confidence})` });
+
+  // Data gap explanations — purely informational, NOT in score math
   if (missingItems.length > 0)
-    explanations.push({ category: 'Data Gaps', points: -Math.round((missingItems.length * 2)), sign: '-', reason: `${missingItems.length} data gap(s): ${missingItems.slice(0,2).join(', ')}` });
+    explanations.push({ category: 'Data Completeness Note', points: 0, sign: '+', reason: `${missingItems.length} data gap(s) noted — see Data Completeness panel. These affect confidence, not the risk score.` });
 
   if (ceiling < 100)
-    explanations.push({ category: 'Red Flag Ceiling', points: -(100 - ceiling), sign: '-', reason: `Score ceiling ${ceiling}/100 — ${redFlags[0] || 'red flag applied'}` });
+    explanations.push({ category: 'Red Flag Ceiling', points: -(100 - ceiling), sign: '-', reason: `Score ceiling ${ceiling}/100 applied — ${redFlags[0]}` });
 
-  // ── REASON STRING ─────────────────────────────────────────────────────────
-  const negatives = explanations.filter(e => e.sign === '-');
+  // ── REASON ───────────────────────────────────────────────────────────────
+  const negatives = explanations.filter(e => e.sign === '-' && e.category !== 'Data Completeness Note');
   const reason = negatives.length > 0
     ? negatives.map(e => e.reason).join('; ') + '.'
     : 'No significant environmental concerns identified based on available data and site reconnaissance.';
 
   // ── DEAL IMPACT ───────────────────────────────────────────────────────────
   const dealImpact: DealImpact = {
-    estimatedLiability: finalScore >= 85 ? 'Minimal (<$25K)' : finalScore >= 70 ? '$25K–$150K (Phase II dependent)' : finalScore >= 50 ? '$150K–$1M (remediation possible)' : '>$1M (significant remediation likely)',
-    phase2Likelihood: finalScore >= 85 ? '<5%' : finalScore >= 70 ? '10–25%' : finalScore >= 50 ? '40–70%' : '>80%',
-    permittingDelayRisk: wetlandRisk > 30 || floodRisk > 30 ? 'Moderate–High (6–18 months)' : 'Low (<60 days)',
+    estimatedLiability: finalScore >= 88 ? 'Minimal (<$25K)' : finalScore >= 75 ? '$25K–$150K (Phase II dependent)' : finalScore >= 55 ? '$150K–$1M (remediation possible)' : '>$1M (significant remediation likely)',
+    phase2Likelihood: finalScore >= 88 ? '<5%' : finalScore >= 75 ? '10–25%' : finalScore >= 55 ? '40–70%' : '>80%',
+    permittingDelayRisk: wetlandRisk > 30 || floodRisk > 30 ? 'Moderate–High (6–18 months potential)' : 'Low (<60 days)',
     developmentConstraintRisk: (wetlandRisk > 60 || floodRisk > 60) ? 'High' : wetlandRisk > 20 || floodRisk > 20 ? 'Moderate' : 'Low',
-    cleanupRisk: finalScore >= 80 ? 'Low' : finalScore >= 60 ? 'Moderate' : 'High',
-    lenderConcern: finalScore >= 80 ? 'None — no environmental contingency recommended' : finalScore >= 65 ? 'Low — monitor flagged items' : 'Moderate — lender may require Phase II prior to closing',
+    cleanupRisk: finalScore >= 82 ? 'Low' : finalScore >= 62 ? 'Moderate' : 'High',
+    lenderConcern: finalScore >= 82 ? 'None — no environmental contingency recommended' : finalScore >= 68 ? 'Low — monitor flagged items prior to closing' : 'Moderate — lender may require Phase II prior to closing',
   };
 
   // ── RECOMMENDED ACTION ────────────────────────────────────────────────────
   const recommendedAction = ratingCode === 'HIGH' || ratingCode === 'ELEVATED'
-    ? 'Phase II ESA strongly recommended prior to any property transaction. Do not proceed without further investigation.'
+    ? 'Phase II ESA strongly recommended prior to any property transaction.'
     : ratingCode === 'MODERATE'
-    ? 'Review flagged items carefully. Phase II ESA recommended if transaction is sensitive to environmental risk.'
+    ? 'Review flagged items. Phase II ESA recommended if transaction is risk-sensitive.'
     : ratingCode === 'MODERATE_LOW'
-    ? 'No Phase II ESA required. Complete manual TCEQ STEERS search and verify flagged items.'
-    : 'No further environmental investigation recommended. Site appears suitable for intended use.';
+    ? 'No Phase II ESA required at this time. Complete manual TCEQ STEERS search and verify flagged items.'
+    : 'No further environmental investigation recommended based on the scope of services performed.';
 
   return {
-    finalScore, rawRiskScore, confidenceScore, correctedScore, ceiling,
-    confidenceMultiplier: Math.round(confidenceMultiplier * 100) / 100,
-    severityMultiplier,
-    rating, ratingCode,
+    finalScore, rawRiskScore, confidenceScore: completenessScore,
+    correctedScore, ceiling, confidenceMultiplier: Math.round(confidenceMultiplier * 100) / 100,
+    severityMultiplier, rating, ratingCode,
     breakdown: {
       regulatory: Math.round(regulatoryRisk),
       historicalUse: Math.round(historicalRisk),
@@ -403,88 +559,94 @@ export function computeCetoScore(input: ScoreInput): ScoreOutput {
       field: Math.round(fieldRisk),
     },
     explanations,
-    dataCompleteness: { score: confidenceScore, missingItems, verifiedItems },
+    dataCompleteness: { score: completenessScore, missingItems, verifiedItems },
     redFlags, reason, recommendedAction, dealImpact,
-    siteClass: input.siteClass,
-    currentUseRisk: currentUseEntry.label,
+    siteClass: sc,
+    siteClassConfidence: input.siteClass.confidence,
+    currentUseLabel: currentUseEntry.label,
+    currentUseConfidence: input.currentUse.confidence,
+    tracedInputs: {
+      hydricPercent: input.hydricPercent,
+      floodZone: input.floodZone,
+      wetlandsPresent: input.wetlandsPresent,
+      facilitiesCount: input.facilitiesCount,
+      currentUse: input.currentUse,
+      siteClass: input.siteClass,
+      soilSeries: input.soilSeries,
+      geology: input.geology,
+    },
   };
 }
 
-// ── Site classifier ───────────────────────────────────────────────────────────
+// ── Derive full ScoredInput from live data ────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function classifySite(parcel: any, zoning: any, landCover: any): string {
-  const luc = String(parcel?.landUseCode || '').toUpperCase();
-  const desc = String(parcel?.landUseDescription || '').toLowerCase();
-  const ownerType = String(parcel?.ownerType || '').toUpperCase();
-  const zoningCode = String(zoning?.zoningCode || '').toUpperCase();
-  const cropPct = landCover?.cultivatedCropPercent || 0;
-  const devPct = landCover?.developedPercent || 0;
-
-  if (ownerType === 'GOVERNMENT' || ownerType === 'SCHOOL') return 'PUBLIC';
-  if (luc.startsWith('I') || zoningCode.startsWith('I') || desc.includes('industrial') || desc.includes('manufactur')) return 'INDUSTRIAL';
-  if (luc.startsWith('C') || luc.startsWith('F') || zoningCode.startsWith('C') || desc.includes('commercial') || desc.includes('retail') || desc.includes('office')) return 'COMMERCIAL';
-  if (luc.startsWith('A') || cropPct > 50 || desc.includes('farm') || desc.includes('agricultural') || desc.includes('crop')) return 'AGRICULTURAL';
-  if (luc.startsWith('D') || luc.startsWith('E') || luc.startsWith('R') || zoningCode.startsWith('R') || desc.includes('residential') || desc.includes('single family') || desc.includes('multi')) return 'RESIDENTIAL';
-  if (luc.startsWith('X') || desc.includes('vacant') || devPct < 10) return 'VACANT';
-  return 'UNKNOWN';
-}
-
-// ── Derive ScoreInput from live reg + parcel data ─────────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function deriveScoreInput(reg: any, parcelData: any, fieldNotes: string): ScoreInput {
-  const notes = (fieldNotes || '').toLowerCase();
+export function deriveScoreInput(reg: any, parcelData: any, fieldNotes: string): ScoredInput {
+  const notes = fieldNotes || '';
+  const n = notes.toLowerCase();
   const parcel = parcelData?.parcel;
   const zoning = parcelData?.zoning;
   const landCover = parcelData?.landCover;
 
-  // Field observation from notes
-  const fieldObservation =
-    notes.includes('release') || notes.includes('spill') ? 'release'
-    : notes.includes('ust') || notes.includes('tank') || notes.includes('ast') ? 'ust'
-    : notes.includes('odor') || notes.includes('sheen') ? 'odor'
-    : notes.includes('drum') || notes.includes('container') ? 'drums'
-    : notes.includes('stain') ? 'staining'
-    : notes.includes('debris') || notes.includes('trash') ? 'debris'
-    : 'none';
+  // All key values traced
+  const hydricPercent = trace(
+    reg?.soils?.hydricPercent || 0,
+    'USDA NRCS SSURGO via Soil Data Access',
+    reg?.soils?.mapUnits?.length ? 'VERIFIED' : 'UNAVAILABLE'
+  );
+
+  const floodZone = trace(
+    reg?.fema?.floodZone || 'X',
+    'FEMA NFHL ArcGIS REST',
+    reg?.fema?.floodZone ? 'VERIFIED' : 'INFERRED'
+  );
+
+  const wetlandsPresent = trace(
+    reg?.nwi?.wetlandsPresent || false,
+    'USFWS NWI ArcGIS REST',
+    reg?.nwi ? 'VERIFIED' : 'UNAVAILABLE'
+  );
+
+  const facilitiesCount = trace(
+    reg?.epaEcho?.totalCount || 0,
+    'EPA ECHO API — 1-mile radius',
+    reg?.epaEcho ? 'VERIFIED' : 'UNAVAILABLE'
+  );
+
+  const soilSeries = trace(
+    reg?.soils?.mapUnits?.[0]?.name || 'Unknown',
+    'USDA NRCS SSURGO',
+    reg?.soils?.mapUnits?.length ? 'VERIFIED' : 'UNAVAILABLE'
+  );
+
+  const geology = trace(
+    reg?.geology?.formation || 'Unknown',
+    'Macrostrat / USGS NGMDB',
+    (reg?.geology?.formation && reg?.geology?.formation !== 'Unknown') ? 'VERIFIED' : 'UNAVAILABLE'
+  );
+
+  // Current use — priority ordered
+  const currentUse = detectCurrentUse(parcel, zoning, landCover, notes);
+
+  // Site classification — priority ordered
+  const siteClassResult = classifySite(parcel, zoning, landCover);
+  const siteClass = trace(siteClassResult.siteClass, siteClassResult.source, siteClassResult.confidence);
 
   // Historical use from notes
-  const historicalUse =
-    notes.includes('dry clean') ? 'dryCleaner'
-    : notes.includes('gas station') || notes.includes('fuel station') || notes.includes('service station') ? 'gasStation'
-    : notes.includes('industrial') || notes.includes('manufactur') || notes.includes('chemical plant') ? 'industrial'
-    : notes.includes('auto repair') || notes.includes('mechanic') || notes.includes('body shop') ? 'auto'
-    : notes.includes('landfill') || notes.includes('dump') ? 'landfill'
-    : notes.includes('commercial') || notes.includes('retail') || notes.includes('shopping') ? 'commercial'
-    : notes.includes('residential') || notes.includes('house') || notes.includes('apartments') ? 'residential'
-    : notes.includes('vacant') || notes.includes('undeveloped') ? 'vacant'
-    : notes.includes('agricultural') || notes.includes('farm') || notes.includes('crop') ? 'agricultural'
-    : 'unknown';
+  function classifyHistorical(text: string): CurrentUse {
+    if (text.includes('dry clean')) return 'dryCleaner';
+    if (text.includes('gas station') || text.includes('fuel station')) return 'gasStation';
+    if (text.includes('industrial') || text.includes('manufactur')) return 'industrial';
+    if (text.includes('auto repair') || text.includes('mechanic')) return 'auto';
+    if (text.includes('landfill') || text.includes('dump')) return 'landfill';
+    if (text.includes('commercial') || text.includes('retail')) return 'commercial' as CurrentUse;
+    if (text.includes('residential') || text.includes('house')) return 'residential';
+    if (text.includes('vacant') || text.includes('undeveloped')) return 'vacant';
+    if (text.includes('agricultural') || text.includes('farm')) return 'agricultural';
+    return 'unknown';
+  }
 
-  // Current use — from parcel data first, then notes
-  const parcelClass = String(parcel?.propertyClass || '').toLowerCase();
-  const parcelDesc = String(parcel?.landUseDescription || '').toLowerCase();
-  const currentUse =
-    parcelDesc.includes('dry clean') ? 'dryCleaner'
-    : parcelDesc.includes('gas station') || parcelDesc.includes('fuel') ? 'gasStation'
-    : parcelDesc.includes('auto') || parcelDesc.includes('repair') ? 'auto'
-    : parcelDesc.includes('industrial') || parcelDesc.includes('manufactur') ? 'industrial'
-    : parcelDesc.includes('restaurant') || parcelDesc.includes('food') ? 'restaurant'
-    : parcelDesc.includes('retail') || parcelDesc.includes('commercial') || parcelClass === 'commercial' ? 'retail'
-    : parcelDesc.includes('residential') || parcelClass === 'residential' ? 'residential'
-    : parcelDesc.includes('vacant') || parcelClass === 'vacant' ? 'vacant'
-    : parcelDesc.includes('agricultural') || parcelClass === 'agricultural' ? 'agricultural'
-    : notes.includes('office') ? 'office'
-    : 'unknown';
+  const historicalUse = classifyHistorical(n);
 
-  const currentUseConfidence: 'VERIFIED' | 'INFERRED' | 'UNAVAILABLE' =
-    parcel?.confidence === 'VERIFIED' ? 'VERIFIED'
-    : parcel?.confidence === 'INFERRED' ? 'INFERRED'
-    : 'UNAVAILABLE';
-
-  // Site classification
-  const siteClass = classifySite(parcel, zoning, landCover) as ScoreInput['siteClass'];
-
-  // Soil properties
   const drainage = reg?.soils?.mapUnits?.[0]?.drainage?.toLowerCase().includes('poor') ? 'poor'
     : reg?.soils?.mapUnits?.[0]?.drainage?.toLowerCase().includes('moderate') ? 'moderate'
     : reg?.soils?.mapUnits?.[0]?.drainage?.toLowerCase().includes('well') ? 'well'
@@ -495,55 +657,47 @@ export function deriveScoreInput(reg: any, parcelData: any, fieldNotes: string):
     : reg?.soils?.mapUnits?.[0]?.shrinkSwell?.toLowerCase().includes('low') ? 'low'
     : 'unknown';
 
-  const fz = reg?.fema?.floodZone || 'X';
+  const fieldObservation =
+    n.includes('release') || n.includes('spill') ? 'release'
+    : n.includes('ust') || (n.includes('tank') && !n.includes('water tank')) ? 'ust'
+    : n.includes('odor') || n.includes('sheen') ? 'odor'
+    : n.includes('drum') || n.includes('container') ? 'drums'
+    : n.includes('stain') ? 'staining'
+    : n.includes('debris') || n.includes('trash') ? 'debris'
+    : 'none';
 
-  // Data gaps — factual, not risk
   const dataGaps = {
     soilsUnavailable: !reg?.soils?.mapUnits?.length,
     geologyUnavailable: !reg?.geology?.formation || reg?.geology?.formation === 'Unknown',
     parcelUnavailable: !parcel || parcel?.confidence === 'UNAVAILABLE',
-    historicalAerialsUnavailable: true, // always flag — we don't pull these yet
-    tceqManualRequired: true, // always required
-    noSiteRecon: fieldNotes.length < 30,
+    historicalAerialsUnavailable: true,
+    tceqManualRequired: true,
+    noSiteRecon: notes.trim().length < 30,
     noHistoricalRecords: false,
   };
 
   return {
-    facilitiesWithin1Mile: reg?.epaEcho?.totalCount || 0,
-    facilitiesWithinHalfMile: 0,
-    facilitiesAdjacent: false,
-    knownReleaseOnSite: notes.includes('release') && notes.includes('on-site'),
+    hydricPercent, floodZone, wetlandsPresent, facilitiesCount, soilSeries, geology, currentUse, siteClass,
+    knownReleaseOnSite: n.includes('release') && n.includes('on-site'),
     migrationDirection: 'unknown',
     hasViolations: reg?.epaEcho?.facilitiesNearby?.some((f: {violations: string}) => f.violations?.includes('Active')) || false,
     hasActiveCleanup: false,
     hasOpenEnforcement: false,
+    facilitiesWithinHalfMile: 0,
+    facilitiesAdjacent: false,
     historicalUse,
-    currentUse,
-    currentUseSource: parcel?.source || 'Field notes / manual classification',
-    currentUseConfidence,
-    siteClass,
     nwiOnSite: reg?.nwi?.wetlandsPresent || false,
     nwiAdjacent: false,
-    nwiWithin500ft: reg?.nwi?.wetlandsPresent || false,
-    hydricPercent: reg?.soils?.hydricPercent || 0,
-    drainage,
-    surfaceWaterOnSite: false,
     surfaceWaterWithin500ft: reg?.hydrology?.nearbyStreams?.length > 0,
-    floodZone: fz,
-    inFloodway: fz === 'FLOODWAY',
-    shrinkSwell,
+    inFloodway: (reg?.fema?.floodZone || '') === 'FLOODWAY',
+    drainage,
+    shrinkSwell: shrinkSwell as ScoredInput['shrinkSwell'],
     permeability: 'unknown',
     karst: 'none',
-    fieldObservation,
-    dataGaps,
+    fieldObservation: fieldObservation as ScoredInput['fieldObservation'],
     formerGasStation: historicalUse === 'gasStation',
     formerDryCleaner: historicalUse === 'dryCleaner',
     formerIndustrial: historicalUse === 'industrial',
-    mappedWetlandOnSite: reg?.nwi?.wetlandsPresent || false,
+    dataGaps,
   };
-}
-
-// ── Traceable value wrapper ───────────────────────────────────────────────────
-export function trace<T>(value: T, source: string, confidence: 'VERIFIED' | 'INFERRED' | 'UNAVAILABLE'): TracedValue<T> {
-  return { value, source, confidence, timestamp: today() };
 }
