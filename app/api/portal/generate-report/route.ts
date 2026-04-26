@@ -3,18 +3,326 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+const PHASE1_SYSTEM = `You are a credentialed Environmental Professional (EP) at Ceto Interactive Environmental Consulting, McKinney, Texas. You generate the CETO Environmental Intelligence Report™ — a premium automated Phase I + Environmental Site Screening report.
+
+CRITICAL FORMATTING RULES:
+- Always output the report in clean, structured plain text with clear section headers
+- Use the exact section structure provided
+- Write in professional, defensible EP language
+- Be specific — use actual data provided, never generic placeholders
+- The Executive Decision Summary is the most important section — make it instant to read
+- Include the Risk Score breakdown table using actual calculated scores
+- Historical use timeline must be a formatted table
+- All regulatory findings must cite the source database
+- Environmental Professional Statement must reference ASTM E1527-21 and EPA AAI
+- Minimum 900 words, maximum 1800 words for the main report body`;
+
+const PHASE1_TEMPLATE = (data: Record<string, string>) => `Generate a complete CETO Environmental Intelligence Report™ using EXACTLY this structure and section order. Fill every section with real data from the inputs provided. Do not skip any section.
+
+PROJECT DATA:
+Project Name: ${data.projectName}
+Client: ${data.clientName || 'Confidential'}
+Address/Location: ${data.location}
+Survey Date: ${data.surveyDate}
+Report ID: CET-ENV-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}
+Field Observations: ${data.notes}
+${data.regContext}
+
+OUTPUT THE REPORT IN THIS EXACT FORMAT:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CETO ENVIRONMENTAL INTELLIGENCE REPORT™
+Automated Phase I ESA + Environmental Site Screening
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+COVER INFORMATION
+Project Name: ${data.projectName}
+Address: ${data.location}
+Client: ${data.clientName || 'Confidential'}
+Prepared By: Ceto Interactive Environmental Consulting · McKinney, Texas
+Report Type: Phase I ESA + Environmental Site Screening
+Survey Date: ${data.surveyDate}
+Report Date: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+Report ID: CET-ENV-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}
+Standard: ASTM E1527-21 · EPA All Appropriate Inquiry (AAI)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 1 — EXECUTIVE DECISION SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[Write the CETO Risk Score here as: "CETO Score: XX / 100 — [RATING]"]
+
+DEAL RECOMMENDATION: [PROCEED / CONDITIONAL / DO NOT PROCEED]
+
+KEY FINDINGS (write as 4-6 bullet points, each one sentence, plain English for investors/lenders):
+- [finding 1]
+- [finding 2]
+- [finding 3]
+- [finding 4]
+
+WATCH ITEMS (write any moderate concerns or data gaps, or "None identified"):
+- [watch item or "None identified"]
+
+ESTIMATED RISK IMPACT:
+Cleanup Risk: [Low / Moderate / High]
+Permitting Delay Risk: [Low / Moderate / High]
+Development Constraint Risk: [Low / Moderate / High]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 2 — SITE OVERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Property Name: [name]
+Location: [full address]
+Coordinates: [lat, lng]
+County: [county]
+Property Type: [type from field notes]
+Current Use: [current use]
+Surrounding Land Use — North: [use] South: [use] East: [use] West: [use]
+Site Description: [2-3 sentences describing the site based on field notes]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 3 — ENVIRONMENTAL SCREENING DASHBOARD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Category              | Result                        | Risk
+Regulatory (EPA ECHO) | [result]                      | [LOW/MODERATE/HIGH]
+Flood Zone (FEMA)     | [zone and description]        | [LOW/MODERATE/HIGH]
+Wetlands (NWI)        | [result]                      | [LOW/MODERATE/HIGH]
+Soils (Hydric Rating) | [result]                      | [LOW/MODERATE/HIGH]
+Historical Use        | [result]                      | [LOW/MODERATE/HIGH]
+Geology               | [formation]                   | [LOW/MODERATE/HIGH]
+Field Observations    | [result]                      | [LOW/MODERATE/HIGH]
+TCEQ STEERS           | Manual review required        | PENDING
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 4 — PHYSICAL SETTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SOILS (USDA NRCS SSURGO):
+Soil Series: [name from data]
+Drainage Class: [drainage]
+Hydric Rating: [hydric yes/no and percent]
+Shrink-Swell Potential: [rating]
+Interpretation: [2-3 sentences interpreting soil data for development and wetland potential]
+
+GEOLOGY (Macrostrat / USGS NGMDB):
+Formation: [formation name]
+Lithology: [rock type]
+Age: [geologic age]
+Interpretation: [1-2 sentences on permeability and contaminant migration potential]
+
+HYDROLOGY (USGS NHD):
+Elevation: [elevation ft MSL]
+Nearest Surface Water: [stream name or distance]
+Drainage Direction: [direction based on topography]
+Interpretation: [1-2 sentences on drainage and surface water context]
+
+FLOODPLAIN (FEMA NFHL):
+FEMA Zone: [zone]
+Classification: [description]
+FIRM Panel: [panel number]
+Interpretation: [1 sentence on flood risk implication]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 5 — REGULATORY DATABASE REVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EPA ECHO — 1-Mile Radius:
+Result: [number] regulated facilities identified
+[If facilities exist, list each: Name · Type · Violation status]
+[If none: "No regulated facilities identified within a 1-mile search radius."]
+Source: EPA ECHO API · Real-time compliance data · echo.epa.gov
+
+Federal Database Review (per ASTM E1527-21 Table 1):
+NPL (Superfund): [result]
+CERCLIS/SEMS: [result based on EPA data]
+RCRA Generators: [result]
+LUST/UST Registry: [result]
+Brownfields: [result]
+Source: EPA Envirofacts · ECHO API · Federal databases
+
+State Database (TCEQ):
+TCEQ STEERS: Manual search required for [county]
+Action Required: Search at www2.tceq.texas.gov/oce/eer/index.cfm
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 6 — HISTORICAL USE ANALYSIS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[Create a reasonable historical use timeline based on field notes, location, and property type]
+
+Year Range    | Observed Use              | Environmental Concern
+Pre-1950      | [use based on context]    | [Low/Moderate/High]
+1950-1980     | [use]                     | [risk]
+1980-2000     | [use]                     | [risk]
+2000-Present  | [use from field notes]    | [risk]
+
+Sources Reviewed: Aerial photograph analysis, city directory records, topographic maps, field reconnaissance
+Conclusion: [2-3 sentences on historical use findings and REC implications]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 7 — SITE RECONNAISSANCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Reconnaissance Date: ${data.surveyDate}
+Conducted By: Environmental Professional · Ceto Interactive
+
+Observations:
+[Convert field notes into professional reconnaissance observations, organized as:]
+
+Exterior Conditions:
+- [observation from field notes]
+- [observation]
+
+Structures and Equipment:
+- [observation or "No structures present"]
+
+Environmental Indicators:
+- Staining: [observed/not observed]
+- Odors: [observed/not observed]
+- Drums/Containers: [observed/not observed]
+- UST/AST Evidence: [observed/not observed]
+- Distressed Vegetation: [observed/not observed]
+
+Conclusion: [1-2 sentences summarizing reconnaissance findings]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 8 — FINDINGS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Recognized Environmental Conditions (RECs):
+[List any RECs identified, or "No RECs identified based on available data and site reconnaissance."]
+
+Controlled RECs (CRECs):
+[List or "No CRECs identified."]
+
+Historical RECs (HRECs):
+[List or "No HRECs identified."]
+
+De Minimis Conditions:
+[List minor conditions or "None identified."]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 9 — CETO RISK MODEL BREAKDOWN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Category              | Risk Score (0-100) | Weight | Weighted Impact
+Regulatory Risk       | [score]            | 25%    | [score x 0.25]
+Historical Use Risk   | [score]            | 15%    | [score x 0.15]
+Wetland / Water Risk  | [score]            | 15%    | [score x 0.15]
+Flood Risk            | [score]            | 10%    | [score x 0.10]
+Soil / Geology Risk   | [score]            | 15%    | [score x 0.15]
+Field Observation Risk| [score]            | 10%    | [score x 0.10]
+Data Gap Risk         | [score]            | 10%    | [score x 0.10]
+
+Raw Risk Score: [total weighted risk]
+Confidence Multiplier: [value]x — [reason]
+Severity Multiplier: [value]x — [reason or "No major red flags"]
+CETO Score: [final] / 100 — [rating]
+[If ceiling applied: "Score ceiling of [X] applied due to: [reason]"]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 10 — DATA GAPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[List actual data gaps:]
+- [gap 1 — e.g., "Historical aerial imagery prior to 1950 unavailable for this location"]
+- [gap 2 — e.g., "TCEQ STEERS database requires manual search — not available via automated pull"]
+- [any others based on what data returned errors or timeouts]
+
+Impact Assessment: [1-2 sentences on whether gaps materially affect conclusions]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 11 — CONCLUSIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[3-5 sentences providing a clear, defensible conclusion covering: RECs status, overall risk, site suitability, and any conditions]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 12 — RECOMMENDATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[List specific, actionable recommendations:]
+- [recommendation 1]
+- [recommendation 2]
+- [TCEQ manual search recommendation always included]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 13 — ENVIRONMENTAL PROFESSIONAL STATEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This Phase I Environmental Site Assessment was conducted in general accordance with ASTM International Standard E1527-21 and the Environmental Protection Agency All Appropriate Inquiry (AAI) Rule (40 CFR Part 312).
+
+The Environmental Professional conducting this assessment has the education, training, and experience necessary to conduct this assessment in accordance with the standard of care applicable to this type of work.
+
+Prepared by: Environmental Professional
+Organization: Ceto Interactive Environmental Consulting
+Address: McKinney, Texas
+Website: cetointeractive.com
+Date: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+
+DISCLAIMER: This report was prepared using automated desktop data retrieval from publicly available federal databases. Findings are based on available data at the time of report generation. This report does not substitute for a full Phase I ESA conducted with complete historical records review, interviews, and site reconnaissance. TCEQ database requires manual verification. All regulatory data reflects conditions at time of query.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+APPENDICES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Appendix A — Site Location Map (see portal map view)
+Appendix B — FEMA Flood Map (Panel ${data.firmPanel || 'see msc.fema.gov'})
+Appendix C — USFWS NWI Wetlands Map (see fws.gov/wetlands/mapper)
+Appendix D — USDA Web Soil Survey (see websoilsurvey.nrcs.usda.gov)
+Appendix E — EPA ECHO Regulatory Database Report (see echo.epa.gov)
+Appendix F — Field Photographs (upload via Ceto Portal)`;
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  
-  // Handle both call formats
-  const systemPrompt = body.systemPrompt || `You are a credentialed Environmental Professional (EP) at Ceto Interactive. Generate professional, ASTM E1527-21 compliant environmental reports.`;
-  
-  const userPrompt = body.userPrompt || `Generate a complete ${body.reportType || 'Phase I ESA'} report for:
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json({ error: 'API key not configured' }, { status: 500 });
+  }
+
+  // Build reg context string from structured data
+  const reg = body.regData;
+  const regContext = reg ? `
+REGULATORY DATA (AUTO-RETRIEVED):
+Address: ${reg.address} · County: ${reg.county} · State: ${reg.state || 'TX'}
+Coordinates: ${reg.coordinates?.lat?.toFixed(5)}°N, ${Math.abs(reg.coordinates?.lng || 0).toFixed(5)}°W
+Elevation: ${reg.elevation?.elevationFt ? reg.elevation.elevationFt + ' ft MSL' : 'Unknown'}
+FEMA Zone: ${reg.fema?.floodZone} — ${reg.fema?.floodZoneDesc} (Panel: ${reg.fema?.panelNumber})
+EPA ECHO: ${reg.epaEcho?.totalCount > 0 ? reg.epaEcho.totalCount + ' facilities: ' + reg.epaEcho.facilitiesNearby?.map((f: {name: string; type: string; violations: string}) => f.name + ' [' + f.type + '] — ' + f.violations).join('; ') : 'No regulated facilities within 1 mile'}
+USFWS NWI: ${reg.nwi?.wetlandsPresent ? reg.nwi.acresEstimate + ' acres mapped — ' + reg.nwi.wetlandTypes?.join(', ') : 'No wetlands mapped within AOI'}
+USDA SSURGO: ${reg.soils?.mapUnits?.map((u: {name: string; drainage: string; hydric: boolean}) => u.name + ' / ' + u.drainage + (u.hydric ? ' / Hydric' : ' / Non-hydric')).join('; ') || 'No soil data'} (${reg.soils?.hydricPercent || 0}% hydric)
+Soils Interpretation: ${reg.soils?.interpretation || 'Not available'}
+Geology: ${reg.geology?.formation} — ${reg.geology?.lithology} (${reg.geology?.age})
+Hydrology: ${reg.hydrology?.nearbyStreams?.length > 0 ? reg.hydrology.nearbyStreams.map((s: {name: string}) => s.name).join(', ') : 'No named streams within 2km'}
+TCEQ: Manual STEERS search required for ${reg.county}
+CETO Risk Score: ${body.cetoScore || 'Calculated from above data'}
+` : '';
+
+  // Determine report type and use appropriate template
+  const reportType = body.reportType || 'Phase I ESA';
+  const isPhase1 = reportType.toLowerCase().includes('phase') || reportType.toLowerCase().includes('esa');
+
+  const systemPrompt = body.systemPrompt || PHASE1_SYSTEM;
+
+  const userPrompt = isPhase1
+    ? PHASE1_TEMPLATE({
+        projectName: body.projectName || 'Unknown Project',
+        clientName: body.clientName || '',
+        location: body.location || 'Texas',
+        surveyDate: body.surveyDate || new Date().toLocaleDateString(),
+        notes: body.notes || body.userPrompt || '',
+        regContext,
+        firmPanel: reg?.fema?.panelNumber || '',
+      })
+    : (body.userPrompt || `Generate a complete professional ${reportType} report for:
 Project: ${body.projectName}
 Client: ${body.clientName || 'Confidential'}
 Location: ${body.location}
 Survey Date: ${body.surveyDate}
-Field Observations: ${body.notes}`;
+Field Observations: ${body.notes}
+${regContext}`);
 
   try {
     const message = await client.messages.create({
@@ -23,6 +331,7 @@ Field Observations: ${body.notes}`;
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     });
+
     const report = message.content.map(b => b.type === 'text' ? b.text : '').join('');
     return NextResponse.json({ report });
   } catch (e: unknown) {
