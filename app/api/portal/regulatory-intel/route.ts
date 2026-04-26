@@ -282,3 +282,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Lookup failed' }, { status: 400 });
   }
 }
+// Map URL injection is handled client-side using NEXT_PUBLIC_MAPBOX_TOKEN
+// See lib/mapUrls.ts — called from the reports page after Pull completes
