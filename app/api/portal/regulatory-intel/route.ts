@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 
 interface Coordinates { lat: number; lng: number; }
 
+// ── Haversine distance (miles) ────────────────────────────────────────────────
+function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 3959;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
 async function geocode(location: string): Promise<{ coords: Coordinates; address: string; county: string; state: string }> {
   const latLngMatch = location.match(/^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$/);
   if (latLngMatch) {
@@ -66,9 +75,9 @@ async function fetchFEMA(coords: Coordinates) {
         'AO': 'SFHA — Shallow flooding; alluvial fan or stream',
         'VE': 'Coastal SFHA — 1% annual chance with wave action',
         'X': 'Zone X — Minimal flood hazard; outside SFHA',
-        'D': 'Zone D — Unstudied area; hazard undetermined',
+        'D': 'Zone D — Unstudied; hazard undetermined',
       };
-      const risk = zone.startsWith('A') || zone.startsWith('V') ? 'HIGH' : zone === 'X' ? 'LOW' : 'MODERATE';
+      const risk = zone.startsWith('A') || zone.startsWith('V') ? 'HIGH' : 'LOW';
       return { floodZone: zone, floodZoneDesc: zoneDesc[zone] || `Zone ${zone}`, panelNumber: attrs.DFIRM_ID || 'See FIRM', source: 'FEMA NFHL ArcGIS REST', risk };
     }
     return { floodZone: 'X', floodZoneDesc: 'Zone X — Minimal flood hazard; outside mapped SFHA', panelNumber: 'Verify at msc.fema.gov', source: 'FEMA NFHL', risk: 'LOW' };
@@ -77,23 +86,67 @@ async function fetchFEMA(coords: Coordinates) {
   }
 }
 
+// ── EPA ECHO — now with real lat/lng and haversine distance ───────────────────
 async function fetchEPAECHO(coords: Coordinates) {
   try {
     const { lat, lng } = coords;
-    const url = `https://echo.epa.gov/facilities/map-data/facilities?output=JSON&p_c1lat=${lat}&p_c1long=${lng}&p_c2lat=${lat}&p_c2long=${lng}&p_radius=1&p_act=Y&responseset=10`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    // Use the ECHO REST API that returns facility coordinates
+    const url = `https://echo.epa.gov/facilities/map-data/facilities?output=JSON&p_c1lat=${lat}&p_c1long=${lng}&p_c2lat=${lat}&p_c2long=${lng}&p_radius=1&p_act=Y&responseset=10&qcolumns=1,3,5,6,7,8,16,17,23,24`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
     const data = await res.json();
     const results = data?.Results?.Facilities || [];
-    const facilities = results.slice(0,5).map((f: Record<string,string>) => ({
-      name: f.FacName || 'Unknown',
-      type: f.SICCode ? `SIC ${f.SICCode}` : 'Regulated Facility',
-      violations: f.CurrentVioFlag === 'Y' ? 'Active violation' : 'No current violation',
-      distance: f.FacDerivedTRIReporter === 'Y' ? 'TRI Reporter' : 'Within 1 mile',
-    }));
+
+    const facilities = results.slice(0, 8).map((f: Record<string, string>) => {
+      // Get real facility lat/lng for haversine
+      const facLat = parseFloat(f.FacLat || f.Latitude || '0');
+      const facLng = parseFloat(f.FacLong || f.Longitude || '0');
+
+      // Compute real distance
+      const distanceMi = (facLat && facLng)
+        ? Math.round(haversine(lat, lng, facLat, facLng) * 100) / 100
+        : null;
+
+      // Determine program type for risk weighting
+      const program = f.FacDerivedTRIReporter === 'Y' ? 'TRI'
+        : f.FacDerivedRCRAFlagger === 'Y' ? 'RCRA'
+        : f.FacDerivedCWAFlagger === 'Y' ? 'NPDES'
+        : f.FacDerivedCAAAIRFlagger === 'Y' ? 'Air'
+        : f.SICCode ? 'Permit'
+        : 'default';
+
+      return {
+        name: f.FacName || 'Unknown Facility',
+        type: f.SICCode ? `SIC ${f.SICCode}` : program,
+        violations: f.CurrentVioFlag === 'Y' ? 'Active violation' : 'No current violation',
+        distanceMi,
+        distanceDisplay: distanceMi !== null ? `${distanceMi.toFixed(2)} mi` : 'Distance unknown',
+        lat: facLat || null,
+        lng: facLng || null,
+        program,
+      };
+    });
+
+    // Sort by real distance ascending
+    facilities.sort((a: {distanceMi: number | null}, b: {distanceMi: number | null}) => {
+      if (a.distanceMi === null) return 1;
+      if (b.distanceMi === null) return -1;
+      return a.distanceMi - b.distanceMi;
+    });
+
     const risk = results.length === 0 ? 'LOW' : results.length <= 2 ? 'MODERATE' : 'HIGH';
-    return { totalCount: results.length, facilitiesNearby: facilities, source: 'EPA ECHO API — 1-mile radius', risk };
+    return {
+      totalCount: results.length,
+      facilitiesNearby: facilities,
+      source: 'EPA ECHO API — 1-mile radius with real distances',
+      risk,
+    };
   } catch {
-    return { totalCount: 0, facilitiesNearby: [], source: 'EPA ECHO (timeout — search at echo.epa.gov)', risk: 'LOW' };
+    return {
+      totalCount: 0,
+      facilitiesNearby: [],
+      source: 'EPA ECHO (timeout — search at echo.epa.gov)',
+      risk: 'LOW',
+    };
   }
 }
 
@@ -146,15 +199,12 @@ async function fetchSSURGO(coords: Coordinates) {
       }));
       const hydricPct = Math.round((mapUnits.filter(u => u.hydric).length / mapUnits.length) * 100);
       const risk = hydricPct > 50 ? 'HIGH' : hydricPct > 0 ? 'MODERATE' : 'LOW';
-
-      // Build interpretation
       const primary = mapUnits[0];
       let interpretation = `Soils at the site consist primarily of ${primary.name}`;
       if (primary.drainage) interpretation += `, characterized by ${primary.drainage.toLowerCase()} drainage`;
       if (primary.hydric) interpretation += ` and hydric characteristics indicating potential wetland conditions`;
       if (primary.shrinkSwell && primary.shrinkSwell !== 'Unknown') interpretation += `. Shrink-swell potential is ${primary.shrinkSwell.toLowerCase()}`;
       interpretation += '.';
-
       return { mapUnits, hydricPercent: hydricPct, source: 'USDA NRCS SSURGO via Soil Data Access', risk, interpretation };
     }
     return { mapUnits: [], hydricPercent: 0, source: 'USDA SSURGO (no data)', risk: 'LOW', interpretation: 'Soil data unavailable — verify at websoilsurvey.nrcs.usda.gov' };
@@ -182,7 +232,6 @@ async function fetchElevation(coords: Coordinates) {
 async function fetchHydrology(coords: Coordinates) {
   try {
     const { lat, lng } = coords;
-    // NHD via USGS WaterServices — find nearest stream
     const url = `https://hydro.nationalmap.gov/arcgis/rest/services/NHDPlus_HR/MapServer/2/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&distance=2000&units=esriSRUnit_Meter&outFields=GNIS_Name,FType,LengthKM&returnGeometry=false&f=json`;
     const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
     const data = await res.json();
@@ -203,7 +252,6 @@ async function fetchHydrology(coords: Coordinates) {
 async function fetchGeology(coords: Coordinates) {
   try {
     const { lat, lng } = coords;
-    // USGS National Geologic Map via ScienceBase/Macrostrat
     const url = `https://macrostrat.org/api/v2/geologic_units/map?lat=${lat}&lng=${lng}&format=json`;
     const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
     const data = await res.json();
@@ -218,15 +266,15 @@ async function fetchGeology(coords: Coordinates) {
         source: 'Macrostrat / USGS NGMDB',
       };
     }
-    return { formation: 'Unknown', lithology: 'Unknown', age: 'Unknown', description: '', source: 'USGS NGMDB (no data at location)' };
+    return { formation: 'Unknown', lithology: 'Unknown', age: 'Unknown', description: '', source: 'USGS NGMDB (no data)' };
   } catch {
     return { formation: 'Unknown', lithology: 'Unknown', age: 'Unknown', description: '', source: 'USGS NGMDB (timeout)' };
   }
 }
 
-function computeOverallRisk(femaRisk: string, echoRisk: string, nwiRisk: string, soilRisk: string): { level: string; score: number; summary: string } {
+function computeOverallRisk(femaRisk: string, echoRisk: string, nwiRisk: string, soilRisk: string) {
   const riskMap: Record<string,number> = { LOW: 1, MODERATE: 2, HIGH: 3 };
-  const score = Math.max(riskMap[femaRisk] || 1, riskMap[echoRisk] || 1, riskMap[nwiRisk] || 1, riskMap[soilRisk] || 1);
+  const score = Math.max(riskMap[femaRisk]||1, riskMap[echoRisk]||1, riskMap[nwiRisk]||1, riskMap[soilRisk]||1);
   const level = score === 3 ? 'HIGH' : score === 2 ? 'MODERATE' : 'LOW';
   const summaries: Record<string,string> = {
     LOW: 'No significant environmental concerns identified. Site appears suitable for intended use without further Phase II investigation at this time.',
@@ -243,7 +291,6 @@ export async function POST(req: NextRequest) {
   try {
     const geo = await geocode(location.trim());
 
-    // All data pulls in parallel — fast as possible
     const [fema, epaEcho, nwi, soils, elevation, hydrology, geology] = await Promise.allSettled([
       fetchFEMA(geo.coords),
       fetchEPAECHO(geo.coords),
@@ -282,7 +329,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Lookup failed' }, { status: 400 });
   }
 }
-// Map URL injection is handled client-side using NEXT_PUBLIC_MAPBOX_TOKEN
-// See lib/mapUrls.ts — called from the reports page after Pull completes
-// Parcel intel is fetched client-side after coordinates resolve
-// Call /api/portal/parcel-intel with { lat, lng, county } after Pull completes
