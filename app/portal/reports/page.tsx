@@ -1,4 +1,5 @@
 'use client';
+import { ParcelPanel } from './ParcelPanel';
 
 import { useState, useCallback, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -46,6 +47,55 @@ interface RegData {
   hydrology: { nearbyStreams: { name: string; type: string }[]; withinHUC: boolean };
   geology: { formation: string; lithology: string; age: string; description: string };
   overallRisk: { level: string; score: number; summary: string };
+}
+
+
+interface ParcelData {
+  parcel: {
+    parcelId: string;
+    ownerName: string;
+    ownerType: string;
+    landUseDescription: string;
+    propertyClass: string;
+    acres: number | null;
+    yearBuilt: number | null;
+    buildingSqFt: number | null;
+    legalDescription: string | null;
+    assessedLandValue: number | null;
+    assessedImprovementValue: number | null;
+    source: string;
+    confidence: string;
+  };
+  landCover: {
+    nlcdClass: string;
+    developedPercent: number;
+    imperviousPercent: number;
+    cultivatedCropPercent: number;
+    source: string;
+    confidence: string;
+  };
+  zoning: {
+    jurisdiction: string;
+    zoningCode: string;
+    zoningDescription: string;
+    futureLandUse: string | null;
+    source: string;
+    confidence: string;
+  };
+  receptors: {
+    nearestSchoolMi: number | null;
+    nearestParkMi: number | null;
+    nearestSurfaceWaterMi: number | null;
+    nearestHospitalMi: number | null;
+    source: string;
+    confidence: string;
+  };
+  occupant: {
+    useCategory: string;
+    environmentalUseRisk: string;
+    riskBasis: string;
+    source: string;
+  };
 }
 
 interface LibraryEntry {
@@ -412,6 +462,8 @@ function ReportsPageInner() {
   const [reg, setReg] = useState<RegData | null>(null);
   const [regLoading, setRegLoading] = useState(false);
   const [regError, setRegError] = useState('');
+  const [parcel, setParcel] = useState<ParcelData | null>(null);
+  const [parcelLoading, setParcelLoading] = useState(false);
 
   const pullReg = useCallback(async () => {
     if (!location.trim()) return;
@@ -424,6 +476,18 @@ function ReportsPageInner() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Lookup failed');
       setReg(data);
+      // Fire parcel intel in background after coordinates resolve
+      if (data?.coordinates?.lat && data?.coordinates?.lng) {
+        setParcelLoading(true);
+        fetch('/api/portal/parcel-intel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat: data.coordinates.lat, lng: data.coordinates.lng, county: data.county }),
+        })
+          .then(r => r.json())
+          .then(p => { setParcel(p); setParcelLoading(false); })
+          .catch(() => setParcelLoading(false));
+      }
     } catch (e: unknown) {
       setRegError(e instanceof Error ? e.message : 'Regulatory lookup failed');
     }
@@ -563,6 +627,7 @@ Generate a complete ${rType?.label} with all standard sections including Executi
             <div>
               <div style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: T.muted, marginBottom: 10 }}>Regulatory Intelligence + Risk Score</div>
               <RegPanel data={reg} loading={regLoading} error={regError} />
+              <ParcelPanel data={parcel} loading={parcelLoading} />
             </div>
 
             {/* Col 3: Generated Report */}
