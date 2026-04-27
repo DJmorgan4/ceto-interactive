@@ -86,70 +86,18 @@ async function fetchFEMA(coords: Coordinates) {
   }
 }
 
-// ── EPA ECHO — now with real lat/lng and haversine distance ───────────────────
-async function fetchEPAECHO(coords: Coordinates) {
-  try {
-    const { lat, lng } = coords;
-    // Use the ECHO REST API that returns facility coordinates
-    // FIXED: use proper radius search, not degenerate bounding box
-    // EPA ECHO endpoint unavailable — facility data sourced via tceq-intel route
-    const results: never[] = []; if (false) {
-    const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
-    const data = await res.json();
-    const results = data?.Results?.Facilities || [];
-
-    const facilities = results.slice(0, 8).map((f: Record<string, string>) => {
-      // Get real facility lat/lng for haversine
-      const facLat = parseFloat(f.FacLat || f.Latitude || '0');
-      const facLng = parseFloat(f.FacLong || f.Longitude || '0');
-
-      // Compute real distance
-      const distanceMi = (facLat && facLng)
-        ? Math.round(haversine(lat, lng, facLat, facLng) * 100) / 100
-        : null;
-
-      // Determine program type for risk weighting
-      const program = f.FacDerivedTRIReporter === 'Y' ? 'TRI'
-        : f.FacDerivedRCRAFlagger === 'Y' ? 'RCRA'
-        : f.FacDerivedCWAFlagger === 'Y' ? 'NPDES'
-        : f.FacDerivedCAAAIRFlagger === 'Y' ? 'Air'
-        : f.SICCode ? 'Permit'
-        : 'default';
-
-      return {
-        name: f.FacName || 'Unknown Facility',
-        type: f.SICCode ? `SIC ${f.SICCode}` : program,
-        violations: f.CurrentVioFlag === 'Y' ? 'Active violation' : 'No current violation',
-        distanceMi,
-        distanceDisplay: distanceMi !== null ? `${distanceMi.toFixed(2)} mi` : 'Distance unknown',
-        lat: facLat || null,
-        lng: facLng || null,
-        program,
-      };
-    });
-
-    // Sort by real distance ascending
-    facilities.sort((a: {distanceMi: number | null}, b: {distanceMi: number | null}) => {
-      if (a.distanceMi === null) return 1;
-      if (b.distanceMi === null) return -1;
-      return a.distanceMi - b.distanceMi;
-    });
-
-    const risk = results.length === 0 ? 'LOW' : results.length <= 2 ? 'MODERATE' : 'HIGH';
-    return {
-      totalCount: results.length,
-      facilitiesNearby: facilities,
-      source: 'EPA ECHO API — 1-mile radius with real distances',
-      risk,
-    };
-  } catch {
-    return {
-      totalCount: 0,
-      facilitiesNearby: [],
-      source: 'EPA ECHO (timeout — search at echo.epa.gov)',
-      risk: 'LOW',
-    };
-  }
+// ── EPA ECHO — retired, facility data now via tceq-intel route ───────────────
+// EPA ECHO REST API endpoints returned 404 as of 2026-04-27.
+// All facility data (LPST, PST, DRYCLEANER, VCP, IHWCA, SUPERFUND) is now
+// sourced via /api/portal/tceq-intel using confirmed TCEQ ArcGIS FeatureServer
+// attribute queries with real haversine distances.
+async function fetchEPAECHO(_coords: Coordinates) {
+  return {
+    totalCount: 0,
+    facilitiesNearby: [],
+    source: 'EPA ECHO (retired — facility data via TCEQ ArcGIS)',
+    risk: 'LOW' as const,
+  };
 }
 
 async function fetchNWI(coords: Coordinates) {
