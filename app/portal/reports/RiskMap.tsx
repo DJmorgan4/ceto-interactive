@@ -59,7 +59,13 @@ export default function RiskMap({ reg, projectName }: RiskMapProps) {
 
   const siteLat = reg?.coordinates?.lat;
   const siteLng = reg?.coordinates?.lng;
-  const facilities: Facility[] = reg?.epaEcho?.facilitiesNearby || [];
+  // Merge TCEQ + ECHO facilities, dedupe by name, sort by distance
+  const echoFacs: Facility[] = reg?.epaEcho?.facilitiesNearby || [];
+  const tceqFacs: Facility[] = (reg as any)?.tceq?.facilitiesNearby || [];
+  const seen = new Set<string>();
+  const facilities: Facility[] = [...echoFacs, ...tceqFacs]
+    .filter(f => { const k = f.name + (f.lat || '') + (f.lng || ''); if (seen.has(k)) return false; seen.add(k); return true; })
+    .sort((a, b) => (a.distanceMi ?? 99) - (b.distanceMi ?? 99));
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
   useEffect(() => {
@@ -68,6 +74,9 @@ export default function RiskMap({ reg, projectName }: RiskMapProps) {
     let map: unknown;
 
     import('mapbox-gl').then(({ default: mapboxgl }) => {
+      // Required for Next.js — suppress worker URL resolution error
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (mapboxgl as any).workerClass = null;
       if (!mapContainerRef.current) return;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (mapboxgl as any).accessToken = token;
@@ -86,6 +95,7 @@ export default function RiskMap({ reg, projectName }: RiskMapProps) {
       mapRef.current = map as any;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (map as any).on('error', () => { setMapError(true); });
       (map as any).on('load', () => {
         setMapLoaded(true);
 
@@ -198,7 +208,14 @@ export default function RiskMap({ reg, projectName }: RiskMapProps) {
     return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [coords] }, properties: {} };
   }
 
-  if (!siteLat || !siteLng) return null;
+  if (!siteLat || !siteLng) return (
+    <div style={{ border: '1px solid rgba(17,26,36,0.1)', borderRadius: 4, backgroundColor: '#F4F5F3', padding: '32px 20px', textAlign: 'center' }}>
+      <div style={{ fontSize: 11, color: 'rgba(17,26,36,0.4)', fontFamily: 'Jost, sans-serif', marginBottom: 4 }}>Environmental Risk Map</div>
+      <div style={{ fontSize: 12, color: 'rgba(17,26,36,0.55)', fontFamily: 'Jost, sans-serif' }}>
+        Enter a site address and click ⚡ Pull to load the interactive map
+      </div>
+    </div>
+  );
   if (!token) return (
     <div style={{ padding: 16, background: T.amberLight, borderRadius: 4, fontSize: 11, color: T.amber, fontFamily: FS }}>
       Add NEXT_PUBLIC_MAPBOX_TOKEN to enable interactive map
