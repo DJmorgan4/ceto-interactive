@@ -319,7 +319,8 @@ CETO Risk Score: ${body.cetoScore || 'Calculated from above data'}
   const reportType = body.reportType || 'Phase I ESA';
   const isPhase1 = reportType.toLowerCase().includes('phase') || reportType.toLowerCase().includes('esa');
 
-  const systemPrompt = body.systemPrompt || PHASE1_SYSTEM;
+  // Always use server-side system prompt — never trust client override
+  const systemPrompt = PHASE1_SYSTEM;
 
   const userPrompt = isPhase1
     ? PHASE1_TEMPLATE({
@@ -327,21 +328,21 @@ CETO Risk Score: ${body.cetoScore || 'Calculated from above data'}
         clientName: body.clientName || '',
         location: body.location || 'Texas',
         surveyDate: body.surveyDate || new Date().toLocaleDateString(),
-        notes: body.notes || body.userPrompt || '',
+        notes: body.notes || '',
         regContext,
         firmPanel: reg?.fema?.panelNumber || '',
       })
-    : (body.userPrompt || `Generate a complete professional ${reportType} report for:
+    : `Generate a complete professional ${reportType} report for:
 Project: ${body.projectName}
 Client: ${body.clientName || 'Confidential'}
 Location: ${body.location}
 Survey Date: ${body.surveyDate}
 Field Observations: ${body.notes}
-${regContext}`);
+${regContext}`;
 
   try {
     const message = await client.messages.create({
-      model: 'claude-opus-4-5',
+      model: 'claude-sonnet-4-6',
       max_tokens: 4096,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
