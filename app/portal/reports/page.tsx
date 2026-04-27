@@ -484,6 +484,34 @@ function ReportsPageInner() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Lookup failed');
       setReg(data);
+
+      // Fire TCEQ intel in background — merge into reg facilities
+      if (data?.coordinates?.lat && data?.coordinates?.lng) {
+        fetch('/api/portal/tceq-intel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ coordinates: data.coordinates }),
+        })
+          .then(r => r.json())
+          .then(tceq => {
+            if (tceq?.facilitiesNearby?.length > 0) {
+              setReg((prev: RegData | null) => prev ? {
+                ...prev,
+                tceq,
+                epaEcho: {
+                  ...prev.epaEcho,
+                  facilitiesNearby: [
+                    ...(prev.epaEcho?.facilitiesNearby || []),
+                    ...(tceq.facilitiesNearby || []),
+                  ],
+                  totalCount: (prev.epaEcho?.totalCount || 0) + (tceq.totalCount || 0),
+                },
+              } : prev);
+            }
+          })
+          .catch(() => null); // TCEQ failure is non-fatal
+      }
+
       // Fire parcel intel in background after coordinates resolve
       if (data?.coordinates?.lat && data?.coordinates?.lng) {
         setParcelLoading(true);

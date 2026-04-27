@@ -183,6 +183,12 @@ const FACILITY_TYPE_WEIGHTS: Record<string, number> = {
   'Air':            1.0,
   'Stormwater':     0.9,
   'Minor Permit':   0.8,
+  // TCEQ state-level weights
+  'LPST':           1.8,
+  'DRYCLEANER':     1.7,
+  'IHWCA':          1.7,
+  'VCP':            1.5,
+  'PST':            1.3,
   'default':        1.0,
 };
 
