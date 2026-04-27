@@ -165,8 +165,8 @@ export async function POST(req: NextRequest) {
 
   // Flatten, filter to true 1-mile radius (bbox is square, haversine is circle)
   const allFacilities = results
-    .filter((r): r is PromiseFulfilledResult<ReturnType<typeof Array.prototype.map>> => r.status === 'fulfilled')
-    .flatMap((r) => r.value)
+    .filter((r) => r.status === 'fulfilled')
+    .flatMap((r) => (r as PromiseFulfilledResult<unknown[]>).value as ReturnType<typeof Array.prototype.map>)
     .filter((f) => f.distanceMi === null || f.distanceMi <= 1.0)
     .sort((a, b) => (a.distanceMi ?? 99) - (b.distanceMi ?? 99));
 
