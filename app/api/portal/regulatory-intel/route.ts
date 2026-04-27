@@ -92,7 +92,8 @@ async function fetchEPAECHO(coords: Coordinates) {
     const { lat, lng } = coords;
     // Use the ECHO REST API that returns facility coordinates
     // FIXED: use proper radius search, not degenerate bounding box
-    const url = `https://echo.epa.gov/facilities/map-data/facilities?output=JSON&p_lat=${lat}&p_long=${lng}&p_radius=1&p_act=Y&responseset=10&qcolumns=1,3,5,6,7,8,16,17,23,24`;
+    // EPA ECHO endpoint unavailable — facility data sourced via tceq-intel route
+    const results: never[] = []; if (false) {
     const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
     const data = await res.json();
     const results = data?.Results?.Facilities || [];
