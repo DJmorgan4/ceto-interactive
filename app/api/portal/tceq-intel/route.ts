@@ -164,11 +164,12 @@ export async function POST(req: NextRequest) {
   );
 
   // Flatten, filter to true 1-mile radius (bbox is square, haversine is circle)
-  const allFacilities = results
+  type FacilityResult = { name: string; distanceMi: number | null; [key: string]: unknown };
+  const allFacilities = (results
     .filter((r) => r.status === 'fulfilled')
-    .flatMap((r) => (r as PromiseFulfilledResult<unknown[]>).value as ReturnType<typeof Array.prototype.map>)
-    .filter((f) => f.distanceMi === null || f.distanceMi <= 1.0)
-    .sort((a, b) => (a.distanceMi ?? 99) - (b.distanceMi ?? 99));
+    .flatMap((r) => (r as PromiseFulfilledResult<FacilityResult[]>).value) as FacilityResult[])
+    .filter((f) => f.distanceMi === null || (f.distanceMi as number) <= 1.0)
+    .sort((a, b) => ((a.distanceMi ?? 99) as number) - ((b.distanceMi ?? 99) as number));
 
   const layerStatus = TCEQ_LAYERS.map((layer, i) => ({
     dataset: layer.dataset,
