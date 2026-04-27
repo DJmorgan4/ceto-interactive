@@ -170,27 +170,19 @@ const CURRENT_USE_RISK: Record<CurrentUse, { risk: number; label: string }> = {
   unknown:     { risk: 20,  label: 'Current use unknown — manual verification required' },
 };
 
-// FIX 2: Facility type weights — actually used now
-const FACILITY_TYPE_WEIGHTS: Record<string, number> = {
-  'Superfund':      2.0,
-  'NPL':            2.0,
-  'RCRA':           1.8,
-  'CORRACTS':       1.8,
-  'LUST':           1.6,
-  'UST':            1.4,
-  'TRI':            1.3,
-  'NPDES':          1.1,
-  'Air':            1.0,
-  'Stormwater':     0.9,
-  'Minor Permit':   0.8,
-  // TCEQ state-level weights
-  'LPST':           1.8,
-  'DRYCLEANER':     1.7,
-  'IHWCA':          1.7,
-  'VCP':            1.5,
-  'PST':            1.3,
-  'default':        1.0,
+// Facility type weights — loaded from environment (IP protected)
+// Fallback values used if env not set (for local dev without .env.local)
+const _defaultWeights: Record<string, number> = {
+  'Superfund':2.0,'NPL':2.0,'RCRA':1.8,'CORRACTS':1.8,'LUST':1.6,
+  'UST':1.4,'TRI':1.3,'NPDES':1.1,'Air':1.0,'Stormwater':0.9,
+  'Minor Permit':0.8,'LPST':1.8,'DRYCLEANER':1.7,'IHWCA':1.7,
+  'VCP':1.5,'PST':1.3,'default':1.0,
 };
+const FACILITY_TYPE_WEIGHTS: Record<string, number> = (() => {
+  try {
+    return process.env.CETO_WEIGHTS ? JSON.parse(process.env.CETO_WEIGHTS) : _defaultWeights;
+  } catch { return _defaultWeights; }
+})();
 
 const FIELD_SCORES: Record<string, number> = {
   none: 0, debris: 10, staining: 25, drums: 50, ust: 70, odor: 80, release: 100,
@@ -476,16 +468,20 @@ export function computeCetoScore(input: ScoredInput): ScoreOutput {
   const correctedRisk = Math.min(100, rawRisk * confidenceMultiplier * severityMultiplier);
   const correctedScore = Math.round(100 - correctedRisk);
 
+  // Ceilings loaded from environment (IP protected)
+  const _defaultCeilings = {"NO_TCEQ":78,"NO_HISTORICAL":73,"NO_SITE_RECON":78,"KNOWN_RELEASE":42,"FORMER_DRYCLEANER":62,"FORMER_GASSTATION":62,"ACTIVE_DRYCLEANER":55,"ACTIVE_GASSTATION":60,"NWI_ONSITE":68,"FLOODWAY":68};
+  const C = (() => { try { return process.env.CETO_CEILINGS ? JSON.parse(process.env.CETO_CEILINGS) : _defaultCeilings; } catch { return _defaultCeilings; } })();
+
   let ceiling = 100;
-  if (input.knownReleaseOnSite)                        ceiling = Math.min(ceiling, 42);
-  if (input.formerDryCleaner)                          ceiling = Math.min(ceiling, 62);
-  if (input.formerGasStation)                          ceiling = Math.min(ceiling, 62);
-  if (input.currentUse.value === 'dryCleaner')         ceiling = Math.min(ceiling, 55);
-  if (input.currentUse.value === 'gasStation')         ceiling = Math.min(ceiling, 60);
-  if (input.wetlandsPresent.value && input.nwiOnSite)  ceiling = Math.min(ceiling, 68);
-  if (input.inFloodway)                                ceiling = Math.min(ceiling, 68);
-  if (gaps.noSiteRecon)                                ceiling = Math.min(ceiling, 78);
-  if (gaps.noHistoricalRecords)                        ceiling = Math.min(ceiling, 73);
+  if (input.knownReleaseOnSite)                        ceiling = Math.min(ceiling, C.KNOWN_RELEASE);
+  if (input.formerDryCleaner)                          ceiling = Math.min(ceiling, C.FORMER_DRYCLEANER);
+  if (input.formerGasStation)                          ceiling = Math.min(ceiling, C.FORMER_GASSTATION);
+  if (input.currentUse.value === 'dryCleaner')         ceiling = Math.min(ceiling, C.ACTIVE_DRYCLEANER);
+  if (input.currentUse.value === 'gasStation')         ceiling = Math.min(ceiling, C.ACTIVE_GASSTATION);
+  if (input.wetlandsPresent.value && input.nwiOnSite)  ceiling = Math.min(ceiling, C.NWI_ONSITE);
+  if (input.inFloodway)                                ceiling = Math.min(ceiling, C.FLOODWAY);
+  if (gaps.noSiteRecon)                                ceiling = Math.min(ceiling, C.NO_SITE_RECON);
+  if (gaps.noHistoricalRecords)                        ceiling = Math.min(ceiling, C.NO_HISTORICAL);
 
   const finalScore = Math.min(correctedScore, ceiling);
 
@@ -728,6 +724,28 @@ export function deriveScoreInput(reg: any, parcelData: any, fieldNotes: string):
     formerGasStation: historicalUse === 'gasStation',
     formerDryCleaner: historicalUse === 'dryCleaner',
     formerIndustrial: historicalUse === 'industrial',
+    // Texas-specific proximity logic — CETO EP judgment
+    facilitiesAdjacent: (() => {
+      const allFacilities = [...(reg?.epaEcho?.facilitiesNearby || []), ...(reg?.tceq?.facilitiesNearby || [])];
+      return allFacilities.some((f: {distanceMi?: number; dataset?: string; type?: string}) => {
+        const dist = f.distanceMi ?? 99;
+        const prog = (f.dataset || f.type || '').toUpperCase();
+        // LPST within 0.25 mi = adjacent risk
+        if (prog.includes('LPST') && dist <= 0.25) return true;
+        // Dry cleaner within 0.5 mi = vapor intrusion risk
+        if (prog.includes('DRYCLEANER') && dist <= 0.5) return true;
+        // Any facility within 0.1 mi = adjacent
+        if (dist <= 0.1) return true;
+        return false;
+      });
+    })(),
+    hasActiveCleanup: (() => {
+      const allFacilities = [...(reg?.epaEcho?.facilitiesNearby || []), ...(reg?.tceq?.facilitiesNearby || [])];
+      return allFacilities.some((f: {status?: string; violations?: string}) =>
+        f.status?.toLowerCase().includes('active') ||
+        f.violations?.toLowerCase().includes('active')
+      );
+    })(),
     dataGaps: {
       soilsUnavailable: !reg?.soils?.mapUnits?.length,
       geologyUnavailable: !reg?.geology?.formation || reg?.geology?.formation === 'Unknown',

@@ -47,6 +47,7 @@ Survey Date: ${data.surveyDate}
 Report Date: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
 Report ID: CET-ENV-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}
 Standard: ASTM E1527-21 · EPA All Appropriate Inquiry (AAI)
+Intelligence Layer: CETO Texas Environmental Intelligence™ — proprietary Texas-specific screening not available in standard national tools
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SECTION 1 — EXECUTIVE DECISION SUMMARY
