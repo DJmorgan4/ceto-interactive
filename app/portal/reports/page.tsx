@@ -261,7 +261,7 @@ function CetoScorePanel({ reg, parcel }: { reg: RegData; parcel: ParcelData | nu
 
 // ── Go/No-Go Dashboard ────────────────────────────────────────────────────────
 function GoNoGo({ reg }: { reg: RegData }) {
-  const { total } = computeCetoScore(reg, parcel);
+  const { total } = computeCetoScore(reg, null);
   const proceed = total >= 70;
   const phase2 = reg.epaEcho.totalCount > 0 || reg.soils.hydricPercent > 25;
   const wetlandConcern = reg.nwi.wetlandsPresent ? 'MODERATE' : 'LOW';
