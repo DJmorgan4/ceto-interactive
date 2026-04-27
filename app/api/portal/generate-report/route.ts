@@ -167,9 +167,12 @@ SECTION 7 — SITE RECONNAISSANCE
 
 Reconnaissance Date: ${data.surveyDate}
 Conducted By: Environmental Professional · Ceto Interactive
+Reconnaissance Method: [If field notes confirm physical site visit, state: 'Physical site visit conducted.' Otherwise state: 'Desktop reconnaissance only — aerial imagery, Google Street View, and available records review. Physical site visit not performed for this screening-level assessment per ASTM E1527-21 Section 8.3 desktop alternative.']
+
+RULE: Do NOT claim physical site reconnaissance occurred unless field notes explicitly confirm an on-site visit.
 
 Observations:
-[Convert field notes into professional reconnaissance observations, organized as:]
+[Convert field notes into professional observations. If no field visit occurred, prefix each item with the data source — e.g., 'Aerial imagery indicates...' or 'County records show...' — never state as a direct observation.]
 
 Exterior Conditions:
 - [observation from field notes]
@@ -262,7 +265,7 @@ Address: McKinney, Texas
 Website: cetointeractive.com
 Date: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
 
-DISCLAIMER: This report was prepared using automated desktop data retrieval from publicly available federal databases. Findings are based on available data at the time of report generation. This report does not substitute for a full Phase I ESA conducted with complete historical records review, interviews, and site reconnaissance. TCEQ database requires manual verification. All regulatory data reflects conditions at time of query.
+DISCLAIMER: This report was prepared using automated desktop data retrieval from publicly available federal databases and, where applicable, field notes provided by the user. Unless physical site reconnaissance is explicitly confirmed in the field notes, observations reflect remote imagery and records review only — not a physical site visit. This report does not substitute for a full Phase I ESA with complete Sanborn map review, city directory research, interviews, and physical site reconnaissance per ASTM E1527-21. TCEQ STEERS requires manual verification. The CETO Environmental Risk Score is a screening tool and does not constitute a final professional opinion. All regulatory data reflects conditions at time of query.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 APPENDICES
