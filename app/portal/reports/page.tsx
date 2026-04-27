@@ -1,5 +1,6 @@
 'use client';
 import { ParcelPanel } from './ParcelPanel';
+import { deriveScoreInput, computeCetoScore as computeCetoScoreReal } from '../../../lib/cetoScore';
 import RiskMap, { generateNearestFacilityNarrative, generateRiskInterpretation } from './RiskMap';
 
 import { useState, useCallback, useEffect, Suspense, useRef } from 'react';
@@ -104,31 +105,37 @@ interface LibraryEntry {
 }
 
 // ── Risk Score Engine ─────────────────────────────────────────────────────────
-function computeCetoScore(reg: RegData): { total: number; breakdown: Record<string, { score: number; max: number; label: string; risk: string }> } {
-  const breakdown: Record<string, { score: number; max: number; label: string; risk: string }> = {};
-
-  // Flood risk (20 pts)
-  const floodScore = reg.fema.floodZone === 'X' ? 20 : reg.fema.floodZone.startsWith('A') ? 5 : 10;
-  breakdown.flood = { score: floodScore, max: 20, label: 'Flood Risk', risk: floodScore >= 16 ? 'LOW' : floodScore >= 10 ? 'MODERATE' : 'HIGH' };
-
-  // Wetland risk (20 pts)
-  const wetlandScore = reg.nwi.wetlandsPresent ? (parseFloat(reg.nwi.acresEstimate) > 1 ? 5 : 12) : 20;
-  breakdown.wetland = { score: wetlandScore, max: 20, label: 'Wetland Risk', risk: wetlandScore >= 16 ? 'LOW' : wetlandScore >= 10 ? 'MODERATE' : 'HIGH' };
-
-  // Contamination risk (25 pts)
-  const contScore = reg.epaEcho.totalCount === 0 ? 25 : reg.epaEcho.totalCount <= 2 ? 15 : 5;
-  breakdown.contamination = { score: contScore, max: 25, label: 'Contamination Risk', risk: contScore >= 20 ? 'LOW' : contScore >= 12 ? 'MODERATE' : 'HIGH' };
-
-  // Soil/development risk (20 pts)
-  const soilScore = reg.soils.hydricPercent > 50 ? 5 : reg.soils.hydricPercent > 0 ? 12 : 20;
-  breakdown.soil = { score: soilScore, max: 20, label: 'Soil / Development Risk', risk: soilScore >= 16 ? 'LOW' : soilScore >= 10 ? 'MODERATE' : 'HIGH' };
-
-  // Regulatory compliance risk (15 pts) — based on overall data quality
-  const regScore = 12; // baseline — adjusts when TCEQ manual data added
-  breakdown.regulatory = { score: regScore, max: 15, label: 'Regulatory Compliance', risk: 'LOW' };
-
-  const total = Object.values(breakdown).reduce((s, v) => s + v.score, 0);
-  return { total, breakdown };
+function computeCetoScore(reg: RegData, parcelArg?: ParcelData | null): { total: number; breakdown: Record<string, { score: number; max: number; label: string; risk: string }> } {
+  try {
+    const input = deriveScoreInput(reg, parcelArg || null, '');
+    const result = computeCetoScoreReal(input);
+    const b = result.breakdown;
+    return {
+      total: result.finalScore,
+      breakdown: {
+        flood:         { score: Math.round(100 - b.flood),         max: 20, label: 'Flood Risk',             risk: b.flood > 30 ? 'HIGH' : b.flood > 10 ? 'MODERATE' : 'LOW' },
+        wetland:       { score: Math.round(100 - b.wetland),       max: 20, label: 'Wetland Risk',           risk: b.wetland > 30 ? 'HIGH' : b.wetland > 10 ? 'MODERATE' : 'LOW' },
+        contamination: { score: Math.round(100 - b.regulatory),    max: 25, label: 'Contamination Risk',     risk: b.regulatory > 30 ? 'HIGH' : b.regulatory > 10 ? 'MODERATE' : 'LOW' },
+        soil:          { score: Math.round(100 - b.soil),          max: 20, label: 'Soil / Development Risk',risk: b.soil > 30 ? 'HIGH' : b.soil > 10 ? 'MODERATE' : 'LOW' },
+        regulatory:    { score: Math.round(100 - b.historicalUse), max: 15, label: 'Regulatory Compliance',  risk: b.historicalUse > 30 ? 'HIGH' : b.historicalUse > 10 ? 'MODERATE' : 'LOW' },
+      },
+    };
+  } catch {
+    const floodScore  = reg.fema.floodZone === 'X' ? 20 : reg.fema.floodZone.startsWith('A') ? 5 : 10;
+    const wetlandScore= reg.nwi.wetlandsPresent ? (parseFloat(reg.nwi.acresEstimate) > 1 ? 5 : 12) : 20;
+    const contScore   = reg.epaEcho.totalCount === 0 ? 25 : reg.epaEcho.totalCount <= 2 ? 15 : 5;
+    const soilScore   = reg.soils.hydricPercent > 50 ? 5 : reg.soils.hydricPercent > 0 ? 12 : 20;
+    return {
+      total: floodScore + wetlandScore + contScore + soilScore + 12,
+      breakdown: {
+        flood:         { score: floodScore,   max: 20, label: 'Flood Risk',             risk: floodScore >= 16   ? 'LOW' : floodScore >= 10   ? 'MODERATE' : 'HIGH' },
+        wetland:       { score: wetlandScore, max: 20, label: 'Wetland Risk',           risk: wetlandScore >= 16 ? 'LOW' : wetlandScore >= 10 ? 'MODERATE' : 'HIGH' },
+        contamination: { score: contScore,    max: 25, label: 'Contamination Risk',     risk: contScore >= 20    ? 'LOW' : contScore >= 12    ? 'MODERATE' : 'HIGH' },
+        soil:          { score: soilScore,    max: 20, label: 'Soil / Development Risk',risk: soilScore >= 16    ? 'LOW' : soilScore >= 10    ? 'MODERATE' : 'HIGH' },
+        regulatory:    { score: 12,           max: 15, label: 'Regulatory Compliance',  risk: 'LOW' },
+      },
+    };
+  }
 }
 
 function getRiskColor(risk: string) {
@@ -156,7 +163,7 @@ function Badge({ label, color }: { label: string; color: 'blue' | 'green' | 'red
 
 // ── CETO Score Panel ──────────────────────────────────────────────────────────
 function CetoScorePanel({ reg }: { reg: RegData }) {
-  const { total, breakdown } = computeCetoScore(reg);
+  const { total, breakdown } = computeCetoScore(reg, parcel);
   const overallRisk = total >= 80 ? 'LOW' : total >= 55 ? 'MODERATE' : 'HIGH';
   const riskColor = getRiskColor(overallRisk);
 
@@ -201,7 +208,7 @@ function CetoScorePanel({ reg }: { reg: RegData }) {
 
 // ── Go/No-Go Dashboard ────────────────────────────────────────────────────────
 function GoNoGo({ reg }: { reg: RegData }) {
-  const { total } = computeCetoScore(reg);
+  const { total } = computeCetoScore(reg, parcel);
   const proceed = total >= 70;
   const phase2 = reg.epaEcho.totalCount > 0 || reg.soils.hydricPercent > 25;
   const wetlandConcern = reg.nwi.wetlandsPresent ? 'MODERATE' : 'LOW';
@@ -377,7 +384,7 @@ function RegPanel({ data, loading, error }: { data: RegData | null; loading: boo
 function exportPDF(reportText: string, title: string, reg: RegData | null, clientName: string, location: string, surveyDate: string) {
   const win = window.open('', '_blank');
   if (!win) return;
-  const score = reg ? computeCetoScore(reg) : null;
+  const score = reg ? computeCetoScore(reg, parcel) : null;
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}body{font-family:Georgia,serif;font-size:10.5pt;line-height:1.8;color:#111A24}
@@ -573,7 +580,7 @@ Generate a complete ${rType?.label} with all standard sections including Executi
           <a href="/portal" style={{ fontSize: 12, color: T.muted, textDecoration: 'none', fontFamily: FONT_SANS }}>← Dashboard</a>
           <span style={{ color: T.border }}>·</span>
           <div style={{ fontFamily: FONT_SERIF, fontSize: 18, color: T.ink, fontWeight: 300 }}>Reports</div>
-          {reg && <Badge label={`CETO Score: ${computeCetoScore(reg).total}/100`} color={computeCetoScore(reg).total >= 80 ? 'green' : computeCetoScore(reg).total >= 55 ? 'amber' : 'red'} />}
+          {reg && <Badge label={`CETO Score: ${computeCetoScore(reg, parcel).total}/100`} color={computeCetoScore(reg, parcel).total >= 80 ? 'green' : computeCetoScore(reg, parcel).total >= 55 ? 'amber' : 'red'} />}
         </div>
         <div style={{ display: 'flex', gap: 4, padding: 4, backgroundColor: 'rgba(17,26,36,0.06)', borderRadius: 20 }}>
           {(['generate', 'library'] as const).map(t => (
@@ -644,7 +651,7 @@ Generate a complete ${rType?.label} with all standard sections including Executi
               {!report && !generating && (
                 <div style={{ border: `1px dashed ${T.borderMid}`, borderRadius: 4, padding: '60px 24px', backgroundColor: T.surface, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
                   <div style={{ fontSize: 36, opacity: 0.15, marginBottom: 12 }}>☰</div>
-                  <div style={{ fontSize: 13, color: T.muted, fontFamily: FONT_SANS, fontWeight: 300 }}>{reg ? `⚡ CETO Score ${computeCetoScore(reg).total}/100 ready — generate report` : 'Pull regulatory data then generate'}</div>
+                  <div style={{ fontSize: 13, color: T.muted, fontFamily: FONT_SANS, fontWeight: 300 }}>{reg ? `⚡ CETO Score ${computeCetoScore(reg, parcel).total}/100 ready — generate report` : 'Pull regulatory data then generate'}</div>
                 </div>
               )}
               {generating && (
@@ -658,7 +665,7 @@ Generate a complete ${rType?.label} with all standard sections including Executi
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: `1px solid ${T.border}` }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <Badge label="draft" color="amber" />
-                      {reg && <Badge label={`CETO ${computeCetoScore(reg).total}/100`} color={computeCetoScore(reg).total >= 80 ? 'green' : 'amber'} />}
+                      {reg && <Badge label={`CETO ${computeCetoScore(reg, parcel).total}/100`} color={computeCetoScore(reg, parcel).total >= 80 ? 'green' : 'amber'} />}
                       <span style={{ fontSize: 10, color: T.muted, fontFamily: FONT_SANS }}>~{Math.ceil(report.length / 3000)} pages</span>
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
