@@ -33,6 +33,7 @@ ${data.regContext}
 OUTPUT THE REPORT IN THIS EXACT FORMAT:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${(!data.location || data.location.trim().length < 8) ? "⚠ DATA-LIMITED — NOT FOR DECISION USE\nNo site address provided. Map, databases, scoring, and REC analysis unavailable.\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" : ""}
 CETO ENVIRONMENTAL INTELLIGENCE REPORT™
 Automated Phase I ESA + Environmental Site Screening
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -392,22 +393,33 @@ CETO Risk Score: ${body.cetoScore || 'Calculated from above data'}
   // Always use server-side system prompt — never trust client override
   const systemPrompt = PHASE1_SYSTEM;
 
-  const userPrompt = isPhase1
+  // Use structured fields sent from client — prevents "Unknown Project" fallback
+  const resolvedProject = body.projectName?.trim() || 'Unknown Project';
+  const resolvedLocation = body.location?.trim() || 'Texas (address not provided)';
+  const resolvedClient = body.clientName?.trim() || 'Confidential';
+  const resolvedDate = body.surveyDate || new Date().toLocaleDateString();
+  const resolvedNotes = body.notes?.trim() || '';
+
+  // If client sent a full userPrompt already, use it directly (it has all context embedded)
+  // Otherwise build from structured fields
+  const userPrompt = body.userPrompt
+    ? body.userPrompt
+    : isPhase1
     ? PHASE1_TEMPLATE({
-        projectName: body.projectName || 'Unknown Project',
-        clientName: body.clientName || '',
-        location: body.location || 'Texas',
-        surveyDate: body.surveyDate || new Date().toLocaleDateString(),
-        notes: body.notes || '',
+        projectName: resolvedProject,
+        clientName: resolvedClient,
+        location: resolvedLocation,
+        surveyDate: resolvedDate,
+        notes: resolvedNotes,
         regContext,
         firmPanel: reg?.fema?.panelNumber || '',
       })
     : `Generate a complete professional ${reportType} report for:
-Project: ${body.projectName}
-Client: ${body.clientName || 'Confidential'}
-Location: ${body.location}
-Survey Date: ${body.surveyDate}
-Field Observations: ${body.notes}
+Project: ${resolvedProject}
+Client: ${resolvedClient}
+Location: ${resolvedLocation}
+Survey Date: ${resolvedDate}
+Field Observations: ${resolvedNotes}
 ${regContext}`;
 
   try {

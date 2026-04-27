@@ -624,7 +624,7 @@ RISK INTERPRETATION (use verbatim in Conclusions):
 ${generateRiskInterpretation(r)}`;
 
   const generate = async () => {
-    if (!projectName.trim() || !notes.trim()) return;
+    if (!projectName.trim() || !notes.trim() || !location.trim()) return;
     setGenerating(true); setReport(null); setGenError('');
     const rType = REPORT_TYPES.find(r => r.id === selectedType);
     const t = `${rType?.label} — ${projectName}`;
@@ -650,7 +650,18 @@ Generate a complete ${rType?.label} with all standard sections including Executi
     try {
       const res = await fetch('/api/portal/generate-report', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ systemPrompt, userPrompt }),
+        body: JSON.stringify({
+          systemPrompt,
+          userPrompt,
+          // Structured fields so API can use them directly (fixes "Unknown Project" bug)
+          projectName: projectName.trim(),
+          clientName: clientName.trim() || 'Confidential',
+          location: location.trim(),
+          surveyDate,
+          notes: notes.trim(),
+          reportType: REPORT_TYPES.find(r => r.id === selectedType)?.label || 'Phase I ESA',
+          regContext: buildRegContext(reg),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Generation failed');
@@ -723,7 +734,7 @@ Generate a complete ${rType?.label} with all standard sections including Executi
                 <div><label style={labelStyle}>Survey Date</label><input type="date" value={surveyDate} onChange={e => setSurveyDate(e.target.value)} style={{ ...inputStyle, width: 'auto' }} /></div>
                 <div><label style={labelStyle}>Field Observations / Data *</label><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={7} placeholder="Field notes, BMP conditions, soil/veg/hydrology observations, GPS points, site history, adjacent uses..." style={{ ...inputStyle, resize: 'vertical', minHeight: 120 }} /></div>
                 {genError && <div style={{ padding: '8px 10px', backgroundColor: T.redLight, border: `1px solid rgba(180,60,40,0.20)`, borderRadius: 2, fontSize: 11, color: T.red, fontFamily: FONT_SANS }}>{genError}</div>}
-                <button onClick={generate} disabled={!projectName.trim() || !notes.trim() || generating}
+                <button onClick={generate} disabled={!projectName.trim() || !notes.trim() || !location.trim() || !reg || generating}
                   style={{ padding: '11px 0', backgroundColor: generating ? T.blueMid : T.blue, color: 'white', border: 'none', borderRadius: 2, cursor: !projectName.trim() || !notes.trim() || generating ? 'not-allowed' : 'pointer', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', fontFamily: FONT_SANS, opacity: !projectName.trim() || !notes.trim() ? 0.5 : 1, transition: 'all 0.15s' }}>
                   {generating ? 'Generating...' : reg ? '⚡ Generate with Live Data' : 'Generate Report'}
                 </button>
@@ -805,6 +816,61 @@ Generate a complete ${rType?.label} with all standard sections including Executi
     </div>
   );
 }
+
+
+// Data Completeness Indicator
+const DataCompletenessBar = ({ location, fieldNotes, projectName }: {
+  location: string; fieldNotes: string; projectName: string;
+}) => {
+  const checks = [
+    { label: 'Site Address', ok: location.length > 8, critical: true },
+    { label: 'Project Name', ok: projectName.length > 0 && projectName !== 'Unknown', critical: false },
+    { label: 'Field Observations', ok: fieldNotes.trim().length > 20, critical: false },
+    { label: 'Survey Date', ok: true, critical: false },
+  ];
+  const score = Math.round((checks.filter(c => c.ok).length / checks.length) * 100);
+  const allCriticalMet = checks.filter(c => c.critical).every(c => c.ok);
+  const color = score >= 75 ? '#2F5D8C' : score >= 50 ? '#D97706' : '#DC2626';
+  
+  if (score === 100) return null; // hide when complete
+  
+  return (
+    <div style={{
+      border: `1px solid ${color}20`,
+      backgroundColor: `${color}08`,
+      borderRadius: 2,
+      padding: '12px 16px',
+      marginBottom: 16,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <span style={{ fontSize: 11, fontFamily: 'Jost, sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', color, fontWeight: 500 }}>
+          Report Confidence
+        </span>
+        <span style={{ fontSize: 13, fontFamily: 'Jost, sans-serif', color, fontWeight: 600 }}>{score}%</span>
+      </div>
+      <div style={{ height: 3, backgroundColor: `${color}20`, borderRadius: 2, marginBottom: 10 }}>
+        <div style={{ height: '100%', width: `${score}%`, backgroundColor: color, borderRadius: 2, transition: 'width 0.4s ease' }} />
+      </div>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        {checks.map(c => (
+          <span key={c.label} style={{
+            fontSize: 11, fontFamily: 'Jost, sans-serif',
+            color: c.ok ? '#64748B' : (c.critical ? '#DC2626' : '#D97706'),
+            display: 'flex', alignItems: 'center', gap: 4
+          }}>
+            {c.ok ? '✓' : (c.critical ? '✕' : '○')} {c.label}
+            {!c.ok && c.critical && ' (required)'}
+          </span>
+        ))}
+      </div>
+      {!allCriticalMet && (
+        <p style={{ margin: '8px 0 0', fontSize: 11, fontFamily: 'Jost, sans-serif', color: '#DC2626' }}>
+          ⚠ Address required — map, database queries, and scoring unavailable until location is provided.
+        </p>
+      )}
+    </div>
+  );
+};
 
 export default function ReportsPage() {
   return (

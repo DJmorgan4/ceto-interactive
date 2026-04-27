@@ -549,14 +549,18 @@ export function computeCetoScore(input: ScoredInput): ScoreOutput {
   const negatives = explanations.filter(e => e.sign === '-' && e.category !== 'Data Completeness');
   const reason = negatives.length > 0
     ? negatives.map(e => e.reason).join('; ') + '.'
+    : ratingCode === 'MODERATE'
+    ? 'Moderate environmental risk identified. No major RECs confirmed, but site warrants additional investigation before transaction close.'
+    : ratingCode === 'MODERATE_LOW'
+    ? 'Low-moderate risk profile. No significant environmental concerns identified; minor flagged items require follow-up.'
     : 'No significant environmental concerns identified based on available data and site reconnaissance.';
 
   const recommendedAction = ratingCode === 'HIGH' || ratingCode === 'ELEVATED'
-    ? 'Phase II ESA strongly recommended prior to any property transaction.'
+    ? 'Phase II ESA required prior to any property transaction — significant RECs identified.'
     : ratingCode === 'MODERATE'
-    ? 'Review flagged items. Phase II ESA recommended if transaction is risk-sensitive.'
+    ? 'Phase II ESA recommended — moderate contamination risk and flagged facilities warrant subsurface investigation.'
     : ratingCode === 'MODERATE_LOW'
-    ? 'No Phase II ESA required. Complete manual TCEQ STEERS search and verify flagged items.'
+    ? 'Phase II ESA not required at this time. Complete TCEQ STEERS manual search and verify flagged items before closing.'
     : 'No further environmental investigation recommended based on the scope of services performed.';
 
   const dealImpact: DealImpact = {
