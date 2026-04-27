@@ -523,6 +523,18 @@ function ReportsPageInner() {
           .then(r => r.json())
           .then(p => { setParcel(p); setParcelLoading(false); })
           .catch(() => setParcelLoading(false));
+
+        // Fire historical intel in background
+        fetch('/api/portal/historical-intel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ coordinates: data.coordinates, address: data.address, county: data.county }),
+        })
+          .then(r => r.json())
+          .then(h => {
+            setReg((prev: RegData | null) => prev ? { ...prev, historical: h } : prev);
+          })
+          .catch(() => null);
       }
     } catch (e: unknown) {
       setRegError(e instanceof Error ? e.message : 'Regulatory lookup failed');
