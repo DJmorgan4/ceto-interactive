@@ -376,7 +376,11 @@ USDA SSURGO: ${reg.soils?.mapUnits?.map((u: {name: string; drainage: string; hyd
 Soils Interpretation: ${reg.soils?.interpretation || 'Not available'}
 Geology: ${reg.geology?.formation} — ${reg.geology?.lithology} (${reg.geology?.age})
 Hydrology: ${reg.hydrology?.nearbyStreams?.length > 0 ? reg.hydrology.nearbyStreams.map((s: {name: string}) => s.name).join(', ') : 'No named streams within 2km'}
-TCEQ: Manual STEERS search required for ${reg.county}
+TCEQ: ${reg.tceq?.checked
+    ? reg.tceq.totalCount > 0
+      ? reg.tceq.totalCount + ' facilities found — LPST: ' + (reg.tceq.lpstCount || 0) + ', Dry Cleaner: ' + (reg.tceq.dryCleanerCount || 0) + ', High Risk: ' + (reg.tceq.highRiskCount || 0) + ' (Source: TCEQ GIS)'
+      : 'No TCEQ-regulated facilities within 1 mile (Source: TCEQ GIS)'
+    : 'Manual STEERS search required for ' + reg.county}
 CETO Risk Score: ${body.cetoScore || 'Calculated from above data'}
 ` + precomputed : precomputed;
 

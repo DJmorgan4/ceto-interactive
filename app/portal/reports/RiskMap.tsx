@@ -1,4 +1,5 @@
 'use client';
+export { generateNearestFacilityNarrative, generateRiskInterpretation } from '../../../lib/narratives';
 
 import { useEffect, useRef, useState } from 'react';
 
@@ -48,62 +49,6 @@ function facilityRiskLabel(facility: Facility): string {
 
 // Generate nearest facility narrative
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function generateNearestFacilityNarrative(reg: any): string {
-  const facilities: Facility[] = reg?.epaEcho?.facilitiesNearby || [];
-  if (!facilities.length) {
-    return 'No EPA-regulated facilities were identified within the 1-mile search radius of the subject property. This finding indicates minimal risk of off-site contamination migration from neighboring regulated operations.';
-  }
-  const nearest = facilities
-    .filter(f => typeof f.distanceMi === 'number')
-    .sort((a, b) => (a.distanceMi ?? 99) - (b.distanceMi ?? 99))[0];
-
-  if (!nearest) {
-    return `${facilities.length} EPA-regulated facility record(s) were identified within the 1-mile search radius; however, facility coordinate data was unavailable for distance-based evaluation. Manual review at echo.epa.gov is recommended.`;
-  }
-
-  const riskPhrase = nearest.distanceMi! <= 0.1 ? 'immediately adjacent to'
-    : nearest.distanceMi! <= 0.25 ? 'in very close proximity to'
-    : nearest.distanceMi! <= 0.5 ? 'in nearby proximity to'
-    : 'within 1 mile of';
-
-  const prog = nearest.program || nearest.type || 'EPA-regulated activity';
-  const riskLabel = facilityRiskLabel(nearest);
-
-  return `The nearest EPA-regulated facility is ${nearest.name} (${prog}), located approximately ${nearest.distanceMi!.toFixed(2)} miles from the subject property — ${riskPhrase} the site. This facility is classified as ${riskLabel} in the context of this assessment. ${facilities.length > 1 ? `${facilities.length} total regulated facilities were identified within the 1-mile radius.` : ''} Groundwater migration direction relative to the subject property was not determined through automated means; manual evaluation is recommended if any facility represents a concern.`;
-}
-
-// Generate risk interpretation paragraph
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function generateRiskInterpretation(reg: any): string {
-  const facilities: Facility[] = reg?.epaEcho?.facilitiesNearby || [];
-  const wetland = reg?.nwi?.wetlandsPresent;
-  const floodZone = reg?.fema?.floodZone || 'X';
-  const hydricPct = reg?.soils?.hydricPercent || 0;
-  const geology = reg?.geology?.formation || '';
-
-  const issues: string[] = [];
-  const positives: string[] = [];
-
-  if (facilities.length > 0) issues.push(`${facilities.length} nearby EPA-regulated facility record(s)`);
-  else positives.push('no regulated facilities within 1 mile');
-
-  if (wetland) issues.push('mapped wetland indicators (USFWS NWI)');
-  else positives.push('no wetlands mapped within AOI');
-
-  if (floodZone !== 'X' && floodZone !== 'X500') issues.push(`FEMA flood zone ${floodZone}`);
-  else positives.push(`FEMA Zone ${floodZone} — outside SFHA`);
-
-  if (hydricPct > 25) issues.push(`${hydricPct}% hydric soils (USDA SSURGO)`);
-
-  if (geology && geology !== 'Unknown') positives.push(`${geology} underlying geology — limits vertical contaminant migration`);
-
-  if (!issues.length) {
-    return `Based on the regulatory database review, floodplain screening, wetlands screening, physical setting review, and site reconnaissance, no material environmental risk indicators were identified in connection with the subject property. The subject property appears to present a low environmental risk profile. Positive findings include: ${positives.join('; ')}. No Recognized Environmental Conditions (RECs) were identified under the scope of this assessment.`;
-  }
-
-  return `The environmental risk profile of the subject property is influenced by the following factors: ${issues.join('; ')}. These conditions do not automatically constitute Recognized Environmental Conditions (RECs) under ASTM E1527-21; however, they warrant professional evaluation in the context of site history, groundwater migration potential, and intended property use. Favorable findings include: ${positives.join('; ')}. The overall CETO Environmental Risk Score reflects the balance of identified risk factors and data confidence.`;
-}
-
 export default function RiskMap({ reg, projectName }: RiskMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

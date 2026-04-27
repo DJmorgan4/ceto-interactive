@@ -640,7 +640,7 @@ export function deriveScoreInput(reg: any, parcelData: any, fieldNotes: string):
 
   // FIX 2: Pass actual facility data with type info for weighting
   const facilitiesNearby = trace(
-    (reg?.epaEcho?.facilitiesNearby || []).map((f: {name: string; type: string; violations: string; distanceMi?: number; program?: string}) => ({
+    ([...(reg?.epaEcho?.facilitiesNearby || []), ...(reg?.tceq?.facilitiesNearby || [])]).map((f: {name: string; type: string; violations: string; distanceMi?: number; program?: string}) => ({
       name: f.name,
       type: f.type,
       program: f.type, // use type as program for weight lookup
