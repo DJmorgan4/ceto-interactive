@@ -1,51 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// ── TCEQ ArcGIS REST Layer URLs (public, no auth required) ───────────────────
+// ── Verified TCEQ ArcGIS REST Layer URLs ─────────────────────────────────────
+// Sources confirmed via curl 2026-04-27:
+// - services2.arcgis.com/LYMgRMwHfrWWEg3s = official TCEQ ArcGIS Online org
+// - gisweb.tceq.texas.gov/arcgis/rest/services/Public = direct TCEQ server
 const TCEQ_LAYERS = [
   {
     dataset: 'LPST',
     label: 'Leaking Petroleum Storage Tank',
-    url: 'https://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/TCEQ_LPST/FeatureServer/0',
+    url: 'https://services2.arcgis.com/LYMgRMwHfrWWEg3s/arcgis/rest/services/TCEQ_Leaking_Petroleum_Storage_Tank/FeatureServer/0',
     riskClass: 'HIGH',
     weight: 1.8,
-    nameField: ['SITE_NAME'],
-    statusField: ['SITE_STATUS', 'STATUS'],
+    nameField: ['SITE_NAME', 'RN', 'PST_ID'],
+    statusField: ['REM_PROG', 'STATUS', 'SITE_STATUS'],
   },
   {
     dataset: 'PST',
     label: 'Petroleum Storage Tank',
-    url: 'https://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/TCEQ_PST/FeatureServer/0',
+    url: 'https://gisweb.tceq.texas.gov/arcgis/rest/services/Public/PST/MapServer/0',
     riskClass: 'MODERATE',
     weight: 1.3,
-    nameField: ['FACILITY_N', 'FACILITY_NAME'],
-    statusField: ['UST_TYPE', 'STATUS'],
+    nameField: ['FACILITY_N', 'FACILITY_NAME', 'SITE_NAME'],
+    statusField: ['UST_TYPE', 'STATUS', 'ACTIVE_STATUS'],
   },
   {
     dataset: 'DRYCLEANER',
     label: 'Dry Cleaner Remediation Program',
-    url: 'https://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/TCEQ_DryCleaner/FeatureServer/0',
+    url: 'https://gisweb.tceq.texas.gov/arcgis/rest/services/Public/DryCleaner/MapServer/0',
     riskClass: 'HIGH',
     weight: 1.7,
-    nameField: ['FACILITY_NAME', 'NAME'],
-    statusField: ['PROGRAM_STATUS', 'STATUS'],
+    nameField: ['FACILITY_NAME', 'NAME', 'SITE_NAME'],
+    statusField: ['PROGRAM_STATUS', 'STATUS', 'REM_PROG'],
   },
   {
     dataset: 'VCP',
     label: 'Voluntary Cleanup Program',
-    url: 'https://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/TCEQ_VCP/FeatureServer/0',
+    url: 'https://gisweb.tceq.texas.gov/arcgis/rest/services/Public/Brownfield/MapServer/0',
     riskClass: 'MODERATE',
     weight: 1.5,
-    nameField: ['SITE_NAME', 'FACILITY_NAME'],
-    statusField: ['SITE_STATUS', 'VCP_STATUS'],
+    nameField: ['SITE_NAME', 'FACILITY_NAME', 'NAME'],
+    statusField: ['SITE_STATUS', 'VCP_STATUS', 'STATUS'],
   },
   {
     dataset: 'IHWCA',
     label: 'Industrial & Hazardous Waste Corrective Action',
-    url: 'https://services.arcgis.com/KTcxiTD9dsQw4r7Z/arcgis/rest/services/TCEQ_IHWCA/FeatureServer/0',
+    url: 'https://gisweb.tceq.texas.gov/arcgis/rest/services/Public/IHWCA/MapServer/0',
     riskClass: 'HIGH',
     weight: 1.7,
-    nameField: ['SITE_NAME', 'REGULATED_ENTITY_NAME'],
-    statusField: ['SITE_STATUS', 'STATUS'],
+    nameField: ['SITE_NAME', 'REGULATED_ENTITY_NAME', 'NAME'],
+    statusField: ['SITE_STATUS', 'STATUS', 'REM_PROG'],
   },
 ] as const;
 
@@ -62,7 +65,7 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number): numb
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// ── Query one ArcGIS layer within radius ──────────────────────────────────────
+// ── Query one ArcGIS layer within 1-mile radius ───────────────────────────────
 async function queryLayer(
   layerUrl: string,
   lat: number,
@@ -84,11 +87,11 @@ async function queryLayer(
   });
 
   const res = await fetch(`${layerUrl}/query?${params}`, {
-    signal: AbortSignal.timeout(10000),
+    signal: AbortSignal.timeout(12000),
     headers: { 'User-Agent': 'CetoInteractive/1.0' },
   });
 
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status} from ${layerUrl}`);
   const json = await res.json();
   if (json.error) throw new Error(json.error.message || 'ArcGIS error');
   return json.features || [];
@@ -98,7 +101,8 @@ async function queryLayer(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function pickField(attrs: any, fields: readonly string[]): string {
   for (const f of fields) {
-    if (attrs[f] && String(attrs[f]).trim()) return String(attrs[f]).trim();
+    if (attrs[f] && String(attrs[f]).trim() && String(attrs[f]).trim() !== 'null')
+      return String(attrs[f]).trim();
   }
   return 'Unknown';
 }
@@ -118,8 +122,8 @@ export async function POST(req: NextRequest) {
       return features.map((f: any) => {
         const attrs = f.attributes || {};
         const geom = f.geometry || {};
-        const facLat: number | null = geom.y ?? attrs.LAT_DD ?? attrs.lat_dd ?? null;
-        const facLng: number | null = geom.x ?? attrs.LONG_DD ?? attrs.long_dd ?? null;
+        const facLat: number | null = geom.y ?? attrs.LAT_DD ?? attrs.lat_dd ?? attrs.LATITUDE ?? null;
+        const facLng: number | null = geom.x ?? attrs.LONG_DD ?? attrs.long_dd ?? attrs.LONGITUDE ?? null;
         const distanceMi =
           facLat && facLng
             ? Math.round(haversine(lat, lng, facLat, facLng) * 100) / 100
@@ -147,13 +151,11 @@ export async function POST(req: NextRequest) {
     })
   );
 
-  // Flatten, filter nulls, sort by distance
   const facilitiesNearby = results
     .flatMap((r) => (r.status === 'fulfilled' ? r.value : []))
     .filter(Boolean)
     .sort((a, b) => (a.distanceMi ?? 99) - (b.distanceMi ?? 99));
 
-  // Layer-level success tracking
   const layerStatus = TCEQ_LAYERS.map((layer, i) => ({
     dataset: layer.dataset,
     label: layer.label,
@@ -166,15 +168,14 @@ export async function POST(req: NextRequest) {
       : 0,
   }));
 
-  const checked = layerStatus.filter(l => l.status === 'OK').length > 0;
+  const checked = layerStatus.some(l => l.status === 'OK');
 
   return NextResponse.json({
     checked,
-    source: 'TCEQ GIS Data Hub — ArcGIS REST',
+    source: 'TCEQ — services2.arcgis.com (official) + gisweb.tceq.texas.gov (direct)',
     totalCount: facilitiesNearby.length,
     facilitiesNearby,
     layerStatus,
-    // Flag for scoring engine
     lpstCount: facilitiesNearby.filter(f => f.dataset === 'LPST').length,
     dryCleanerCount: facilitiesNearby.filter(f => f.dataset === 'DRYCLEANER').length,
     highRiskCount: facilitiesNearby.filter(f => f.riskClass === 'HIGH').length,
