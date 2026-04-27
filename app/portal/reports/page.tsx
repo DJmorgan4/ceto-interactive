@@ -49,6 +49,59 @@ interface RegData {
   hydrology: { nearbyStreams: { name: string; type: string }[]; withinHUC: boolean };
   geology: { formation: string; lithology: string; age: string; description: string };
   overallRisk: { level: string; score: number; summary: string };
+
+  tceq?: {
+    checked: boolean;
+    source: string;
+    totalCount: number;
+    facilitiesNearby: Array<{
+      name: string;
+      source: 'TCEQ';
+      dataset: 'LPST' | 'PST' | 'DRYCLEANER' | 'VCP' | 'IHWCA';
+      type: string;
+      program: string;
+      status?: string;
+      address?: string;
+      city?: string;
+      county?: string;
+      lat?: number | null;
+      lng?: number | null;
+      distanceMi?: number | null;
+      riskClass: 'LOW' | 'MODERATE' | 'HIGH';
+      weight?: number;
+      violations?: string;
+    }>;
+    layerStatus?: Array<{ dataset: string; label: string; status: 'OK' | 'ERROR'; error?: string | null; count: number }>;
+    lpstCount?: number;
+    dryCleanerCount?: number;
+    highRiskCount?: number;
+  };
+
+  historical?: {
+    checked: boolean;
+    historicalConfidence: 'COMPLETE' | 'PARTIAL' | 'MINIMAL' | 'UNAVAILABLE';
+    automatedCount: number;
+    manualCount: number;
+    address?: string;
+    county?: string;
+    sources: Array<{
+      name: string;
+      status: 'LINK_GENERATED' | 'CHECKED_NONE_FOUND' | 'MANUAL_REQUIRED';
+      confidence: 'COMPLETE' | 'PARTIAL' | 'MINIMAL' | 'UNAVAILABLE';
+      link?: string | null;
+      use: string;
+      astmRequired: boolean;
+    }>;
+    gaps: string[];
+    topoViewerUrl?: string;
+    historicAerialsUrl?: string;
+    earthExplorerUrl?: string;
+    sanbornUrl?: string;
+    noSanbornReview?: boolean;
+    noCityDirectories?: boolean;
+    noPermitReview?: boolean;
+    noLienSearch?: boolean;
+  };
 }
 
 

@@ -17,7 +17,8 @@ const TCEQ_LAYERS = [
   {
     dataset: 'PST',
     label: 'Petroleum Storage Tank',
-    url: 'https://gisweb.tceq.texas.gov/arcgis/rest/services/Public/PST/MapServer/0',
+    // Harris County mirror — confirmed spatial queries work
+    url: 'https://www.gis.hctx.net/arcgishcpid/rest/services/Environmental/TCEQ_Pollution/MapServer/5',
     riskClass: 'MODERATE',
     weight: 1.3,
     nameField: ['FACILITY_N', 'FACILITY_NAME', 'SITE_NAME'],
@@ -26,7 +27,8 @@ const TCEQ_LAYERS = [
   {
     dataset: 'DRYCLEANER',
     label: 'Dry Cleaner Remediation Program',
-    url: 'https://gisweb.tceq.texas.gov/arcgis/rest/services/Public/DryCleaner/MapServer/0',
+    // TCEQ official FeatureServer — same org as LPST, confirmed pattern works
+    url: 'https://services2.arcgis.com/LYMgRMwHfrWWEg3s/arcgis/rest/services/TCEQ_Dry_Cleaner/FeatureServer/0',
     riskClass: 'HIGH',
     weight: 1.7,
     nameField: ['FACILITY_NAME', 'NAME', 'SITE_NAME'],
@@ -34,8 +36,9 @@ const TCEQ_LAYERS = [
   },
   {
     dataset: 'VCP',
-    label: 'Voluntary Cleanup Program',
-    url: 'https://gisweb.tceq.texas.gov/arcgis/rest/services/Public/Brownfield/MapServer/0',
+    label: 'Voluntary Cleanup / Brownfields',
+    // Harris County mirror layer 0 = Brownfield Sites
+    url: 'https://www.gis.hctx.net/arcgishcpid/rest/services/Environmental/TCEQ_Pollution/MapServer/0',
     riskClass: 'MODERATE',
     weight: 1.5,
     nameField: ['SITE_NAME', 'FACILITY_NAME', 'NAME'],
@@ -44,7 +47,8 @@ const TCEQ_LAYERS = [
   {
     dataset: 'IHWCA',
     label: 'Industrial & Hazardous Waste Corrective Action',
-    url: 'https://gisweb.tceq.texas.gov/arcgis/rest/services/Public/IHWCA/MapServer/0',
+    // TCEQ official FeatureServer
+    url: 'https://services2.arcgis.com/LYMgRMwHfrWWEg3s/arcgis/rest/services/TCEQ_IHWCA/FeatureServer/0',
     riskClass: 'HIGH',
     weight: 1.7,
     nameField: ['SITE_NAME', 'REGULATED_ENTITY_NAME', 'NAME'],
