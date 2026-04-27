@@ -337,7 +337,7 @@ function ScreeningSummary({ reg }: { reg: RegData }) {
 }
 
 // ── Full Regulatory Panel ─────────────────────────────────────────────────────
-function RegPanel({ data, loading, error }: { data: RegData | null; loading: boolean; error: string }) {
+function RegPanel({ data, loading, error, parcel }: { data: RegData | null; loading: boolean; error: string; parcel: ParcelData | null }) {
   if (loading) return (
     <div style={{ border: `1px solid ${T.border}`, borderRadius: 4, padding: 20, backgroundColor: T.surface }}>
       <div style={{ fontSize: 13, color: T.muted, fontFamily: FONT_SANS }}>Pulling 7 federal databases in parallel...</div>
@@ -733,7 +733,7 @@ Generate a complete ${rType?.label} with all standard sections including Executi
             {/* Col 2: Regulatory Intel */}
             <div>
               <div style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: T.muted, marginBottom: 10 }}>Regulatory Intelligence + Risk Score</div>
-              <RegPanel data={reg} loading={regLoading} error={regError} />
+              <RegPanel data={reg} loading={regLoading} error={regError} parcel={parcel} />
               <ParcelPanel data={parcel} loading={parcelLoading} />
               {reg && <RiskMap reg={reg} projectName={projectName} />}
             </div>
