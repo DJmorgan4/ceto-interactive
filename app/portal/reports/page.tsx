@@ -215,7 +215,7 @@ function Badge({ label, color }: { label: string; color: 'blue' | 'green' | 'red
 }
 
 // ── CETO Score Panel ──────────────────────────────────────────────────────────
-function CetoScorePanel({ reg }: { reg: RegData }) {
+function CetoScorePanel({ reg, parcel }: { reg: RegData; parcel: ParcelData | null }) {
   const { total, breakdown } = computeCetoScore(reg, parcel);
   const overallRisk = total >= 80 ? 'LOW' : total >= 55 ? 'MODERATE' : 'HIGH';
   const riskColor = getRiskColor(overallRisk);
@@ -395,7 +395,7 @@ function RegPanel({ data, loading, error }: { data: RegData | null; loading: boo
       </div>
 
       {/* CETO Score */}
-      <CetoScorePanel reg={data} />
+      <CetoScorePanel reg={data} parcel={parcel} />
 
       {/* Go/No-Go */}
       <GoNoGo reg={data} />
