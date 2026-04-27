@@ -732,10 +732,18 @@ export function deriveScoreInput(reg: any, parcelData: any, fieldNotes: string):
       soilsUnavailable: !reg?.soils?.mapUnits?.length,
       geologyUnavailable: !reg?.geology?.formation || reg?.geology?.formation === 'Unknown',
       parcelUnavailable: !parcel || parcel?.confidence === 'UNAVAILABLE',
-      historicalAerialsUnavailable: true,
-      tceqManualRequired: true,
+      // Live historical confidence from historical-intel route
+      historicalAerialsUnavailable: reg?.historical
+        ? reg.historical.historicalConfidence === 'UNAVAILABLE' || reg.historical.historicalConfidence === 'MINIMAL'
+        : true,
+      // TCEQ: incomplete unless tceq route returned checked:true with results
+      tceqManualRequired: !reg?.tceq?.checked || reg?.tceq?.totalCount === undefined,
+      // Site recon: require explicit field notes > 30 chars OR historical confirmed physical visit
       noSiteRecon: notes.trim().length < 30,
-      noHistoricalRecords: false,
+      // Historical records: incomplete unless all manual sources reviewed
+      noHistoricalRecords: reg?.historical
+        ? reg.historical.noSanbornReview || reg.historical.noCityDirectories
+        : true,
     },
   };
 }
