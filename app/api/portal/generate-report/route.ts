@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { deriveScoreInput, computeCetoScore } from '../../../../lib/cetoScore';
+import { generateNearestFacilityNarrative, generateRiskInterpretation, generateTracedDataSources } from '../../../../lib/narratives';
 import Anthropic from '@anthropic-ai/sdk';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -299,6 +301,69 @@ export async function POST(req: NextRequest) {
 
   // Build reg context string from structured data
   const reg = body.regData;
+
+  // Pre-compute score + narratives server-side so LLM never re-derives them
+  let precomputed = '';
+  if (reg) {
+    try {
+      const scoreInput = deriveScoreInput(reg, body.parcelData || null, body.notes || '');
+      const scoreOutput = computeCetoScore(scoreInput);
+      const facilityNarrative = generateNearestFacilityNarrative(reg);
+      const riskInterpretation = generateRiskInterpretation(reg, scoreOutput.finalScore);
+      const dataSources = generateTracedDataSources(scoreOutput.tracedInputs);
+
+      precomputed = `
+PRE-COMPUTED OUTPUTS — USE VERBATIM, DO NOT REINTERPRET:
+
+CETO Score: ${scoreOutput.finalScore}/100 — ${scoreOutput.rating}
+Site Class: ${scoreOutput.siteClass} (${scoreOutput.siteClassConfidence}) — ${scoreOutput.siteClassSource}
+Current Use: ${scoreOutput.currentUseLabel} (${scoreOutput.currentUseConfidence})
+Confidence Multiplier: ${scoreOutput.confidenceMultiplier}x
+Severity Multiplier: ${scoreOutput.severityMultiplier}x
+Ceiling: ${scoreOutput.ceiling}/100
+Recommended Action: ${scoreOutput.recommendedAction}
+
+SCORE BREAKDOWN (copy into Section 9 exactly):
+Regulatory Risk: ${scoreOutput.breakdown.regulatory}
+Historical Use Risk: ${scoreOutput.breakdown.historicalUse}
+Current Use Risk: ${scoreOutput.breakdown.currentUse}
+Wetland/Water Risk: ${scoreOutput.breakdown.wetland}
+Flood Risk: ${scoreOutput.breakdown.flood}
+Soil/Geology Risk: ${scoreOutput.breakdown.soil}
+Field Observation Risk: ${scoreOutput.breakdown.field}
+
+RED FLAGS: ${scoreOutput.redFlags.length > 0 ? scoreOutput.redFlags.join('; ') : 'None identified'}
+
+DATA GAPS (copy into Section 10 exactly):
+Missing: ${scoreOutput.dataCompleteness.missingItems.join('; ') || 'None'}
+Verified: ${scoreOutput.dataCompleteness.verifiedItems.join('; ')}
+
+DEAL IMPACT (copy into Section 1 exactly):
+Estimated Liability: ${scoreOutput.dealImpact.estimatedLiability}
+Phase II Likelihood: ${scoreOutput.dealImpact.phase2Likelihood}
+Permitting Delay Risk: ${scoreOutput.dealImpact.permittingDelayRisk}
+Development Constraint Risk: ${scoreOutput.dealImpact.developmentConstraintRisk}
+Cleanup Risk: ${scoreOutput.dealImpact.cleanupRisk}
+Lender Concern: ${scoreOutput.dealImpact.lenderConcern}
+
+NEAREST FACILITY NARRATIVE (copy verbatim into Section 5):
+${facilityNarrative}
+
+RISK INTERPRETATION (copy verbatim into Section 11 Conclusions):
+${riskInterpretation}
+${dataSources}
+
+FORMATTING RULES:
+- Do NOT reinterpret, recalculate, or paraphrase any of the above pre-computed outputs
+- Do NOT invent risk conclusions — use only what is stated above
+- Your job is to FORMAT and EXPAND context around these fixed outputs
+- You MAY add factual physical setting description, site context, and professional framing
+- You MAY NOT change the score, rating, red flags, or deal impact values
+`;
+    } catch (e) {
+      console.error('Score precompute failed:', e);
+    }
+  }
   const regContext = reg ? `
 REGULATORY DATA (AUTO-RETRIEVED):
 Address: ${reg.address} · County: ${reg.county} · State: ${reg.state || 'TX'}
@@ -313,7 +378,7 @@ Geology: ${reg.geology?.formation} — ${reg.geology?.lithology} (${reg.geology?
 Hydrology: ${reg.hydrology?.nearbyStreams?.length > 0 ? reg.hydrology.nearbyStreams.map((s: {name: string}) => s.name).join(', ') : 'No named streams within 2km'}
 TCEQ: Manual STEERS search required for ${reg.county}
 CETO Risk Score: ${body.cetoScore || 'Calculated from above data'}
-` : '';
+` + precomputed : precomputed;
 
   // Determine report type and use appropriate template
   const reportType = body.reportType || 'Phase I ESA';
