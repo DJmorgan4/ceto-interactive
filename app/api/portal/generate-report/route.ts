@@ -211,19 +211,31 @@ SECTION 9 — CETO RISK MODEL BREAKDOWN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Category              | Risk Score (0-100) | Weight | Weighted Impact
-Regulatory Risk       | [score]            | 25%    | [score x 0.25]
-Historical Use Risk   | [score]            | 15%    | [score x 0.15]
-Wetland / Water Risk  | [score]            | 15%    | [score x 0.15]
-Flood Risk            | [score]            | 10%    | [score x 0.10]
-Soil / Geology Risk   | [score]            | 15%    | [score x 0.15]
-Field Observation Risk| [score]            | 10%    | [score x 0.10]
-Data Gap Risk         | [score]            | 10%    | [score x 0.10]
+Regulatory Risk       | [score from regData]| 25%   | [score x 0.25]
+Historical Use Risk   | [score]             | 12%   | [score x 0.12]
+Current Use Risk      | [score]             | 13%   | [score x 0.13]
+Wetland / Water Risk  | [score]             | 15%   | [score x 0.15]
+Flood Risk            | [score]             | 10%   | [score x 0.10]
+Soil / Geology Risk   | [score]             | 15%   | [score x 0.15]
+Field Observation Risk| [score]             | 10%   | [score x 0.10]
 
 Raw Risk Score: [total weighted risk]
-Confidence Multiplier: [value]x — [reason]
-Severity Multiplier: [value]x — [reason or "No major red flags"]
+
+DATA COMPLETENESS PENALTIES (applied to confidence multiplier only — NOT added to risk score):
+[List each penalty that applies to THIS report based on actual data gaps:]
+- Site reconnaissance not performed → score ceiling capped at 78/100
+- TCEQ STEERS not verified → confidence multiplier ×1.08
+- Soils data unavailable → confidence multiplier ×1.03
+- Historical aerials unavailable → confidence multiplier ×1.03
+- Historical records not reviewed → score ceiling capped at 73/100
+
+Confidence Multiplier: [calculated value]x — [list the specific gaps that triggered it, or "All critical data sources verified"]
+Severity Multiplier: [value]x — [list red flags that triggered it, or "No major red flags identified"]
+Confidence Level: [COMPLETE / MODERATE / LIMITED] — [brief reason]
 CETO Score: [final] / 100 — [rating]
-[If ceiling applied: "Score ceiling of [X] applied due to: [reason]"]
+[If ceiling applied: "Score ceiling of [X]/100 applied — reason: [specific flag]"]
+
+SCORING RULE: If TCEQ not verified AND no physical site recon confirmed, final score MUST NOT exceed 78/100 regardless of other inputs.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SECTION 10 — DATA GAPS
