@@ -708,10 +708,27 @@ export function deriveScoreInput(reg: any, parcelData: any, fieldNotes: string):
     knownReleaseOnSite: n.includes('release') && n.includes('on-site'),
     migrationDirection: 'unknown',
     hasViolations: reg?.epaEcho?.facilitiesNearby?.some((f: {violations: string}) => f.violations?.includes('Active')) || false,
-    hasActiveCleanup: false,
+    hasActiveCleanup: (() => {
+      const all = [...(reg?.epaEcho?.facilitiesNearby || []), ...(reg?.tceq?.facilitiesNearby || [])];
+      return all.some((f: {status?: string; violations?: string}) =>
+        f.status?.toLowerCase().includes('active') || f.violations?.toLowerCase().includes('active')
+      );
+    })(),
     hasOpenEnforcement: false,
-    facilitiesWithinHalfMile: 0,
-    facilitiesAdjacent: false,
+    facilitiesWithinHalfMile: (() => {
+      const all = [...(reg?.epaEcho?.facilitiesNearby || []), ...(reg?.tceq?.facilitiesNearby || [])];
+      return all.filter((f: {distanceMi?: number}) => (f.distanceMi ?? 99) <= 0.5).length;
+    })(),
+    facilitiesAdjacent: (() => {
+      const all = [...(reg?.epaEcho?.facilitiesNearby || []), ...(reg?.tceq?.facilitiesNearby || [])];
+      return all.some((f: {distanceMi?: number; dataset?: string; type?: string}) => {
+        const dist = f.distanceMi ?? 99;
+        const prog = (f.dataset || f.type || '').toUpperCase();
+        if (prog.includes('LPST') && dist <= 0.25) return true;
+        if (prog.includes('DRYCLEANER') && dist <= 0.5) return true;
+        return dist <= 0.1;
+      });
+    })(),
     historicalUse,
     nwiOnSite: reg?.nwi?.wetlandsPresent || false,
     nwiAdjacent: false,
@@ -723,30 +740,7 @@ export function deriveScoreInput(reg: any, parcelData: any, fieldNotes: string):
     fieldObservation: fieldObservation as ScoredInput['fieldObservation'],
     formerGasStation: historicalUse === 'gasStation',
     formerDryCleaner: historicalUse === 'dryCleaner',
-    formerIndustrial: historicalUse === 'industrial',
-    // Texas-specific proximity logic — CETO EP judgment
-    facilitiesAdjacent: (() => {
-      const allFacilities = [...(reg?.epaEcho?.facilitiesNearby || []), ...(reg?.tceq?.facilitiesNearby || [])];
-      return allFacilities.some((f: {distanceMi?: number; dataset?: string; type?: string}) => {
-        const dist = f.distanceMi ?? 99;
-        const prog = (f.dataset || f.type || '').toUpperCase();
-        // LPST within 0.25 mi = adjacent risk
-        if (prog.includes('LPST') && dist <= 0.25) return true;
-        // Dry cleaner within 0.5 mi = vapor intrusion risk
-        if (prog.includes('DRYCLEANER') && dist <= 0.5) return true;
-        // Any facility within 0.1 mi = adjacent
-        if (dist <= 0.1) return true;
-        return false;
-      });
-    })(),
-    hasActiveCleanup: (() => {
-      const allFacilities = [...(reg?.epaEcho?.facilitiesNearby || []), ...(reg?.tceq?.facilitiesNearby || [])];
-      return allFacilities.some((f: {status?: string; violations?: string}) =>
-        f.status?.toLowerCase().includes('active') ||
-        f.violations?.toLowerCase().includes('active')
-      );
-    })(),
-    dataGaps: {
+    formerIndustrial: historicalUse === 'industrial',    dataGaps: {
       soilsUnavailable: !reg?.soils?.mapUnits?.length,
       geologyUnavailable: !reg?.geology?.formation || reg?.geology?.formation === 'Unknown',
       parcelUnavailable: !parcel || parcel?.confidence === 'UNAVAILABLE',
