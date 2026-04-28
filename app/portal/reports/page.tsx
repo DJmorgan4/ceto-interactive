@@ -618,10 +618,10 @@ Overall Risk Assessment: ${r.overallRisk.summary}
 Incorporate ALL of the above into appropriate report sections with proper citations to source databases.
 
 NEAREST FACILITY NARRATIVE (use verbatim in Section 5):
-${generateNearestFacilityNarrative(r)}
+${generateNearestFacilityNarrative(r as any)}
 
 RISK INTERPRETATION (use verbatim in Conclusions):
-${generateRiskInterpretation(r)}`;
+${generateRiskInterpretation(r as any)}`;
 
   const generate = async () => {
     if (!projectName.trim() || !notes.trim() || !location.trim()) return;
@@ -746,7 +746,7 @@ Generate a complete ${rType?.label} with all standard sections including Executi
               <div style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: T.muted, marginBottom: 10 }}>Regulatory Intelligence + Risk Score</div>
               <RegPanel data={reg} loading={regLoading} error={regError} parcel={parcel} />
               <ParcelPanel data={parcel} loading={parcelLoading} />
-              {reg && <RiskMap reg={reg} projectName={projectName} />}
+              {reg && <RiskMap reg={reg as any} projectName={projectName} />}
             </div>
 
             {/* Col 3: Generated Report */}
