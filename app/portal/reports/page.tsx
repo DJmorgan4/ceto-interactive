@@ -882,12 +882,23 @@ Generate a complete ${rType?.label} with all standard sections including Executi
                   <div style={{ border: `1px solid ${T.border}`, borderRadius: 4, backgroundColor: T.surface, overflow: 'hidden', marginBottom: 14 }}>
                     <div style={{ padding: '10px 14px', backgroundColor: totalSF > 0 ? 'rgba(192,57,43,0.04)' : T.blueLight }}>
                       <div style={{ fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase', color: totalSF > 0 ? '#C0392B' : T.blue, fontFamily: FONT_SANS }}>Federal Superfund / NPL</div>
-                      <div style={{ fontSize: 13, color: T.ink, fontFamily: FONT_SERIF, marginTop: 4, fontWeight: 300 }}>
-                        {federalIntel === null ? 'Querying...' : `${totalSF} site${totalSF !== 1 ? 's' : ''} within search radius`}
+                      {/* Federal database summary — separated by type */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+                        {[
+                          { label: 'NPL Superfund', count: federalIntel?.federal?.nplCount ?? federalIntel?.nplCount ?? '—', high: (federalIntel?.federal?.nplCount ?? 0) > 0 },
+                          { label: 'RCRA Facilities', count: federalIntel?.federal?.rcraCount ?? federalIntel?.rcraCount ?? '—', high: false },
+                          { label: 'TCEQ Superfund', count: federalIntel?.federal?.tceqSuperfundCount ?? '—', high: (federalIntel?.federal?.tceqSuperfundCount ?? 0) > 0 },
+                          { label: 'TRI / ERNS', count: 'Manual', high: false },
+                        ].map(({ label, count, high }) => (
+                          <div key={label} style={{ padding: '6px 10px', backgroundColor: high ? 'rgba(192,57,43,0.08)' : 'rgba(17,26,36,0.03)', borderRadius: 2, border: `1px solid ${high ? 'rgba(192,57,43,0.2)' : T.border}` }}>
+                            <div style={{ fontSize: 9, color: T.muted, fontFamily: FONT_SANS, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</div>
+                            <div style={{ fontSize: 16, color: high ? '#C0392B' : T.ink, fontFamily: FONT_SERIF, fontWeight: 300 }}>{federalIntel === null ? '…' : count}</div>
+                          </div>
+                        ))}
                       </div>
                       {federalIntel?.facilitiesNearby?.length > 0 && federalIntel.facilitiesNearby.map((f: any, i: number) => (
-                        <div key={i} style={{ marginTop: 6, fontSize: 11, color: '#C0392B', fontFamily: FONT_SANS }}>
-                          ⚠ {f.name} — {f.distanceMi != null ? `${f.distanceMi.toFixed(2)} mi` : 'distance unknown'} ({f.dataset})
+                        <div key={i} style={{ marginTop: 6, fontSize: 11, color: f.riskClass === 'HIGH' ? '#C0392B' : '#B45309', fontFamily: FONT_SANS }}>
+                          {f.riskClass === 'HIGH' ? '⚠' : '○'} {f.name} — {f.distanceMi != null ? `${Number(f.distanceMi).toFixed(2)} mi` : 'distance unknown'} ({f.dataset})
                         </div>
                       ))}
                     </div>
