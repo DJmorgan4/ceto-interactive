@@ -4,6 +4,7 @@ import { deriveScoreInput, computeCetoScore as computeCetoScoreReal } from '../.
 import RiskMap, { generateNearestFacilityNarrative, generateRiskInterpretation } from './RiskMap';
 import ParcelIntelPanel, { ParcelIntelData } from './ParcelIntelPanel';
 import ReconForm, { ReconData, reconToNotes } from './ReconForm';
+import FederalDatabasePanel, { FederalDBData } from './FederalDatabasePanel';
 import HistoricalResearchPanel, { HistoricalResearchData } from './HistoricalResearchPanel';
 import SWPPPModule from './SWPPPModule';
 
@@ -526,6 +527,7 @@ function ReportsPageInner() {
   const [genError, setGenError] = useState('');
   const [exportingPdf, setExportingPdf] = useState(false);
   const [reconData, setReconData] = useState<ReconData | null>(null);
+  const [federalDB, setFederalDB] = useState<FederalDBData | null>(null);
   const [mapSnapshot, setMapSnapshot] = useState<string | null>(null);
   const [parcelIntel, setParcelIntel] = useState<ParcelIntelData | null>(null);
   const [historicalResearch, setHistoricalResearch] = useState<HistoricalResearchData | null>(null);
@@ -844,6 +846,7 @@ Generate a complete ${rType?.label} with all standard sections including Executi
               {reg && <RiskMap reg={reg as any} projectName={projectName} />}
               {reg && <ParcelIntelPanel county={reg?.county} address={reg?.address} data={parcelIntel} onUpdate={setParcelIntel} />}
               {reg && <HistoricalResearchPanel lat={reg?.coordinates?.lat} lng={reg?.coordinates?.lng} city={reg?.address?.split(',')[0]?.trim()} state="TX" data={historicalResearch} onUpdate={setHistoricalResearch} autoExpand={true} />}
+              {reg && <FederalDatabasePanel county={reg?.county} state="TX" address={reg?.address} data={federalDB} onUpdate={setFederalDB} />}
               <ParcelPanel data={parcel} loading={parcelLoading} />
             </div>
 
