@@ -158,8 +158,8 @@ export default function RiskMap({ reg, projectName }: { reg: RegData | null; pro
                 </div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                {f.distanceMi !== undefined && (
-                  <div style={{ fontSize: 11, color: T.blue, fontFamily: FS, fontWeight: 500 }}>{f.distanceMi.toFixed(2)} mi</div>
+                {f.distanceMi != null && (
+                  <div style={{ fontSize: 11, color: T.blue, fontFamily: FS, fontWeight: 500 }}>{(f.distanceMi as number).toFixed(2)} mi</div>
                 )}
                 <div style={{ fontSize: 9, color: T.muted, fontFamily: FS }}>Low Risk</div>
               </div>
