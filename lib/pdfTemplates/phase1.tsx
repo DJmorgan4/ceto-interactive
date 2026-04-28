@@ -100,7 +100,7 @@ export interface Phase1PDFProps {
   scoreBreakdown: Record<string, { score: number; max: number; label: string; risk: string }>;
   decisions: { label: string; value: string; risk: string }[];
   screeningRows: { category: string; result: string; detail: string; risk: string }[];
-  facilities: { name: string; dataset: string; distanceMi?: number | null; riskClass?: string }[];
+  facilities: { name: string; dataset?: string; type?: string; distanceMi?: number | null; riskClass?: string }[];
   fema: { zone: string; classification: string; risk: string };
   geology: { formation: string; lithology: string; age: string };
   elevation: { elevationFt: number | null };
@@ -328,7 +328,7 @@ export function Phase1PDF(props: Phase1PDFProps) {
           {facilities.slice(0, 25).map((f, i) => (
             <View key={i} style={styles.tableRow}>
               <Text style={[styles.tableCell, { flex: 2.5 }]}>{f.name}</Text>
-              <Text style={[styles.tableCellMuted, { flex: 1.5 }]}>{f.dataset || f.type || '—'}</Text>
+              <Text style={[styles.tableCellMuted, { flex: 1.5 }]}>{f.dataset || '—'}</Text>
               <Text style={[styles.tableCell, { flex: 0.8, textAlign: 'right' }]}>{f.distanceMi != null ? `${Number(f.distanceMi).toFixed(2)} mi` : '—'}</Text>
               <View style={{ flex: 0.8, alignItems: 'flex-end' }}>
                 <RiskBadge risk={f.riskClass || 'LOW'} />
