@@ -376,7 +376,7 @@ function RegPanel({ data, loading, error, parcel }: { data: RegData | null; load
   );
 
   return (
-    <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 180px)' }}>
+    <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 180px)', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
       {/* Header */}
       <div style={{ border: `1px solid ${T.border}`, borderRadius: 4, backgroundColor: T.surface, overflow: 'hidden', marginBottom: 14 }}>
         <div style={{ padding: '12px 18px', borderBottom: `1px solid ${T.border}`, backgroundColor: T.blueLight, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -762,10 +762,10 @@ Generate a complete ${rType?.label} with all standard sections including Executi
             <div>
               <div style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: T.muted, marginBottom: 10 }}>Regulatory Intelligence + Risk Score</div>
               <RegPanel data={reg} loading={regLoading} error={regError} parcel={parcel} />
-              <ParcelPanel data={parcel} loading={parcelLoading} />
-              {reg && <RiskMap reg={reg as any} projectName={projectName} />}
+              {reg && <RiskMap reg={reg as any} projectName={projectName} onSnapshot={setMapSnapshot} />}
               {reg && <ParcelIntelPanel county={reg?.county} data={parcelIntel} onUpdate={setParcelIntel} />}
               {reg && <HistoricalResearchPanel lat={reg?.coordinates?.lat} lng={reg?.coordinates?.lng} city={reg?.address?.split(',')[0]?.trim()} state="TX" data={historicalResearch} onUpdate={setHistoricalResearch} />}
+              <ParcelPanel data={parcel} loading={parcelLoading} />
             </div>
 
             {/* Col 3: Generated Report */}

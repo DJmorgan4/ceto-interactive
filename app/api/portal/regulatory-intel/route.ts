@@ -50,7 +50,7 @@ async function reverseGeocode(lat: number, lng: number): Promise<{ county: strin
     const counties = data?.result?.geographies?.Counties;
     const states = data?.result?.geographies?.States;
     return {
-      county: counties?.[0] ? counties[0].NAME + ' County' : 'County',
+      county: counties?.[0] ? counties[0].NAME : 'Unknown County',
       state: states?.[0]?.NAME || 'Texas',
     };
   } catch {

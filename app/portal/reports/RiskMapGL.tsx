@@ -177,10 +177,33 @@ export default function RiskMapGL({ reg, projectName, onSnapshot }: Props) {
     };
   }, [siteLat, siteLng, token]);
 
-  // Base style switch
+  // Base style switch — re-add custom sources/layers after style reload
   useEffect(() => {
     if (!mapRef.current || !mapReady) return;
-    mapRef.current.setStyle(`mapbox://styles/mapbox/${activeBase === 'satellite' ? 'satellite-streets-v12' : 'light-v11'}`);
+    const map = mapRef.current;
+    map.setStyle(`mapbox://styles/mapbox/${activeBase === 'satellite' ? 'satellite-streets-v12' : 'light-v11'}`);
+    // Re-add layers once new style loads
+    map.once('styledata', () => {
+      // Small delay to ensure style is fully loaded
+      setTimeout(() => {
+        if (!map.getSource('usgs-topo')) {
+          map.addSource('usgs-topo', { type: 'raster', tiles: ['https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}'], tileSize: 256 });
+          map.addLayer({ id: 'usgs-topo-layer', type: 'raster', source: 'usgs-topo', paint: { 'raster-opacity': 0.7 }, layout: { visibility: layers.topo ? 'visible' : 'none' } });
+        }
+        if (!map.getSource('naip')) {
+          map.addSource('naip', { type: 'raster', tiles: ['https://gis.apfo.usda.gov/arcgis/rest/services/NAIP/USDA_CONUS_PRIME/ImageServer/tile/{z}/{y}/{x}'], tileSize: 256 });
+          map.addLayer({ id: 'naip-layer', type: 'raster', source: 'naip', paint: { 'raster-opacity': 0.85 }, layout: { visibility: layers.naip ? 'visible' : 'none' } });
+        }
+        if (!map.getSource('fema-nfhl')) {
+          map.addSource('fema-nfhl', { type: 'raster', tiles: ['https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&layers=show:28&f=image'], tileSize: 256 });
+          map.addLayer({ id: 'fema-fill', type: 'raster', source: 'fema-nfhl', paint: { 'raster-opacity': 0.45 }, layout: { visibility: layers.fema ? 'visible' : 'none' } });
+        }
+        if (!map.getSource('nwi')) {
+          map.addSource('nwi', { type: 'raster', tiles: ['https://www.fws.gov/wetlandsmapper/rest/services/Wetlands/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&layers=show:0&f=image'], tileSize: 256 });
+          map.addLayer({ id: 'nwi-layer', type: 'raster', source: 'nwi', paint: { 'raster-opacity': 0.5 }, layout: { visibility: layers.nwi ? 'visible' : 'none' } });
+        }
+      }, 100);
+    });
   }, [activeBase, mapReady]);
 
   const handleSnapshot = useCallback(() => {
@@ -197,7 +220,7 @@ export default function RiskMapGL({ reg, projectName, onSnapshot }: Props) {
   );
 
   return (
-    <div style={{ border: `1px solid ${T.border}`, borderRadius: 4, backgroundColor: T.surface, overflow: 'hidden', marginBottom: 14 }}>
+    <div style={{ border: `1px solid ${T.border}`, borderRadius: 4, backgroundColor: T.surface, overflow: 'hidden', marginBottom: 14, isolation: 'isolate' }}>
       {/* Header */}
       <div style={{ padding: '10px 16px', borderBottom: `1px solid ${T.border}`, backgroundColor: T.blueLight, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ fontSize: 8, letterSpacing: '0.20em', textTransform: 'uppercase', color: T.blue, fontFamily: FS }}>Environmental Risk Map</div>
@@ -227,8 +250,8 @@ export default function RiskMapGL({ reg, projectName, onSnapshot }: Props) {
       </div>
 
       {/* Map container */}
-      <div style={{ position: 'relative' }}>
-        <div ref={mapContainerRef} style={{ height: 380, width: '100%' }} />
+      <div style={{ position: 'relative', overflow: 'hidden' }}>
+        <div ref={mapContainerRef} style={{ height: 380, width: '100%', overflow: 'hidden' }} />
         {!mapReady && !mapError && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(244,245,243,0.85)', fontSize: 11, color: T.muted, fontFamily: FS }}>
             Loading map…
@@ -254,8 +277,8 @@ export default function RiskMapGL({ reg, projectName, onSnapshot }: Props) {
           <div style={{ padding: '8px 16px', backgroundColor: 'rgba(17,26,36,0.02)' }}>
             <div style={{ fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase', color: T.muted, fontFamily: FS }}>Mapped Facilities — Sorted by Distance</div>
           </div>
-          {facilities.slice(0, 42).map((f, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', borderBottom: i < Math.min(facilities.length, 42) - 1 ? `1px solid ${T.border}` : 'none' }}>
+          {facilities.slice(0, 15).map((f, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', borderBottom: i < Math.min(facilities.length, 15) - 1 ? `1px solid ${T.border}` : 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: getRiskColor(f.riskClass), flexShrink: 0 }} />
                 <div>
@@ -268,9 +291,9 @@ export default function RiskMapGL({ reg, projectName, onSnapshot }: Props) {
               )}
             </div>
           ))}
-          {facilities.length > 42 && (
+          {facilities.length > 15 && (
             <div style={{ padding: '8px 16px', fontSize: 10, color: T.muted, fontFamily: FS, textAlign: 'center' }}>
-              +{facilities.length - 42} additional facilities — see full report
+              +{facilities.length - 15} additional facilities — see full report
             </div>
           )}
         </div>
