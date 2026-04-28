@@ -707,7 +707,7 @@ Generate a complete ${rType?.label} with all standard sections including Executi
       ];
 
       const screeningRows = [
-        { category: 'Flood Zone', result: `Zone ${reg.fema?.zone || 'X'}`, detail: reg.fema?.classification || 'Zone X (minimal)', risk: reg.fema?.risk || 'LOW' },
+        { category: 'Flood Zone', result: `Zone ${reg.fema?.floodZone || 'X'}`, detail: reg.fema?.floodZoneDesc || 'Zone X (minimal)', risk: reg.fema?.risk || 'LOW' },
         { category: 'Wetlands (NWI)', result: reg.nwi?.wetlandsPresent ? 'Wetlands mapped' : 'None mapped', detail: reg.nwi?.wetlandTypes?.[0] || 'No jurisdictional wetlands', risk: reg.nwi?.risk || 'LOW' },
         { category: 'TCEQ Facilities', result: `${allFacs.length} within 1 mi`, detail: allFacs[0]?.name || 'None', risk: allFacs.length > 10 ? 'MODERATE' : 'LOW' },
         { category: 'Hydric Soils', result: `${reg.soils?.hydricPercent || 0}% hydric`, detail: reg.soils?.mapUnits?.[0]?.series || 'Unknown', risk: (reg.soils?.hydricPercent || 0) > 20 ? 'MODERATE' : 'LOW' },
@@ -731,7 +731,7 @@ Generate a complete ${rType?.label} with all standard sections including Executi
           decisions,
           screeningRows,
           facilities: allFacs,
-          fema: reg.fema || { zone: 'X', classification: 'Zone X', risk: 'LOW' },
+          fema: { zone: reg.fema?.floodZone || 'X', classification: reg.fema?.floodZoneDesc || 'Zone X', risk: reg.fema?.risk || 'LOW' },
           geology: reg.geology || { formation: 'Unknown', lithology: 'Unknown', age: 'Unknown' },
           elevation: reg.elevation || { elevationFt: null },
           hydrology: reg.hydrology || { nearbyStreams: [] },
