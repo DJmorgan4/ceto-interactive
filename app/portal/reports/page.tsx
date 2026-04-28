@@ -2,6 +2,9 @@
 import { ParcelPanel } from './ParcelPanel';
 import { deriveScoreInput, computeCetoScore as computeCetoScoreReal } from '../../../lib/cetoScore';
 import RiskMap, { generateNearestFacilityNarrative, generateRiskInterpretation } from './RiskMap';
+import ParcelIntelPanel, { ParcelIntelData } from './ParcelIntelPanel';
+import HistoricalResearchPanel, { HistoricalResearchData } from './HistoricalResearchPanel';
+import SWPPPModule from './SWPPPModule';
 
 import { useState, useCallback, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -517,9 +520,11 @@ function ReportsPageInner() {
   const [report, setReport] = useState<string | null>(null);
   const [reportTitle, setReportTitle] = useState('');
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
-  const [tab, setTab] = useState<'generate' | 'library'>('generate');
+  const [tab, setTab] = useState<'generate' | 'parcel' | 'historical' | 'swppp' | 'library'>('generate');
   const [copied, setCopied] = useState(false);
   const [genError, setGenError] = useState('');
+  const [parcelIntel, setParcelIntel] = useState<ParcelIntelData | null>(null);
+  const [historicalResearch, setHistoricalResearch] = useState<HistoricalResearchData | null>(null);
   const [reg, setReg] = useState<RegData | null>(null);
   const [regLoading, setRegLoading] = useState(false);
   const [regError, setRegError] = useState('');
@@ -686,10 +691,16 @@ Generate a complete ${rType?.label} with all standard sections including Executi
           <div style={{ fontFamily: FONT_SERIF, fontSize: 18, color: T.ink, fontWeight: 300 }}>Reports</div>
           {reg && <Badge label={`CETO Score: ${computeCetoScore(reg, parcel).total}/100`} color={computeCetoScore(reg, parcel).total >= 80 ? 'green' : computeCetoScore(reg, parcel).total >= 55 ? 'amber' : 'red'} />}
         </div>
-        <div style={{ display: 'flex', gap: 4, padding: 4, backgroundColor: 'rgba(17,26,36,0.06)', borderRadius: 20 }}>
-          {(['generate', 'library'] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{ padding: '7px 18px', borderRadius: 20, border: 'none', cursor: 'pointer', backgroundColor: tab === t ? 'white' : 'transparent', color: tab === t ? T.ink : T.muted, fontSize: 12, fontFamily: FONT_SANS, fontWeight: tab === t ? 400 : 300, boxShadow: tab === t ? '0 1px 3px rgba(17,26,36,0.10)' : 'none', transition: 'all 0.15s' }}>
-              {t === 'generate' ? 'Generate' : `Library (${library.length})`}
+        <div style={{ display: 'flex', gap: 2, padding: 4, backgroundColor: 'rgba(17,26,36,0.06)', borderRadius: 20 }}>
+          {([
+            { id: 'generate', label: 'Phase I ESA' },
+            { id: 'parcel', label: 'Parcel Intelligence' },
+            { id: 'historical', label: 'Historical Research' },
+            { id: 'swppp', label: 'SWPPP Inspections' },
+            { id: 'library', label: `Library (${library.length})` },
+          ] as const).map(t => (
+            <button key={t.id} onClick={() => setTab(t.id as any)} style={{ padding: '7px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', backgroundColor: tab === t.id ? 'white' : 'transparent', color: tab === t.id ? T.ink : T.muted, fontSize: 11, fontFamily: FONT_SANS, fontWeight: tab === t.id ? 400 : 300, boxShadow: tab === t.id ? '0 1px 3px rgba(17,26,36,0.10)' : 'none', transition: 'all 0.15s', whiteSpace: 'nowrap' }}>
+              {t.label}
             </button>
           ))}
         </div>
@@ -747,6 +758,8 @@ Generate a complete ${rType?.label} with all standard sections including Executi
               <RegPanel data={reg} loading={regLoading} error={regError} parcel={parcel} />
               <ParcelPanel data={parcel} loading={parcelLoading} />
               {reg && <RiskMap reg={reg as any} projectName={projectName} />}
+              {reg && <ParcelIntelPanel county={reg?.county} data={parcelIntel} onUpdate={setParcelIntel} />}
+              {reg && <HistoricalResearchPanel lat={reg?.coordinates?.lat} lng={reg?.coordinates?.lng} city={reg?.address?.split(',')[0]?.trim()} state="TX" data={historicalResearch} onUpdate={setHistoricalResearch} />}
             </div>
 
             {/* Col 3: Generated Report */}
@@ -787,6 +800,50 @@ Generate a complete ${rType?.label} with all standard sections including Executi
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {tab === 'parcel' && (
+          <div style={{ maxWidth: 800, margin: '0 auto' }}>
+            <div style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: T.muted, marginBottom: 14 }}>Parcel Intelligence</div>
+            {!reg ? (
+              <div style={{ border: `1px dashed ${T.borderMid}`, borderRadius: 4, padding: '40px 24px', textAlign: 'center', color: T.muted, fontSize: 13, fontFamily: FONT_SANS }}>
+                Pull regulatory data first (Phase I ESA tab) to auto-detect county and enable parcel lookup.
+              </div>
+            ) : (
+              <ParcelIntelPanel
+                county={reg?.county}
+                data={parcelIntel}
+                onUpdate={setParcelIntel}
+              />
+            )}
+          </div>
+        )}
+
+        {tab === 'historical' && (
+          <div style={{ maxWidth: 800, margin: '0 auto' }}>
+            <div style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: T.muted, marginBottom: 14 }}>Historical Research</div>
+            {!reg ? (
+              <div style={{ border: `1px dashed ${T.borderMid}`, borderRadius: 4, padding: '40px 24px', textAlign: 'center', color: T.muted, fontSize: 13, fontFamily: FONT_SANS }}>
+                Pull regulatory data first (Phase I ESA tab) to enable location-specific research links.
+              </div>
+            ) : (
+              <HistoricalResearchPanel
+                lat={reg?.coordinates?.lat}
+                lng={reg?.coordinates?.lng}
+                city={reg?.address?.split(',')[0]?.trim()}
+                state="TX"
+                data={historicalResearch}
+                onUpdate={setHistoricalResearch}
+              />
+            )}
+          </div>
+        )}
+
+        {tab === 'swppp' && (
+          <div>
+            <div style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: T.muted, marginBottom: 14 }}>SWPPP Inspections — TXR150000</div>
+            <SWPPPModule />
           </div>
         )}
 
