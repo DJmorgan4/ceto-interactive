@@ -1,7 +1,13 @@
 'use client';
 import { ParcelPanel } from './ParcelPanel';
 import { deriveScoreInput, computeCetoScore as computeCetoScoreReal } from '../../../lib/cetoScore';
-import RiskMap, { generateNearestFacilityNarrative, generateRiskInterpretation } from './RiskMap';
+import dynamic from 'next/dynamic';
+import { generateNearestFacilityNarrative, generateRiskInterpretation } from './RiskMap';
+const RiskMap = dynamic(() => import('./RiskMapGL'), { ssr: false, loading: () => (
+  <div style={{ border: '1px solid rgba(17,26,36,0.1)', borderRadius: 4, backgroundColor: '#F4F5F3', height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'rgba(17,26,36,0.4)', fontFamily: 'Jost, sans-serif', marginBottom: 14 }}>
+    Loading interactive map…
+  </div>
+) });
 import ParcelIntelPanel, { ParcelIntelData } from './ParcelIntelPanel';
 import HistoricalResearchPanel, { HistoricalResearchData } from './HistoricalResearchPanel';
 import SWPPPModule from './SWPPPModule';
