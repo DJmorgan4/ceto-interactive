@@ -8,7 +8,7 @@ const T = {
 };
 
 interface Facility {
-  name: string; type: string; distanceMi?: number; program?: string;
+  name: string; type: string; distanceMi?: number | null; program?: string; source?: string; status?: string; address?: string; city?: string; county?: string; weight?: number; violations?: string;
   lat?: number | null; lng?: number | null; riskClass?: string; dataset?: string;
 }
 interface RegData {
@@ -55,7 +55,7 @@ export default function RiskMap({ reg, projectName }: { reg: RegData | null; pro
   const seen = new Set<string>();
   const facilities: Facility[] = [...echoFacs, ...tceqFacs]
     .filter(f => { const k = String(f.name)+String(f.lat??'')+String(f.lng??''); if(seen.has(k))return false; seen.add(k); return true; })
-    .sort((a, b) => (a.distanceMi ?? 99) - (b.distanceMi ?? 99));
+    .sort((a, b) => ((a.distanceMi ?? 99) as number) - ((b.distanceMi ?? 99) as number));
 
   if (!siteLat || !siteLng) return (
     <div style={{ border: `1px solid ${T.border}`, borderRadius: 4, backgroundColor: '#F4F5F3', padding: '32px 20px', textAlign: 'center' }}>
