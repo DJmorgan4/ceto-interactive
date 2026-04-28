@@ -3,6 +3,7 @@ import { ParcelPanel } from './ParcelPanel';
 import { deriveScoreInput, computeCetoScore as computeCetoScoreReal } from '../../../lib/cetoScore';
 import RiskMap, { generateNearestFacilityNarrative, generateRiskInterpretation } from './RiskMap';
 import ParcelIntelPanel, { ParcelIntelData } from './ParcelIntelPanel';
+import ReconForm, { ReconData, reconToNotes } from './ReconForm';
 import HistoricalResearchPanel, { HistoricalResearchData } from './HistoricalResearchPanel';
 import SWPPPModule from './SWPPPModule';
 
@@ -524,6 +525,7 @@ function ReportsPageInner() {
   const [copied, setCopied] = useState(false);
   const [genError, setGenError] = useState('');
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [reconData, setReconData] = useState<ReconData | null>(null);
   const [mapSnapshot, setMapSnapshot] = useState<string | null>(null);
   const [parcelIntel, setParcelIntel] = useState<ParcelIntelData | null>(null);
   const [historicalResearch, setHistoricalResearch] = useState<HistoricalResearchData | null>(null);
@@ -816,7 +818,17 @@ Generate a complete ${rType?.label} with all standard sections including Executi
                   <div style={{ fontSize: 9, color: T.muted, marginTop: 4 }}>Pulls 7 federal databases simultaneously</div>
                 </div>
                 <div><label style={labelStyle}>Survey Date</label><input type="date" value={surveyDate} onChange={e => setSurveyDate(e.target.value)} style={{ ...inputStyle, width: 'auto' }} /></div>
-                <div><label style={labelStyle}>Field Observations / Data *</label><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={7} placeholder="Field notes, BMP conditions, soil/veg/hydrology observations, GPS points, site history, adjacent uses..." style={{ ...inputStyle, resize: 'vertical', minHeight: 120 }} /></div>
+                <div>
+                  <label style={labelStyle}>Field Observations / Data *</label>
+                  <ReconForm
+                    data={reconData}
+                    onUpdate={setReconData}
+                    onNotesChange={setNotes}
+                  />
+                  <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
+                    placeholder="Additional notes (auto-populated from reconnaissance form above)..."
+                    style={{ ...inputStyle, resize: 'vertical', minHeight: 60, fontSize: 11 }} />
+                </div>
                 {genError && <div style={{ padding: '8px 10px', backgroundColor: T.redLight, border: `1px solid rgba(180,60,40,0.20)`, borderRadius: 2, fontSize: 11, color: T.red, fontFamily: FONT_SANS }}>{genError}</div>}
                 <button onClick={generate} disabled={!projectName.trim() || !notes.trim() || !location.trim() || !reg || generating}
                   style={{ padding: '11px 0', backgroundColor: generating ? T.blueMid : T.blue, color: 'white', border: 'none', borderRadius: 2, cursor: !projectName.trim() || !notes.trim() || generating ? 'not-allowed' : 'pointer', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', fontFamily: FONT_SANS, opacity: !projectName.trim() || !notes.trim() ? 0.5 : 1, transition: 'all 0.15s' }}>
