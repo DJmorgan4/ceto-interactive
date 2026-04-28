@@ -364,12 +364,28 @@ export function computeCetoScore(input: ScoredInput): ScoreOutput {
   );
 
   const migrationRisk = { downgradient: 0, cross: 0, unknown: 15, upgradient: 30 }[input.migrationDirection] ?? 15;
+
+  // ── LPST PROXIMITY OVERRIDE — hard contamination floor ───────────────────
+  // LPST within 0.25mi = HIGH contamination regardless of other factors
+  // This is the most defensible ASTM-aligned logic
+  const lpstWithin025 = facilities.some(f =>
+    (f.dataset === 'LPST' || f.program === 'LPST' || String(f.type).includes('Leaking')) &&
+    (f.distanceMi ?? 99) <= 0.25
+  );
+  const lpstWithin05 = facilities.some(f =>
+    (f.dataset === 'LPST' || f.program === 'LPST' || String(f.type).includes('Leaking')) &&
+    (f.distanceMi ?? 99) <= 0.5
+  );
+  const lpstCount = facilities.filter(f =>
+    f.dataset === 'LPST' || f.program === 'LPST' || String(f.type).includes('Leaking')
+  ).length;
+  const lpstFloor = lpstWithin025 ? 75 : lpstWithin05 ? 55 : lpstCount > 5 ? 35 : 0;
   const complianceRisk = input.hasActiveCleanup ? 80
     : input.hasOpenEnforcement ? 60
     : input.hasViolations ? 40
     : input.facilitiesCount.value > 0 ? 20 : 0;
 
-  const regulatoryRisk = cap((facilityRisk + migrationRisk + complianceRisk) * scm.reg);
+  const regulatoryRisk = cap(Math.max(lpstFloor, (facilityRisk + migrationRisk + complianceRisk) * scm.reg));
 
   // ── HISTORICAL USE RISK ───────────────────────────────────────────────────
   const historicalRisk = cap((HISTORICAL_USE_RISK[input.historicalUse] ?? 20) * scm.hist);
@@ -445,7 +461,9 @@ export function computeCetoScore(input: ScoredInput): ScoreOutput {
   // ── CONFIDENCE MULTIPLIER ─────────────────────────────────────────────────
   const missingCritical = (gaps.noSiteRecon ? 1 : 0) + (gaps.noHistoricalRecords ? 1 : 0);
   const missingMajor = (gaps.soilsUnavailable ? 1 : 0) + (gaps.geologyUnavailable ? 1 : 0) + (gaps.parcelUnavailable ? 1 : 0);
-  const confidenceMultiplier = Math.min(1.35, 1 + (missingCritical * 0.08) + (missingMajor * 0.03));
+  // Data gaps = uncertainty, NOT contamination. Cap multiplier tightly.
+  // A clean site with data gaps should score 30-45, not 60-75.
+  const confidenceMultiplier = Math.min(1.10, 1 + (missingCritical * 0.04) + (missingMajor * 0.02));
 
   // ── RED FLAGS + SEVERITY ──────────────────────────────────────────────────
   if (input.knownReleaseOnSite)                        redFlags.push('Known release on-site');
@@ -461,6 +479,10 @@ export function computeCetoScore(input: ScoredInput): ScoreOutput {
   if (input.currentUse.value === 'auto' && (sc === 'INDUSTRIAL' || sc === 'COMMERCIAL')) redFlags.push('Current use: auto repair/service facility');
   if (fz.startsWith('AE'))                             redFlags.push('FEMA Zone AE — Special Flood Hazard Area');
   if (input.hasActiveCleanup)                          redFlags.push('Active cleanup site within 1 mile');
+  // REC auto-detection — ASTM E1527-21 driven
+  if (lpstWithin025) redFlags.push('REC-1: LPST facility within 0.25 miles — subsurface migration risk present');
+  else if (lpstWithin05) redFlags.push('REC-1: LPST facility within 0.5 miles — contaminant migration possible');
+  if (lpstCount > 10) redFlags.push('REC-2: High density of petroleum storage facilities (>10 LPST/PST within 1 mile)');
 
   const severityMultiplier = redFlags.length >= 3 ? 1.60 : redFlags.length === 2 ? 1.35 : redFlags.length === 1 ? 1.15 : 1.0;
 
@@ -550,15 +572,24 @@ export function computeCetoScore(input: ScoredInput): ScoreOutput {
   const reason = negatives.length > 0
     ? negatives.map(e => e.reason).join('; ') + '.'
     : ratingCode === 'MODERATE'
-    ? 'Moderate environmental risk identified. No major RECs confirmed, but site warrants additional investigation before transaction close.'
+    ? (lpstRec
+        ? `Moderate environmental risk identified. A leaking petroleum storage tank (LPST) facility is documented within ${closestMi !== null ? closestMi.toFixed(2) + ' miles of' : 'the search radius of'} the subject property. Off-site contaminant migration cannot be excluded without subsurface investigation.`
+        : 'Moderate environmental risk identified based on regulatory database density and site proximity factors. Additional investigation is recommended before transaction close.')
     : ratingCode === 'MODERATE_LOW'
-    ? 'Low-moderate risk profile. No significant environmental concerns identified; minor flagged items require follow-up.'
-    : 'No significant environmental concerns identified based on available data and site reconnaissance.';
+    ? 'Low-moderate risk profile. No significant environmental concerns identified; minor flagged items require follow-up verification.'
+    : (regulatoryRisk === 0 && wetlandRisk === 0 && floodRisk === 0)
+    ? 'No recognized environmental conditions identified. The subject property presents a low environmental risk profile based on available regulatory, historical, and reconnaissance data.'
+    : 'No significant environmental concerns identified based on available data. Identified data gaps do not independently indicate environmental risk but should be considered in due diligence.';
 
-  const recommendedAction = ratingCode === 'HIGH' || ratingCode === 'ELEVATED'
+  // Phase II decision: driven by contamination evidence, not score alone
+  const lpstRec = lpstWithin05 || lpstCount > 3;
+  const floodRec = fz.startsWith('AE') && regulatoryRisk > 30;
+  const phase2Required = ratingCode === 'HIGH' || ratingCode === 'ELEVATED' || input.knownReleaseOnSite;
+  const phase2Recommended = lpstRec || floodRec || ratingCode === 'MODERATE';
+  const recommendedAction = phase2Required
     ? 'Phase II ESA required prior to any property transaction — significant RECs identified.'
-    : ratingCode === 'MODERATE'
-    ? 'Phase II ESA recommended — moderate contamination risk and flagged facilities warrant subsurface investigation.'
+    : phase2Recommended
+    ? 'Phase II ESA recommended — LPST proximity and regulatory database density warrant subsurface investigation.'
     : ratingCode === 'MODERATE_LOW'
     ? 'Phase II ESA not required at this time. Complete TCEQ STEERS manual search and verify flagged items before closing.'
     : 'No further environmental investigation recommended based on the scope of services performed.';
@@ -640,7 +671,7 @@ export function deriveScoreInput(reg: any, parcelData: any, fieldNotes: string):
 
   // FIX 2: Pass actual facility data with type info for weighting
   const facilitiesNearby = trace(
-    ([...(reg?.epaEcho?.facilitiesNearby || []), ...(reg?.tceq?.facilitiesNearby || [])]).map((f: {name: string; type: string; violations: string; distanceMi?: number; program?: string}) => ({
+    ([...(reg?.epaEcho?.facilitiesNearby || []), ...(reg?.tceq?.facilitiesNearby || [])]).map((f: {name: string; type: string; violations: string; distanceMi?: number; program?: string; dataset?: string; riskClass?: string}) => ({
       name: f.name,
       type: f.type,
       program: f.type, // use type as program for weight lookup

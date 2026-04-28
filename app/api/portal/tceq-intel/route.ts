@@ -155,7 +155,12 @@ export async function POST(req: NextRequest) {
           lat: facLat,
           lng: facLng,
           distanceMi,
-          riskClass: layer.riskClass,
+          // Override riskClass based on dataset — LPST is always HIGH
+          riskClass: layer.dataset === 'LPST' || layer.dataset === 'IHWCA' || layer.dataset === 'SUPERFUND'
+            ? 'HIGH'
+            : layer.dataset === 'DRYCLEANER' || layer.dataset === 'VCP'
+            ? 'MODERATE'
+            : layer.riskClass,
           weight: layer.weight,
           violations: '',
         };
