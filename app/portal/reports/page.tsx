@@ -529,6 +529,8 @@ function ReportsPageInner() {
   const [tab, setTab] = useState<'generate' | 'parcel' | 'historical' | 'swppp' | 'library'>('generate');
   const [copied, setCopied] = useState(false);
   const [genError, setGenError] = useState('');
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [mapSnapshot, setMapSnapshot] = useState<string | null>(null);
   const [parcelIntel, setParcelIntel] = useState<ParcelIntelData | null>(null);
   const [historicalResearch, setHistoricalResearch] = useState<HistoricalResearchData | null>(null);
   const [reg, setReg] = useState<RegData | null>(null);
