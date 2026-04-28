@@ -112,7 +112,7 @@ async function fetchRCRA(lat: number, lng: number): Promise<FederalSource> {
         epaId: attrs.HANDLER_ID || '',
         city: attrs.LOCATION_CITY || '',
         dataset: 'RCRA',
-        riskClass: 'HIGH',
+        riskClass: 'MODERATE', // RCRA generators default MODERATE; TSD would be HIGH
       };
     }).filter((f: any) => f.distanceMi === null || f.distanceMi <= 1.0)
       .sort((a: any, b: any) => (a.distanceMi ?? 99) - (b.distanceMi ?? 99));
@@ -137,7 +137,7 @@ async function fetchFRSRCRA(lat: number, lng: number): Promise<FederalSource> {
       const facLat = Number(a.LATITUDE83) || null;
       const facLng = Number(a.LONGITUDE83) || null;
       const distanceMi = facLat && facLng ? Math.round(haversine(lat, lng, facLat, facLng) * 100) / 100 : null;
-      return { name: a.PRIMARY_NAME || 'Unknown', lat: facLat, lng: facLng, distanceMi, status: 'RCRA Active', epaId: '', city: a.CITY_NAME || '', dataset: 'RCRA_FRS', riskClass: 'MODERATE' };
+      return { name: a.PRIMARY_NAME || 'Unknown', lat: facLat, lng: facLng, distanceMi, status: 'RCRA Active', epaId: '', city: a.CITY_NAME || '', dataset: 'RCRA_FRS', riskClass: 'LOW' };
     }).filter((f: any) => f.distanceMi === null || f.distanceMi <= 1.0)
       .sort((a: any, b: any) => (a.distanceMi ?? 99) - (b.distanceMi ?? 99));
     return { name: 'FRS RCRA Active Facilities', dataset: 'RCRA_FRS', endpointUrl: url, queryDate, resultCount: facilities.length, status: 'success', facilities };
@@ -166,7 +166,17 @@ export async function POST(req: NextRequest) {
     frsRcra.status === 'fulfilled' ? frsRcra.value : fallback('FRS RCRA Active', 'RCRA_FRS'),
   ];
 
+  // Deduplicate across sources — cluster by name + ~0.01 degree proximity
+  const seen = new Map<string, boolean>();
   const allFacilities = sources.flatMap(s => s.facilities)
+    .filter(f => {
+      const latKey = f.lat ? Math.round(f.lat * 100) : 'null';
+      const lngKey = f.lng ? Math.round(f.lng * 100) : 'null';
+      const key = `${f.name.toLowerCase().replace(/\s+/g,'').slice(0,12)}_${latKey}_${lngKey}`;
+      if (seen.has(key)) return false;
+      seen.set(key, true);
+      return true;
+    })
     .sort((a, b) => (a.distanceMi ?? 99) - (b.distanceMi ?? 99));
 
   const audit = sources.map(s => ({
@@ -177,14 +187,41 @@ export async function POST(req: NextRequest) {
     status: s.status,
   }));
 
+  // Separated counts for UI display (federal vs state)
+  const nplCount = sources[0].resultCount;
+  const tceqSFCount = sources[1].resultCount;
+  const rcraPointsCount = sources[2].resultCount;
+  const frsRcraCount = sources[3].resultCount;
+  const rcraCount = allFacilities.filter(f => f.dataset === 'RCRA' || f.dataset === 'RCRA_FRS').length;
+
+  // Enhanced source audit with query metadata
+  const enhancedAudit = [
+    { sourceName: 'EPA NPL Superfund Boundaries', dataset: 'NPL', queryDate: sources[0].queryDate, resultCount: nplCount, status: sources[0].status, coordinateSystem: 'WGS84', queryMethod: 'spatial', endpointUrl: sources[0].endpointUrl },
+    { sourceName: 'TCEQ State Superfund Sites', dataset: 'TCEQ_SUPERFUND', queryDate: sources[1].queryDate, resultCount: tceqSFCount, status: sources[1].status, coordinateSystem: 'WGS84', queryMethod: 'attribute', endpointUrl: sources[1].endpointUrl },
+    { sourceName: 'EPA RCRA Facility Points', dataset: 'RCRA', queryDate: sources[2].queryDate, resultCount: rcraPointsCount, status: sources[2].status, coordinateSystem: 'WGS84', queryMethod: 'spatial', endpointUrl: sources[2].endpointUrl },
+    { sourceName: 'FRS RCRA Active Facilities', dataset: 'RCRA_FRS', queryDate: sources[3].queryDate, resultCount: frsRcraCount, status: sources[3].status, coordinateSystem: 'NAD83', queryMethod: 'attribute', endpointUrl: sources[3].endpointUrl },
+  ];
+
+  // RCRA report language
+  const rcraLanguage = rcraCount === 0
+    ? 'No RCRA-regulated facilities were identified within the applicable ASTM E1527-21 search radius.'
+    : `${rcraCount} RCRA-regulated facility(ies) identified within the applicable search radius. RCRA facilities may include hazardous waste generators, treatment/storage/disposal facilities (TSDs), or corrective action sites. The presence of such facilities may represent a potential environmental concern depending on operational history and regulatory status. Individual RCRA handler files should be reviewed via RCRAInfo (rcrainfo.epa.gov) prior to transaction close.`;
+
   return NextResponse.json({
     facilitiesNearby: allFacilities,
     totalCount: allFacilities.length,
-    sourceAudit: audit,
-    nplCount: sources[0].resultCount,
-    tceqSuperfundCount: sources[1].resultCount,
-    rcraCount: sources[2].resultCount + sources[3].resultCount,
-    manualRequired: ['TRI', 'ERNS'],
-    note: 'Federal database review: EPA NPL via ArcGIS FeatureServer (WGS84 boundary polygons). RCRA, TRI, and ERNS require manual search — see Federal Database Review panel.',
+    // Separated counts for structured UI display
+    federal: {
+      nplCount,
+      rcraCount,
+      tceqSuperfundCount: tceqSFCount,
+      superfundTotal: nplCount + tceqSFCount,
+    },
+    // Legacy fields for backward compat
+    nplCount, tceqSuperfundCount: tceqSFCount, rcraCount,
+    sourceAudit: enhancedAudit,
+    manualRequired: ['TRI', 'ERNS', 'Brownfields'],
+    rcraLanguage,
+    note: 'Federal database review conducted per ASTM E1527-21 Table 1 using EPA ArcGIS FeatureServer endpoints. NPL queried via WGS84 polygon boundary intersection. RCRA queried via point geometry. TRI, ERNS, and Brownfields require manual search.',
   });
 }
