@@ -35,10 +35,10 @@ export default function HistoricalResearchPanel({ lat, lng, city, state, data, o
   const reviewedCount = [local.naipReviewed, local.topoReviewed, local.googleEarthReviewed, local.historicAerialsReviewed, local.sanbornReviewed].filter(Boolean).length;
 
   // Build research URLs
-  const naipUrl = lat && lng ? `https://giscrg.com/viewer/index.html?lat=${lat}&lon=${lng}&zoom=15` : 'https://datagateway.nrcs.usda.gov/GDGHome_DirectDownLoad.aspx'\;
-  const topoUrl = lat && lng ? `https://ngmdb.usgs.gov/topoview/viewer/#15/${lat}/${lng}` : 'https://ngmdb.usgs.gov/topoview/'\;
-  const historicAerialsUrl = city && state ? `https://www.historicaerials.com/viewer#2${encodeURIComponent(city + ' ' + state)}` : 'https://www.historicaerials.com'\;
-  const googleEarthUrl = lat && lng ? `https://earth.google.com/web/@${lat},${lng},500a,1000d,35y,0h,0t,0r` : 'https://earth.google.com'\;
+  const naipUrl = lat && lng ? `https://giscrg.com/viewer/index.html?lat=${lat}&lon=${lng}&zoom=15` : 'https://datagateway.nrcs.usda.gov/GDGHome_DirectDownLoad.aspx';
+  const topoUrl = lat && lng ? `https://ngmdb.usgs.gov/topoview/viewer/#15/${lat}/${lng}` : 'https://ngmdb.usgs.gov/topoview/';
+  const historicAerialsUrl = city && state ? `https://www.historicaerials.com/viewer#2${encodeURIComponent(city + ' ' + state)}` : 'https://www.historicaerials.com';
+  const googleEarthUrl = lat && lng ? `https://earth.google.com/web/@${lat},${lng},500a,1000d,35y,0h,0t,0r` : 'https://earth.google.com';
   const sanbornCity = city ? encodeURIComponent(city) : '';
   const sanbornUrl = `https://www.loc.gov/collections/sanborn-maps/?q=${sanbornCity}&st=list`;
 
