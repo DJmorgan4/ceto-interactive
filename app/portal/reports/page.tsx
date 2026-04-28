@@ -532,6 +532,8 @@ function ReportsPageInner() {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [mapSnapshot, setMapSnapshot] = useState<string | null>(null);
   const [parcelIntel, setParcelIntel] = useState<ParcelIntelData | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [mapSnapshot, setMapSnapshot] = useState<string | null>(null);
   const [historicalResearch, setHistoricalResearch] = useState<HistoricalResearchData | null>(null);
   const [reg, setReg] = useState<RegData | null>(null);
   const [regLoading, setRegLoading] = useState(false);
@@ -685,6 +687,77 @@ Generate a complete ${rType?.label} with all standard sections including Executi
       setGenError(e instanceof Error ? e.message : 'Report generation failed');
     }
     setGenerating(false);
+  };
+
+  const exportPdf = async () => {
+    if (!reg) return;
+    setExportingPdf(true);
+    try {
+      const score = computeCetoScore(reg, parcel);
+      const echoFacs = reg?.epaEcho?.facilitiesNearby || [];
+      const tceqFacs = (reg as any)?.tceq?.facilitiesNearby || [];
+      const seen = new Set<string>();
+      const allFacs = [...echoFacs, ...tceqFacs]
+        .filter(f => { const k = String(f.name)+String(f.distanceMi); if(seen.has(k))return false; seen.add(k); return true; })
+        .sort((a,b) => ((a.distanceMi??99) as number)-((b.distanceMi??99) as number));
+
+      const decisions = [
+        { label: 'Proceed with Acquisition', value: score.total >= 55 ? 'YES' : 'CONDITIONAL', risk: score.total >= 55 ? 'LOW' : 'MODERATE' },
+        { label: 'Phase II ESA Needed', value: score.total < 75 ? 'RECOMMENDED' : 'NOT REQUIRED', risk: score.total < 75 ? 'MODERATE' : 'LOW' },
+        { label: 'Wetland Concern', value: reg.nwi?.wetlandsPresent ? 'MODERATE' : 'LOW', risk: reg.nwi?.wetlandsPresent ? 'MODERATE' : 'LOW' },
+        { label: 'Flood Concern', value: reg.fema?.risk || 'LOW', risk: reg.fema?.risk || 'LOW' },
+      ];
+
+      const screeningRows = [
+        { category: 'Flood Zone', result: `Zone ${reg.fema?.zone || 'X'}`, detail: reg.fema?.classification || 'Zone X (minimal)', risk: reg.fema?.risk || 'LOW' },
+        { category: 'Wetlands (NWI)', result: reg.nwi?.wetlandsPresent ? 'Wetlands mapped' : 'None mapped', detail: reg.nwi?.wetlandTypes?.[0] || 'No jurisdictional wetlands', risk: reg.nwi?.risk || 'LOW' },
+        { category: 'TCEQ Facilities', result: `${allFacs.length} within 1 mi`, detail: allFacs[0]?.name || 'None', risk: allFacs.length > 10 ? 'MODERATE' : 'LOW' },
+        { category: 'Hydric Soils', result: `${reg.soils?.hydricPercent || 0}% hydric`, detail: reg.soils?.mapUnits?.[0]?.series || 'Unknown', risk: (reg.soils?.hydricPercent || 0) > 20 ? 'MODERATE' : 'LOW' },
+        { category: 'Elevation', result: reg.elevation?.elevationFt ? `${reg.elevation.elevationFt} ft MSL` : 'N/A', detail: reg.hydrology?.nearbyStreams?.length ? `${reg.hydrology.nearbyStreams[0].name} nearby` : 'No named streams', risk: 'LOW' },
+        { category: 'Geology', result: reg.geology?.formation || 'Unknown', detail: reg.geology?.lithology || '—', risk: 'LOW' },
+      ];
+
+      const res = await fetch('/api/portal/export-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'phase1',
+          projectName: projectName || 'Unknown Project',
+          clientName: clientName || 'Confidential',
+          location: location,
+          surveyDate,
+          county: reg.county || 'Unknown',
+          cetoScore: score.total,
+          ratingCode: score.ratingCode || 'MODERATE',
+          scoreBreakdown: score.breakdown,
+          decisions,
+          screeningRows,
+          facilities: allFacs,
+          fema: reg.fema || { zone: 'X', classification: 'Zone X', risk: 'LOW' },
+          geology: reg.geology || { formation: 'Unknown', lithology: 'Unknown', age: 'Unknown' },
+          elevation: reg.elevation || { elevationFt: null },
+          hydrology: reg.hydrology || { nearbyStreams: [] },
+          soils: reg.soils || { hydricPercent: 0, interpretation: '' },
+          reportText: report || '',
+          parcelData: parcelIntel,
+          historicalData: historicalResearch,
+          mapSnapshot: mapSnapshot || null,
+          preparedBy: 'Ceto Interactive Environmental Consulting · McKinney, Texas',
+        }),
+      });
+
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `CetoESA_${(projectName || 'Report').replace(/\s+/g,'_')}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert('PDF export failed: ' + String(e));
+    }
+    setExportingPdf(false);
   };
 
   const inputStyle = { width: '100%', boxSizing: 'border-box' as const, fontSize: 13, fontFamily: FONT_SANS, fontWeight: 300, padding: '9px 12px', backgroundColor: 'rgba(17,26,36,0.03)', border: `1px solid ${T.border}`, borderRadius: 2, outline: 'none', color: T.ink };
