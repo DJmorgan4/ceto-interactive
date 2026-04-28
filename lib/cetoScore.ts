@@ -61,7 +61,7 @@ export interface ScoredInput {
   floodZone: TracedValue<string>;
   wetlandsPresent: TracedValue<boolean>;
   facilitiesCount: TracedValue<number>;
-  facilitiesNearby: TracedValue<{ name: string; type: string; distanceMi?: number; program?: string }[]>;
+  facilitiesNearby: TracedValue<{ name: string; type: string; distanceMi?: number; program?: string; dataset?: string; riskClass?: string }[]>;
   elevation: TracedValue<number | null>;
   geology: TracedValue<string>;
   soilSeries: TracedValue<string>;
@@ -200,7 +200,7 @@ function distanceWeight(distanceMi: number): number {
 
 // FIX 2+3: Compute weighted facility risk from actual facility data
 function computeFacilityRisk(
-  facilities: { name: string; type: string; distanceMi?: number; program?: string }[],
+  facilities: { name: string; type: string; distanceMi?: number; program?: string; dataset?: string; riskClass?: string }[],
   facilitiesAdjacent: boolean,
   knownRelease: boolean
 ): { risk: number; highestWeight: number; highestType: string; closestMi: number | null } {
