@@ -44,6 +44,7 @@ function getRiskColor(rc?: string) {
 
 export default function RiskMap({ reg, projectName }: { reg: RegData | null; projectName?: string }) {
   const [activeTab, setActiveTab] = useState<'map' | 'satellite' | 'topo'>('map');
+  const [facOpen, setFacOpen] = useState(false);
 
   const siteLat = reg?.coordinates?.lat;
   const siteLng = reg?.coordinates?.lng;
@@ -191,20 +192,14 @@ export default function RiskMap({ reg, projectName }: { reg: RegData | null; pro
               </div>
             </div>
           ))}
-          {facilities.length > 42 && (
+          {facOpen && facilities.length > 42 && (
             <div style={{ padding: '8px 16px', fontSize: 10, color: T.muted, fontFamily: FS, textAlign: 'center' }}>
               +{facilities.length - 42} additional facilities within 1-mile radius — see full report
             </div>
           )}
         </div>
       )}
-      {facilities.length === 0 && (
-        <div style={{ padding: '14px 16px', borderTop: `1px solid ${T.border}` }}>
-          <div style={{ fontSize: 11, color: T.muted, fontFamily: FS }}>
-            {facilities.length === 0 && reg ? 'No regulated facilities identified within 1-mile radius — TCEQ data loading...' : 'No regulated facilities identified within 1-mile radius.'}
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }
