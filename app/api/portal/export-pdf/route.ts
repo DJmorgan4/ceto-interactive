@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
       reportId,
     });
 
-    const stream = await ReactPDF.renderToStream(element);
+    const stream = await ReactPDF.renderToStream(element as any);
 
     const chunks: Buffer[] = [];
     for await (const chunk of stream as AsyncIterable<Buffer>) {
