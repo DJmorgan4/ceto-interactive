@@ -710,7 +710,7 @@ Generate a complete ${rType?.label} with all standard sections including Executi
         { category: 'Flood Zone', result: `Zone ${reg.fema?.floodZone || 'X'}`, detail: reg.fema?.floodZoneDesc || 'Zone X (minimal)', risk: reg.fema?.risk || 'LOW' },
         { category: 'Wetlands (NWI)', result: reg.nwi?.wetlandsPresent ? 'Wetlands mapped' : 'None mapped', detail: reg.nwi?.wetlandTypes?.[0] || 'No jurisdictional wetlands', risk: reg.nwi?.risk || 'LOW' },
         { category: 'TCEQ Facilities', result: `${allFacs.length} within 1 mi`, detail: allFacs[0]?.name || 'None', risk: allFacs.length > 10 ? 'MODERATE' : 'LOW' },
-        { category: 'Hydric Soils', result: `${reg.soils?.hydricPercent || 0}% hydric`, detail: reg.soils?.mapUnits?.[0]?.series || 'Unknown', risk: (reg.soils?.hydricPercent || 0) > 20 ? 'MODERATE' : 'LOW' },
+        { category: 'Hydric Soils', result: `${reg.soils?.hydricPercent || 0}% hydric`, detail: reg.soils?.mapUnits?.[0]?.name || 'Unknown', risk: (reg.soils?.hydricPercent || 0) > 20 ? 'MODERATE' : 'LOW' },
         { category: 'Elevation', result: reg.elevation?.elevationFt ? `${reg.elevation.elevationFt} ft MSL` : 'N/A', detail: reg.hydrology?.nearbyStreams?.length ? `${reg.hydrology.nearbyStreams[0].name} nearby` : 'No named streams', risk: 'LOW' },
         { category: 'Geology', result: reg.geology?.formation || 'Unknown', detail: reg.geology?.lithology || '—', risk: 'LOW' },
       ];
