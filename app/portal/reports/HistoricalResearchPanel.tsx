@@ -17,10 +17,11 @@ interface Props {
   lat?: number; lng?: number; city?: string; state?: string;
   data?: HistoricalResearchData | null;
   onUpdate?: (data: HistoricalResearchData) => void;
+  autoExpand?: boolean;
 }
 
-export default function HistoricalResearchPanel({ lat, lng, city, state, data, onUpdate }: Props) {
-  const [expanded, setExpanded] = useState(false);
+export default function HistoricalResearchPanel({ lat, lng, city, state, data, onUpdate, autoExpand }: Props) {
+  const [expanded, setExpanded] = useState(!!autoExpand);
   const [local, setLocal] = useState<HistoricalResearchData>(data || {
     naipReviewed: false, topoReviewed: false, googleEarthReviewed: false,
     historicAerialsReviewed: false, sanbornReviewed: false, notes: '',
@@ -35,7 +36,7 @@ export default function HistoricalResearchPanel({ lat, lng, city, state, data, o
   const reviewedCount = [local.naipReviewed, local.topoReviewed, local.googleEarthReviewed, local.historicAerialsReviewed, local.sanbornReviewed].filter(Boolean).length;
 
   // Build research URLs
-  const naipUrl = lat && lng ? `https://giscrg.com/viewer/index.html?lat=${lat}&lon=${lng}&zoom=15` : 'https://datagateway.nrcs.usda.gov/GDGHome_DirectDownLoad.aspx';
+  const naipUrl = lat && lng ? `https://earthexplorer.usgs.gov/` : 'https://earthexplorer.usgs.gov/';
   const topoUrl = lat && lng ? `https://ngmdb.usgs.gov/topoview/viewer/#15/${lat}/${lng}` : 'https://ngmdb.usgs.gov/topoview/';
   const historicAerialsUrl = city && state ? `https://www.historicaerials.com/viewer#2${encodeURIComponent(city + ' ' + state)}` : 'https://www.historicaerials.com';
   const googleEarthUrl = lat && lng ? `https://earth.google.com/web/@${lat},${lng},500a,1000d,35y,0h,0t,0r` : 'https://earth.google.com';
@@ -43,7 +44,7 @@ export default function HistoricalResearchPanel({ lat, lng, city, state, data, o
   const sanbornUrl = `https://www.loc.gov/collections/sanborn-maps/?q=${sanbornCity}&st=list`;
 
   const sources = [
-    { key: 'naipReviewed' as const, label: 'NAIP Aerial Imagery', desc: 'USDA Farm Service Agency — current & historical aerials', url: naipUrl, color: '#2F5D8C' },
+    { key: 'naipReviewed' as const, label: 'NAIP / Aerial Imagery', desc: 'USGS EarthExplorer — search NAIP, historical aerials, satellite imagery', url: naipUrl, color: '#2F5D8C' },
     { key: 'topoReviewed' as const, label: 'USGS Topographic Maps', desc: 'Historical topo maps — drainage, land use context', url: topoUrl, color: '#6B5B2B' },
     { key: 'historicAerialsReviewed' as const, label: 'Historic Aerials Database', desc: 'Decade-by-decade aerial coverage since 1930s', url: historicAerialsUrl, color: '#4A7C5A' },
     { key: 'googleEarthReviewed' as const, label: 'Google Earth Pro', desc: 'Street view + historical imagery timeline', url: googleEarthUrl, color: '#1A5276' },

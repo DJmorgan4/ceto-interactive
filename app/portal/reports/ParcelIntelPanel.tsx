@@ -46,6 +46,7 @@ export interface ParcelIntelData {
 
 interface Props {
   county?: string;
+  address?: string;
   data?: ParcelIntelData | null;
   onUpdate?: (data: ParcelIntelData) => void;
 }
@@ -53,9 +54,9 @@ interface Props {
 const inputStyle = { width: '100%', boxSizing: 'border-box' as const, fontSize: 12, fontFamily: FS, fontWeight: 300, padding: '7px 10px', backgroundColor: 'rgba(17,26,36,0.02)', border: `1px solid ${T.border}`, borderRadius: 2, outline: 'none', color: T.ink };
 const labelStyle = { display: 'block' as const, fontSize: 9, letterSpacing: '0.16em', textTransform: 'uppercase' as const, color: T.muted, marginBottom: 4, fontFamily: FS };
 
-export default function ParcelIntelPanel({ county, data, onUpdate }: Props) {
+export default function ParcelIntelPanel({ county, address, data, onUpdate }: Props) {
   const cad = getCadInfo(county || 'Unknown');
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(!!county);
   const [local, setLocal] = useState<ParcelIntelData>(data || {
     county: county || '',
     cadUrl: cad.url,

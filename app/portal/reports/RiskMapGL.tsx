@@ -40,6 +40,7 @@ export default function RiskMapGL({ reg, projectName, onSnapshot }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [facListOpen, setFacListOpen] = useState(false);
   const [mapError, setMapError] = useState('');
   const [layers, setLayers] = useState<Record<LayerKey, boolean>>({
     topo: false, naip: false, fema: true, nwi: true, facilities: true,
@@ -274,10 +275,13 @@ export default function RiskMapGL({ reg, projectName, onSnapshot }: Props) {
       {/* Facility list */}
       {facilities.length > 0 && (
         <div style={{ borderTop: `1px solid ${T.border}` }}>
-          <div style={{ padding: '8px 16px', backgroundColor: 'rgba(17,26,36,0.02)' }}>
-            <div style={{ fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase', color: T.muted, fontFamily: FS }}>Mapped Facilities — Sorted by Distance</div>
+          <div
+            onClick={() => setFacListOpen(o => !o)}
+            style={{ padding: '8px 16px', backgroundColor: 'rgba(17,26,36,0.02)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase', color: T.muted, fontFamily: FS }}>Mapped Facilities — Sorted by Distance ({facilities.length})</div>
+            <div style={{ fontSize: 10, color: T.muted, fontFamily: FS }}>{facListOpen ? '▲' : '▼'}</div>
           </div>
-          {facilities.slice(0, 15).map((f, i) => (
+          {facListOpen && facilities.slice(0, 15).map((f, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', borderBottom: i < Math.min(facilities.length, 15) - 1 ? `1px solid ${T.border}` : 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: getRiskColor(f.riskClass), flexShrink: 0 }} />
@@ -291,7 +295,7 @@ export default function RiskMapGL({ reg, projectName, onSnapshot }: Props) {
               )}
             </div>
           ))}
-          {facilities.length > 15 && (
+          {facListOpen && facilities.length > 15 && (
             <div style={{ padding: '8px 16px', fontSize: 10, color: T.muted, fontFamily: FS, textAlign: 'center' }}>
               +{facilities.length - 15} additional facilities — see full report
             </div>
