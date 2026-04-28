@@ -532,8 +532,6 @@ function ReportsPageInner() {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [mapSnapshot, setMapSnapshot] = useState<string | null>(null);
   const [parcelIntel, setParcelIntel] = useState<ParcelIntelData | null>(null);
-  const [exportingPdf, setExportingPdf] = useState(false);
-  const [mapSnapshot, setMapSnapshot] = useState<string | null>(null);
   const [historicalResearch, setHistoricalResearch] = useState<HistoricalResearchData | null>(null);
   const [reg, setReg] = useState<RegData | null>(null);
   const [regLoading, setRegLoading] = useState(false);
