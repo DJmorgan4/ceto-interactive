@@ -175,11 +175,11 @@ function computeCetoScore(reg: RegData, parcelArg?: ParcelData | null): { total:
     return {
       total: result.finalScore,
       breakdown: {
-        flood:         { score: Math.round(100 - b.flood),         max: 20, label: 'Flood Risk',             risk: b.flood > 30 ? 'HIGH' : b.flood > 10 ? 'MODERATE' : 'LOW' },
-        wetland:       { score: Math.round(100 - b.wetland),       max: 20, label: 'Wetland Risk',           risk: b.wetland > 30 ? 'HIGH' : b.wetland > 10 ? 'MODERATE' : 'LOW' },
-        contamination: { score: Math.round(100 - b.regulatory),    max: 25, label: 'Contamination Risk',     risk: b.regulatory > 30 ? 'HIGH' : b.regulatory > 10 ? 'MODERATE' : 'LOW' },
-        soil:          { score: Math.round(100 - b.soil),          max: 20, label: 'Soil / Development Risk',risk: b.soil > 30 ? 'HIGH' : b.soil > 10 ? 'MODERATE' : 'LOW' },
-        regulatory:    { score: Math.round(100 - b.historicalUse), max: 15, label: 'Regulatory Compliance',  risk: b.historicalUse > 30 ? 'HIGH' : b.historicalUse > 10 ? 'MODERATE' : 'LOW' },
+        flood:         { score: Math.round((1 - b.flood / 100)         * 20), max: 20, label: 'Flood Risk',             risk: b.flood > 50 ? 'HIGH' : b.flood > 20 ? 'MODERATE' : 'LOW' },
+        wetland:       { score: Math.round((1 - b.wetland / 100)       * 20), max: 20, label: 'Wetland Risk',           risk: b.wetland > 50 ? 'HIGH' : b.wetland > 20 ? 'MODERATE' : 'LOW' },
+        contamination: { score: Math.round((1 - b.regulatory / 100)    * 25), max: 25, label: 'Contamination Risk',     risk: b.regulatory > 50 ? 'HIGH' : b.regulatory > 20 ? 'MODERATE' : 'LOW' },
+        soil:          { score: Math.round((1 - b.soil / 100)          * 20), max: 20, label: 'Soil / Development Risk',risk: b.soil > 50 ? 'HIGH' : b.soil > 20 ? 'MODERATE' : 'LOW' },
+        regulatory:    { score: Math.round((1 - b.historicalUse / 100) * 15), max: 15, label: 'Regulatory Compliance',  risk: b.historicalUse > 50 ? 'HIGH' : b.historicalUse > 20 ? 'MODERATE' : 'LOW' },
       },
     };
   } catch {
