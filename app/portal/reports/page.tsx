@@ -528,6 +528,7 @@ function ReportsPageInner() {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [reconData, setReconData] = useState<ReconData | null>(null);
   const [federalDB, setFederalDB] = useState<FederalDBData | null>(null);
+  const [federalIntel, setFederalIntel] = useState<any>(null);
   const [mapSnapshot, setMapSnapshot] = useState<string | null>(null);
   const [parcelIntel, setParcelIntel] = useState<ParcelIntelData | null>(null);
   const [historicalResearch, setHistoricalResearch] = useState<HistoricalResearchData | null>(null);
@@ -584,6 +585,7 @@ function ReportsPageInner() {
         })
           .then(r => r.json())
           .then(fed => {
+            setFederalIntel(fed);
             if (fed?.facilitiesNearby?.length > 0) {
               setReg((prev: RegData | null) => prev ? {
                 ...prev,
@@ -870,6 +872,43 @@ Generate a complete ${rType?.label} with all standard sections including Executi
               <div style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: T.muted, marginBottom: 10 }}>Regulatory Intelligence + Risk Score</div>
               <RegPanel data={reg} loading={regLoading} error={regError} parcel={parcel} />
               {reg && <RiskMap reg={reg as any} projectName={projectName} />}
+              {reg && (() => {
+                const nplCount = federalIntel?.nplCount ?? 0;
+                const tceqSFCount = federalIntel?.tceqSuperfundCount ?? 0;
+                const totalSF = nplCount + tceqSFCount;
+                const audit = federalIntel?.sourceAudit || [];
+                const nplAudit = audit.find((a: any) => a.dataset === 'NPL');
+                return (
+                  <div style={{ border: `1px solid ${T.border}`, borderRadius: 4, backgroundColor: T.surface, overflow: 'hidden', marginBottom: 14 }}>
+                    <div style={{ padding: '10px 14px', backgroundColor: totalSF > 0 ? 'rgba(192,57,43,0.04)' : T.blueLight }}>
+                      <div style={{ fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase', color: totalSF > 0 ? '#C0392B' : T.blue, fontFamily: FONT_SANS }}>Federal Superfund / NPL</div>
+                      <div style={{ fontSize: 13, color: T.ink, fontFamily: FONT_SERIF, marginTop: 4, fontWeight: 300 }}>
+                        {federalIntel === null ? 'Querying...' : `${totalSF} site${totalSF !== 1 ? 's' : ''} within search radius`}
+                      </div>
+                      {federalIntel?.facilitiesNearby?.length > 0 && federalIntel.facilitiesNearby.map((f: any, i: number) => (
+                        <div key={i} style={{ marginTop: 6, fontSize: 11, color: '#C0392B', fontFamily: FONT_SANS }}>
+                          ⚠ {f.name} — {f.distanceMi != null ? `${f.distanceMi.toFixed(2)} mi` : 'distance unknown'} ({f.dataset})
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ padding: '8px 14px', borderTop: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {audit.map((a: any, i: number) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 10, color: T.muted, fontFamily: FONT_SANS }}>{a.sourceName}</span>
+                          <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 2, fontFamily: FONT_SANS, backgroundColor: a.status === 'success' ? 'rgba(39,174,96,0.1)' : 'rgba(217,119,6,0.1)', color: a.status === 'success' ? '#27AE60' : '#B45309' }}>
+                            {a.status === 'success' ? `✓ ${a.resultCount} found` : 'failed'}
+                          </span>
+                        </div>
+                      ))}
+                      {federalIntel?.manualRequired && (
+                        <div style={{ fontSize: 9, color: T.muted, fontFamily: FONT_SANS, marginTop: 2 }}>
+                          Manual review required: {federalIntel.manualRequired.join(', ')}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
               {reg && <ParcelIntelPanel county={reg?.county} address={reg?.address} data={parcelIntel} onUpdate={setParcelIntel} />}
               {reg && <HistoricalResearchPanel lat={reg?.coordinates?.lat} lng={reg?.coordinates?.lng} city={reg?.address?.split(',')[0]?.trim()} state="TX" data={historicalResearch} onUpdate={setHistoricalResearch} autoExpand={true} />}
               {reg && <FederalDatabasePanel county={reg?.county} state="TX" address={reg?.address} data={federalDB} onUpdate={setFederalDB} />}
