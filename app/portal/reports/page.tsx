@@ -726,7 +726,7 @@ Generate a complete ${rType?.label} with all standard sections including Executi
           surveyDate,
           county: reg.county || 'Unknown',
           cetoScore: score.total,
-          ratingCode: score.ratingCode || 'MODERATE',
+          ratingCode: score.total >= 90 ? 'LOW' : score.total >= 75 ? 'MODERATE_LOW' : score.total >= 60 ? 'MODERATE' : score.total >= 40 ? 'ELEVATED' : 'HIGH',
           scoreBreakdown: score.breakdown,
           decisions,
           screeningRows,
