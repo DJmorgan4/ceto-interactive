@@ -380,6 +380,7 @@ export function computeCetoScore(input: ScoredInput): ScoreOutput {
     f.dataset === 'LPST' || f.program === 'LPST' || String(f.type).includes('Leaking')
   ).length;
   const lpstFloor = lpstWithin025 ? 75 : lpstWithin05 ? 55 : lpstCount > 5 ? 35 : 0;
+  const lpstRec = lpstWithin05 || lpstCount > 3;
   const complianceRisk = input.hasActiveCleanup ? 80
     : input.hasOpenEnforcement ? 60
     : input.hasViolations ? 40
@@ -582,7 +583,6 @@ export function computeCetoScore(input: ScoredInput): ScoreOutput {
     : 'No significant environmental concerns identified based on available data. Identified data gaps do not independently indicate environmental risk but should be considered in due diligence.';
 
   // Phase II decision: driven by contamination evidence, not score alone
-  const lpstRec = lpstWithin05 || lpstCount > 3;
   const floodRec = fz.startsWith('AE') && regulatoryRisk > 30;
   const phase2Required = ratingCode === 'HIGH' || ratingCode === 'ELEVATED' || input.knownReleaseOnSite;
   const phase2Recommended = lpstRec || floodRec || ratingCode === 'MODERATE';
