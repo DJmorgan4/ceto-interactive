@@ -21,8 +21,8 @@ const NAV = [
 ];
 
 const INTEL_NAV = [
-  { href:'/portal/reports?type=sar', label:'SAR Analysis', icon:'satellite' },
-  { href:'/portal/reports?type=field', label:'Field Maps', icon:'map' },
+  { href:'https://lithicearth.com', label:'SAR Analysis', icon:'satellite' },
+  { href:'https://lithicearth.com', label:'Field Maps', icon:'map' },
   { href:'/portal/reports', label:'Analytics', icon:'chart' },
 ];
 
