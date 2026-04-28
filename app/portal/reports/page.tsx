@@ -574,6 +574,32 @@ function ReportsPageInner() {
             }
           })
           .catch(() => null); // TCEQ failure is non-fatal
+
+      // Fire federal intel (NPL Superfund) in background
+      if (data?.coordinates?.lat && data?.coordinates?.lng) {
+        fetch('/api/portal/federal-intel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ coordinates: data.coordinates }),
+        })
+          .then(r => r.json())
+          .then(fed => {
+            if (fed?.facilitiesNearby?.length > 0) {
+              setReg((prev: RegData | null) => prev ? {
+                ...prev,
+                federal: fed,
+                epaEcho: {
+                  ...prev.epaEcho,
+                  facilitiesNearby: [
+                    ...(prev.epaEcho?.facilitiesNearby || []),
+                    ...(fed.facilitiesNearby || []),
+                  ],
+                },
+              } : prev);
+            }
+          })
+          .catch(() => null); // federal failure is non-fatal
+      }
       }
 
       // Fire parcel intel in background after coordinates resolve
