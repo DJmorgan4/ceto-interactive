@@ -1,236 +1,98 @@
 'use client';
-export { generateNearestFacilityNarrative, generateRiskInterpretation } from '../../../lib/narratives';
+import { useState } from 'react';
 
-import { useEffect, useRef, useState } from 'react';
-
+const FS = 'Jost, sans-serif';
 const T = {
-  ink: '#111A24', muted: 'rgba(17,26,36,0.42)',
-  blue: '#1E4976', blueLight: 'rgba(30,73,118,0.08)',
-  green: '#2D6A4F', greenLight: 'rgba(45,106,79,0.10)',
-  amber: '#8C5E1A', amberLight: 'rgba(140,94,26,0.10)',
-  red: '#B43C28', redLight: 'rgba(180,60,40,0.10)',
-  border: 'rgba(17,26,36,0.11)', surface: 'rgba(255,255,255,0.92)',
+  blue: '#2F5D8C', border: 'rgba(17,26,36,0.1)', surface: '#FFFFFF',
+  blueLight: 'rgba(47,93,140,0.06)', muted: 'rgba(17,26,36,0.45)', ink: '#111A24',
 };
-const FS = "'Jost', sans-serif";
 
 interface Facility {
-  name: string;
-  type: string;
-  program?: string;
-  violations?: string;
-  distanceMi?: number;
-  lat?: number;
-  lng?: number;
+  name: string; type: string; distanceMi?: number; program?: string;
+  lat?: number | null; lng?: number | null; riskClass?: string; dataset?: string;
+}
+interface RegData {
+  coordinates?: { lat: number; lng: number };
+  epaEcho?: { facilitiesNearby?: Facility[] };
+  tceq?: { facilitiesNearby?: Facility[] };
+  [key: string]: unknown;
 }
 
-interface RiskMapProps {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  reg: any;
-  projectName?: string;
+export function generateNearestFacilityNarrative(reg: RegData | null): string {
+  if (!reg) return '';
+  const all = [...(reg?.epaEcho?.facilitiesNearby || []), ...((reg as any)?.tceq?.facilitiesNearby || [])];
+  const nearest = all.filter(f => typeof f.distanceMi === 'number').sort((a,b) => (a.distanceMi??99)-(b.distanceMi??99))[0];
+  if (!nearest) return 'No regulated facilities identified within 1-mile search radius.';
+  const dist = nearest.distanceMi!;
+  const prox = dist <= 0.1 ? 'immediately adjacent to' : dist <= 0.25 ? 'in very close proximity to' : dist <= 0.5 ? 'in nearby proximity to' : 'within the 1-mile search radius of';
+  return `The nearest identified regulated facility is ${nearest.name} (${nearest.dataset || nearest.program || nearest.type}), located ${prox} the subject property at approximately ${dist.toFixed(2)} miles.`;
 }
 
-function facilityRiskColor(facility: Facility): string {
-  const prog = (facility.program || facility.type || '').toUpperCase();
-  if (prog.includes('SUPERFUND') || prog.includes('NPL') || prog.includes('CORRACTS')) return '#B43C28';
-  if (prog.includes('RCRA')) return '#B43C28';
-  if (prog.includes('LUST') || prog.includes('UST')) return '#8C5E1A';
-  if (facility.violations?.includes('Active')) return '#8C5E1A';
-  if (prog.includes('TRI')) return '#8C5E1A';
-  return '#2D6A4F';
+export function generateRiskInterpretation(reg: RegData | null): string {
+  if (!reg) return '';
+  const all = [...(reg?.epaEcho?.facilitiesNearby || []), ...((reg as any)?.tceq?.facilitiesNearby || [])];
+  const high = all.filter(f => f.riskClass === 'HIGH').length;
+  const within025 = all.filter(f => (f.distanceMi ?? 99) <= 0.25).length;
+  if (high > 0) return `${high} high-risk facility(ies) identified within the search radius. Subsurface investigation recommended to evaluate potential contaminant migration pathways.`;
+  if (within025 > 0) return `${within025} facility(ies) identified within 0.25 miles. Contaminant migration risk is present but manageable pending Phase II investigation.`;
+  return 'No high-risk facilities identified within the 1-mile search radius. Regulatory database review is consistent with a low contamination risk profile.';
 }
 
-function facilityRiskLabel(facility: Facility): string {
-  const prog = (facility.program || facility.type || '').toUpperCase();
-  if (prog.includes('SUPERFUND') || prog.includes('NPL') || prog.includes('CORRACTS')) return 'High Risk';
-  if (prog.includes('RCRA') || prog.includes('LUST') || prog.includes('UST')) return 'Moderate-High Risk';
-  if (facility.violations?.includes('Active')) return 'Active Violation';
-  return 'Low Risk';
+function getRiskColor(rc?: string) {
+  return rc === 'HIGH' ? '#EB5757' : rc === 'MODERATE' ? '#F2994A' : '#27AE60';
 }
 
-// Generate nearest facility narrative
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function RiskMap({ reg, projectName }: RiskMapProps) {
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const mapRef = useRef<any>(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
-  const [mapError, setMapError] = useState(false);
+export default function RiskMap({ reg, projectName }: { reg: RegData | null; projectName?: string }) {
   const [activeTab, setActiveTab] = useState<'map' | 'satellite'>('map');
 
   const siteLat = reg?.coordinates?.lat;
   const siteLng = reg?.coordinates?.lng;
-  // Merge TCEQ + ECHO facilities, dedupe by name, sort by distance
+  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+  // Merge and dedupe facilities
   const echoFacs: Facility[] = reg?.epaEcho?.facilitiesNearby || [];
   const tceqFacs: Facility[] = (reg as any)?.tceq?.facilitiesNearby || [];
   const seen = new Set<string>();
   const facilities: Facility[] = [...echoFacs, ...tceqFacs]
-    .filter(f => { const k = f.name + (f.lat || '') + (f.lng || ''); if (seen.has(k)) return false; seen.add(k); return true; })
+    .filter(f => { const k = String(f.name)+String(f.lat??'')+String(f.lng??''); if(seen.has(k))return false; seen.add(k); return true; })
     .sort((a, b) => (a.distanceMi ?? 99) - (b.distanceMi ?? 99));
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-
-  useEffect(() => {
-    if (!siteLat || !siteLng || !token || !mapContainerRef.current) return;
-
-    let map: unknown;
-
-    import('mapbox-gl').then(({ default: mapboxgl }) => {
-      // Required for Next.js — suppress worker URL resolution error
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (mapboxgl as any).workerClass = null;
-      if (!mapContainerRef.current) return;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (mapboxgl as any).accessToken = token;
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      map = new (mapboxgl as any).Map({
-        container: mapContainerRef.current,
-        style: activeTab === 'satellite'
-          ? 'mapbox://styles/mapbox/satellite-streets-v12'
-          : 'mapbox://styles/mapbox/light-v11',
-        center: [siteLng, siteLat],
-        zoom: 13,
-      });
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      mapRef.current = map as any;
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (map as any).on('error', () => { setMapError(true); });
-      (map as any).on('load', () => {
-        setMapLoaded(true);
-
-        // 1-mile radius circle (GeoJSON)
-        const radiusGeoJSON = createCircle(siteLat, siteLng, 1.0);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (map as any).addSource('radius', { type: 'geojson', data: radiusGeoJSON });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (map as any).addLayer({
-          id: 'radius-fill', type: 'fill', source: 'radius',
-          paint: { 'fill-color': '#1E4976', 'fill-opacity': 0.04 }
-        });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (map as any).addLayer({
-          id: 'radius-border', type: 'line', source: 'radius',
-          paint: { 'line-color': '#1E4976', 'line-width': 1.5, 'line-dasharray': [4, 3] }
-        });
-
-        // FEMA flood overlay via tile service
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (map as any).addSource('fema-nfhl', {
-          type: 'raster',
-          tiles: ['https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&layers=show:28&f=image'],
-          tileSize: 256,
-        });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (map as any).addLayer({ id: 'fema-layer', type: 'raster', source: 'fema-nfhl', paint: { 'raster-opacity': 0.45 } });
-
-        // NWI wetlands overlay
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (map as any).addSource('nwi', {
-          type: 'raster',
-          tiles: ['https://www.fws.gov/wetlandsmapper/rest/services/Wetlands_Raster/ImageServer/exportImage?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&f=image'],
-          tileSize: 256,
-        });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (map as any).addLayer({ id: 'nwi-layer', type: 'raster', source: 'nwi', paint: { 'raster-opacity': 0.40 } });
-
-        // Subject property marker
-        const siteEl = document.createElement('div');
-        siteEl.style.cssText = `width:16px;height:16px;border-radius:50%;background:#1E4976;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);`;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        new (mapboxgl as any).Marker({ element: siteEl })
-          .setLngLat([siteLng, siteLat])
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .setPopup(new (mapboxgl as any).Popup({ offset: 12 }).setHTML(`
-            <div style="font-family:'Jost',sans-serif;padding:4px;">
-              <div style="font-size:11px;font-weight:500;color:#111A24;">${projectName || 'Subject Property'}</div>
-              <div style="font-size:10px;color:#666;margin-top:2px;">${siteLat.toFixed(5)}°N, ${Math.abs(siteLng).toFixed(5)}°W</div>
-            </div>
-          `))
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .addTo(map as any);
-
-        // EPA facility markers with real distances
-        facilities.forEach(f => {
-          if (!f.lat || !f.lng) return;
-          const color = facilityRiskColor(f);
-          const label = facilityRiskLabel(f);
-          const el = document.createElement('div');
-          el.style.cssText = `width:12px;height:12px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);cursor:pointer;`;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          new (mapboxgl as any).Marker({ element: el })
-            .setLngLat([f.lng, f.lat])
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .setPopup(new (mapboxgl as any).Popup({ offset: 10 }).setHTML(`
-              <div style="font-family:'Jost',sans-serif;padding:4px;min-width:160px;">
-                <div style="font-size:11px;font-weight:500;color:#111A24;">${f.name}</div>
-                <div style="font-size:10px;color:#666;margin-top:2px;">${f.program || f.type}</div>
-                ${f.distanceMi !== undefined ? `<div style="font-size:10px;color:${color};margin-top:2px;">${f.distanceMi.toFixed(2)} mi from site</div>` : ''}
-                <div style="font-size:9px;margin-top:3px;padding:2px 6px;background:${color}20;color:${color};border-radius:2px;display:inline-block;">${label}</div>
-              </div>
-            `))
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .addTo(map as any);
-        });
-
-        // Navigation controls
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (map as any).addControl(new (mapboxgl as any).NavigationControl({ showCompass: false }), 'top-right');
-      });
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (map as any).on('error', () => setMapError(true));
-    }).catch(() => setMapError(true));
-
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-        setMapLoaded(false);
-      }
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteLat, siteLng, token, activeTab]);
-
-  // Circle GeoJSON helper (haversine-based polygon)
-  function createCircle(lat: number, lng: number, radiusMi: number) {
-    const points = 64;
-    const coords = [];
-    const distRad = radiusMi / 3959;
-    const latRad = lat * Math.PI / 180;
-    const lngRad = lng * Math.PI / 180;
-    for (let i = 0; i <= points; i++) {
-      const angle = (i / points) * 2 * Math.PI;
-      const pLat = Math.asin(Math.sin(latRad) * Math.cos(distRad) + Math.cos(latRad) * Math.sin(distRad) * Math.cos(angle));
-      const pLng = lngRad + Math.atan2(Math.sin(angle) * Math.sin(distRad) * Math.cos(latRad), Math.cos(distRad) - Math.sin(latRad) * Math.sin(pLat));
-      coords.push([pLng * 180 / Math.PI, pLat * 180 / Math.PI]);
-    }
-    return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [coords] }, properties: {} };
-  }
 
   if (!siteLat || !siteLng) return (
-    <div style={{ border: '1px solid rgba(17,26,36,0.1)', borderRadius: 4, backgroundColor: '#F4F5F3', padding: '32px 20px', textAlign: 'center' }}>
-      <div style={{ fontSize: 11, color: 'rgba(17,26,36,0.4)', fontFamily: 'Jost, sans-serif', marginBottom: 4 }}>Environmental Risk Map</div>
-      <div style={{ fontSize: 12, color: 'rgba(17,26,36,0.55)', fontFamily: 'Jost, sans-serif' }}>
-        Enter a site address and click ⚡ Pull to load the interactive map
-      </div>
-    </div>
-  );
-  if (!token) return (
-    <div style={{ padding: 16, background: T.amberLight, borderRadius: 4, fontSize: 11, color: T.amber, fontFamily: FS }}>
-      Add NEXT_PUBLIC_MAPBOX_TOKEN to enable interactive map
+    <div style={{ border: `1px solid ${T.border}`, borderRadius: 4, backgroundColor: '#F4F5F3', padding: '32px 20px', textAlign: 'center' }}>
+      <div style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(17,26,36,0.35)', fontFamily: FS, marginBottom: 6 }}>Environmental Risk Map</div>
+      <div style={{ fontSize: 12, color: 'rgba(17,26,36,0.5)', fontFamily: FS }}>Enter a site address and click ⚡ Pull to load the interactive map</div>
     </div>
   );
 
-  const facilitiesWithCoords = facilities.filter(f => f.lat && f.lng);
+  // Build Mapbox Static Image URL — no WebGL, works everywhere
+  // Overlay: subject property pin + facility pins (max 20 in URL)
+  const buildStaticMapUrl = () => {
+    if (!token || !siteLat || !siteLng) return null;
+    const style = activeTab === 'satellite' ? 'satellite-streets-v12' : 'light-v11';
+    // Site marker (blue pin)
+    const sitePin = `pin-l-star+2F5D8C(${siteLng},${siteLat})`;
+    // Top facility pins (up to 8 with coords)
+    const facPins = facilities
+      .filter(f => f.lat && f.lng)
+      .slice(0, 8)
+      .map(f => {
+        const color = f.riskClass === 'HIGH' ? 'EB5757' : f.riskClass === 'MODERATE' ? 'F2994A' : '27AE60';
+        return `pin-s+${color}(${f.lng},${f.lat})`;
+      });
+    const overlays = [sitePin, ...facPins].join(',');
+    const zoom = 13;
+    const width = 700;
+    const height = 320;
+    return `https://api.mapbox.com/styles/v1/mapbox/${style}/static/${overlays}/${siteLng},${siteLat},${zoom}/${width}x${height}@2x?access_token=${token}`;
+  };
+
+  const staticUrl = buildStaticMapUrl();
 
   return (
-    <div style={{ border: `1px solid ${T.border}`, borderRadius: 4, backgroundColor: T.surface, overflow: 'hidden' }}>
+    <div style={{ border: `1px solid ${T.border}`, borderRadius: 4, backgroundColor: T.surface, overflow: 'hidden', marginBottom: 14 }}>
       {/* Header */}
       <div style={{ padding: '10px 16px', borderBottom: `1px solid ${T.border}`, backgroundColor: T.blueLight, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontSize: 8, letterSpacing: '0.20em', textTransform: 'uppercase', color: T.blue, fontFamily: FS }}>
-          Environmental Risk Map
-        </div>
+        <div style={{ fontSize: 8, letterSpacing: '0.20em', textTransform: 'uppercase', color: T.blue, fontFamily: FS }}>Environmental Risk Map</div>
         <div style={{ display: 'flex', gap: 4 }}>
           {(['map', 'satellite'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
@@ -241,85 +103,80 @@ export default function RiskMap({ reg, projectName }: RiskMapProps) {
         </div>
       </div>
 
-      {/* Map container */}
-      <div style={{ position: 'relative' }}>
-        <div ref={mapContainerRef} style={{ height: 320, width: '100%' }} />
-        {!mapLoaded && !mapError && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(244,245,243,0.8)', fontSize: 11, color: T.muted, fontFamily: FS }}>
-            Loading map...
+      {/* Static map image */}
+      <div style={{ position: 'relative', height: 320, backgroundColor: '#E8EAE6' }}>
+        {staticUrl ? (
+          <img
+            src={staticUrl}
+            alt={`Environmental risk map for ${projectName || 'subject property'}`}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 11, color: T.muted, fontFamily: FS }}>
+            Map unavailable — check Mapbox token configuration
           </div>
         )}
-        {mapError && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F4F5F3', fontSize: 11, color: T.muted, fontFamily: FS }}>
-            Map unavailable — verify Mapbox token
-          </div>
-        )}
+        {/* Coordinate overlay */}
+        <div style={{ position: 'absolute', bottom: 8, left: 8, background: 'rgba(255,255,255,0.9)', borderRadius: 2, padding: '3px 8px', fontSize: 9, fontFamily: FS, color: T.muted }}>
+          {siteLat.toFixed(5)}°N, {Math.abs(siteLng).toFixed(5)}°W · {facilities.length} regulated facilities
+        </div>
       </div>
 
       {/* Legend */}
       <div style={{ padding: '10px 16px', borderTop: `1px solid ${T.border}` }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
           {[
-            { color: T.blue,   label: 'Subject Property', shape: 'circle' },
-            { color: '#B43C28', label: 'High Risk Facility (RCRA/Superfund)', shape: 'circle' },
-            { color: '#8C5E1A', label: 'Moderate Risk Facility (UST/LUST)', shape: 'circle' },
-            { color: '#2D6A4F', label: 'Low Risk Facility', shape: 'circle' },
-            { color: 'rgba(30,73,118,0.25)', label: '1-Mile Search Radius', shape: 'dashed' },
-            { color: 'rgba(29,158,117,0.45)', label: 'NWI Wetlands Overlay', shape: 'square' },
-            { color: 'rgba(55,138,221,0.45)', label: 'FEMA Flood Zones', shape: 'square' },
-          ].map((item, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              {item.shape === 'circle' ? (
-                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: item.color, flexShrink: 0 }} />
-              ) : item.shape === 'square' ? (
-                <div style={{ width: 10, height: 8, backgroundColor: item.color, borderRadius: 1, flexShrink: 0 }} />
-              ) : (
-                <div style={{ width: 14, height: 2, borderTop: `2px dashed ${T.blue}`, flexShrink: 0 }} />
-              )}
-              <span style={{ fontSize: 8, color: T.muted, fontFamily: FS }}>{item.label}</span>
+            { color: T.blue, label: 'Subject Property' },
+            { color: '#EB5757', label: 'High Risk (RCRA/Superfund)' },
+            { color: '#F2994A', label: 'Moderate Risk (UST/LUST)' },
+            { color: '#27AE60', label: 'Low Risk Facility' },
+          ].map(({ color, label }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
+              <span style={{ fontSize: 9, color: T.muted, fontFamily: FS }}>{label}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Facility list with real distances */}
-      {facilitiesWithCoords.length > 0 && (
+      {/* Facility list — top 3 most relevant */}
+      {facilities.length > 0 && (
         <div style={{ borderTop: `1px solid ${T.border}` }}>
-          <div style={{ padding: '8px 16px 4px', fontSize: 8, letterSpacing: '0.16em', textTransform: 'uppercase', color: T.muted, fontFamily: FS }}>
-            Mapped Facilities — Sorted by Distance
+          <div style={{ padding: '8px 16px', backgroundColor: 'rgba(17,26,36,0.02)' }}>
+            <div style={{ fontSize: 8, letterSpacing: '0.18em', textTransform: 'uppercase', color: T.muted, fontFamily: FS }}>
+              Mapped Facilities — Sorted by Distance
+            </div>
           </div>
-          {facilitiesWithCoords
-            .sort((a, b) => (a.distanceMi ?? 99) - (b.distanceMi ?? 99))
-            .map((f, i) => {
-              const color = facilityRiskColor(f);
-              return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 16px', borderBottom: i < facilitiesWithCoords.length - 1 ? `1px solid ${T.border}` : 'none' }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: color, flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 11, color: T.ink, fontFamily: FS, fontWeight: 300 }}>{f.name}</div>
-                    <div style={{ fontSize: 9, color: T.muted, fontFamily: FS }}>{f.program || f.type}</div>
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    {f.distanceMi !== undefined && (
-                      <div style={{ fontSize: 11, color, fontFamily: FS, fontWeight: 500 }}>{f.distanceMi.toFixed(2)} mi</div>
-                    )}
-                    <div style={{ fontSize: 8, color: T.muted, fontFamily: FS }}>{facilityRiskLabel(f)}</div>
-                  </div>
+          {facilities.slice(0, 42).map((f, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', borderBottom: i < Math.min(facilities.length, 42) - 1 ? `1px solid ${T.border}` : 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', backgroundColor: getRiskColor(f.riskClass), flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontSize: 12, color: T.ink, fontFamily: FS, fontWeight: 300 }}>{f.name}</div>
+                  <div style={{ fontSize: 10, color: T.muted, fontFamily: FS }}>{f.dataset || f.type}</div>
                 </div>
-              );
-            })}
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                {f.distanceMi !== undefined && (
+                  <div style={{ fontSize: 11, color: T.blue, fontFamily: FS, fontWeight: 500 }}>{f.distanceMi.toFixed(2)} mi</div>
+                )}
+                <div style={{ fontSize: 9, color: T.muted, fontFamily: FS }}>Low Risk</div>
+              </div>
+            </div>
+          ))}
+          {facilities.length > 42 && (
+            <div style={{ padding: '8px 16px', fontSize: 10, color: T.muted, fontFamily: FS, textAlign: 'center' }}>
+              +{facilities.length - 42} additional facilities within 1-mile radius — see full report
+            </div>
+          )}
         </div>
       )}
-
-      {facilities.length > 0 && facilitiesWithCoords.length === 0 && (
-        <div style={{ padding: '8px 16px', borderTop: `1px solid ${T.border}`, fontSize: 10, color: T.muted, fontFamily: FS }}>
-          {facilities.length} facilities identified — coordinate data unavailable for map display. Search at echo.epa.gov for locations.
-        </div>
-      )}
-
       {facilities.length === 0 && (
-        <div style={{ padding: '8px 16px', borderTop: `1px solid ${T.border}`, fontSize: 10, color: T.green, fontFamily: FS }}>
-          ✓ No EPA-regulated facilities within 1-mile search radius
+        <div style={{ padding: '14px 16px', borderTop: `1px solid ${T.border}` }}>
+          <div style={{ fontSize: 11, color: T.muted, fontFamily: FS }}>
+            {facilities.length === 0 && reg ? 'No regulated facilities identified within 1-mile radius — TCEQ data loading...' : 'No regulated facilities identified within 1-mile radius.'}
+          </div>
         </div>
       )}
     </div>
