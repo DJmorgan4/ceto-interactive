@@ -23,7 +23,7 @@ const NAV = [
 const INTEL_NAV = [
   { href:'https://lithicearth.com', label:'SAR Analysis', icon:'satellite' },
   { href:'https://lithicearth.com', label:'Field Maps', icon:'map' },
-  { href:'/portal/reports', label:'Analytics', icon:'chart' },
+  { href:'https://lithicearth.com', label:'Analytics', icon:'chart' },
 ];
 
 function Icon({ name, size=20 }: { name:string; size?:number }) {
