@@ -43,7 +43,7 @@ function getRiskColor(rc?: string) {
 }
 
 export default function RiskMap({ reg, projectName }: { reg: RegData | null; projectName?: string }) {
-  const [activeTab, setActiveTab] = useState<'map' | 'satellite'>('map');
+  const [activeTab, setActiveTab] = useState<'map' | 'satellite' | 'topo'>('map');
 
   const siteLat = reg?.coordinates?.lat;
   const siteLng = reg?.coordinates?.lng;
@@ -68,6 +68,7 @@ export default function RiskMap({ reg, projectName }: { reg: RegData | null; pro
   // Overlay: subject property pin + facility pins (max 20 in URL)
   const buildStaticMapUrl = () => {
     if (!token || !siteLat || !siteLng) return null;
+    // Topo uses USGS National Map overlay on light base
     const style = activeTab === 'satellite' ? 'satellite-streets-v12' : 'light-v11';
     // Site marker (blue pin)
     const sitePin = `pin-l-star+2F5D8C(${siteLng},${siteLat})`;
@@ -88,13 +89,28 @@ export default function RiskMap({ reg, projectName }: { reg: RegData | null; pro
 
   const staticUrl = buildStaticMapUrl();
 
+  // USGS National Map topo tiles — WMS via ArcGIS REST
+  // Used as <img> overlay on top of static map when topo tab active
+  const topoOverlayUrl = (siteLat && siteLng) ? (() => {
+    const zoom = 14;
+    const n = Math.log(Math.tan((siteLat * Math.PI / 180)) + 1 / Math.cos(siteLat * Math.PI / 180)) / Math.PI;
+    const xTile = Math.floor((siteLng + 180) / 360 * Math.pow(2, zoom));
+    const yTile = Math.floor((1 - n) / 2 * Math.pow(2, zoom));
+    // Return 3x3 grid center tile via USGS TNM WMS
+    const bbox = {
+      minLng: siteLng - 0.05, maxLng: siteLng + 0.05,
+      minLat: siteLat - 0.03, maxLat: siteLat + 0.03,
+    };
+    return `https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/export?bbox=${bbox.minLng},${bbox.minLat},${bbox.maxLng},${bbox.maxLat}&bboxSR=4326&imageSR=4326&size=700,320&format=png32&transparent=true&f=image`;
+  })() : null;
+
   return (
     <div style={{ border: `1px solid ${T.border}`, borderRadius: 4, backgroundColor: T.surface, overflow: 'hidden', marginBottom: 14 }}>
       {/* Header */}
       <div style={{ padding: '10px 16px', borderBottom: `1px solid ${T.border}`, backgroundColor: T.blueLight, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ fontSize: 8, letterSpacing: '0.20em', textTransform: 'uppercase', color: T.blue, fontFamily: FS }}>Environmental Risk Map</div>
         <div style={{ display: 'flex', gap: 4 }}>
-          {(['map', 'satellite'] as const).map(tab => (
+          {(['map', 'satellite', 'topo'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               style={{ padding: '3px 10px', borderRadius: 2, border: 'none', cursor: 'pointer', fontSize: 9, fontFamily: FS, textTransform: 'capitalize', backgroundColor: activeTab === tab ? T.blue : 'rgba(17,26,36,0.06)', color: activeTab === tab ? 'white' : T.muted }}>
               {tab}
@@ -106,12 +122,22 @@ export default function RiskMap({ reg, projectName }: { reg: RegData | null; pro
       {/* Static map image */}
       <div style={{ position: 'relative', height: 320, backgroundColor: '#E8EAE6' }}>
         {staticUrl ? (
-          <img
-            src={staticUrl}
-            alt={`Environmental risk map for ${projectName || 'subject property'}`}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          />
+          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+            <img
+              src={staticUrl}
+              alt={`Environmental risk map for ${projectName || 'subject property'}`}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+            {activeTab === 'topo' && topoOverlayUrl && (
+              <img
+                src={topoOverlayUrl}
+                alt="USGS Topographic overlay"
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', mixBlendMode: 'multiply', opacity: 0.85 }}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            )}
+          </div>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 11, color: T.muted, fontFamily: FS }}>
             Map unavailable — check Mapbox token configuration
@@ -119,7 +145,7 @@ export default function RiskMap({ reg, projectName }: { reg: RegData | null; pro
         )}
         {/* Coordinate overlay */}
         <div style={{ position: 'absolute', bottom: 8, left: 8, background: 'rgba(255,255,255,0.9)', borderRadius: 2, padding: '3px 8px', fontSize: 9, fontFamily: FS, color: T.muted }}>
-          {siteLat.toFixed(5)}°N, {Math.abs(siteLng).toFixed(5)}°W · {facilities.length} regulated facilities
+          {siteLat.toFixed(5)}°N, {Math.abs(siteLng).toFixed(5)}°W · {facilities.length} facilities{activeTab === 'topo' ? ' · USGS Topo overlay' : ''}
         </div>
       </div>
 
