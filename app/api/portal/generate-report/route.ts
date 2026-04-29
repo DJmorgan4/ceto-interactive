@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server';
 import { deriveScoreInput, computeCetoScore } from '../../../../lib/cetoScore';
 import { generateNearestFacilityNarrative, generateRiskInterpretation, generateTracedDataSources } from '../../../../lib/narratives';
@@ -431,6 +432,40 @@ ${regContext}`;
     });
 
     const report = message.content.map(b => b.type === 'text' ? b.text : '').join('');
+
+    // ── STRATUM write — pin this site on the LithicEarth globe ──
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+      if (reg?.coordinates?.lat && reg?.coordinates?.lng) {
+        await supabase.from('stratum_sites').upsert({
+          name: resolvedProject,
+          latitude: reg.coordinates.lat,
+          longitude: reg.coordinates.lng,
+          source: 'ceto',
+          site_type: reportType,
+          ceto_score: body.cetoScore || null,
+          ceto_tier: body.cetoScore < 40 ? 'Low' : body.cetoScore < 70 ? 'Moderate' : 'High',
+          esa_phase: isPhase1 ? 'Phase I' : null,
+          address: reg.address || resolvedLocation,
+          state: reg.state || 'TX',
+          county: reg.county || null,
+          status: 'active',
+          metadata: {
+            client: resolvedClient,
+            report_date: new Date().toISOString(),
+            fema_zone: reg.fema?.floodZone || null,
+            wetlands: reg.nwi?.wetlandsPresent || false,
+            facility_count: reg.epaEcho?.totalCount || 0,
+          }
+        }, { onConflict: 'name,latitude,longitude' })
+      }
+    } catch (stratumErr) {
+      console.error('STRATUM write failed (non-blocking):', stratumErr)
+    }
+    // ── end STRATUM write ──
     return NextResponse.json({ report });
   } catch (e: unknown) {
     console.error('Generation error:', e);
