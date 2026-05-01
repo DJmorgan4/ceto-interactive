@@ -399,11 +399,11 @@ function RegPanel({ data, loading, error, parcel }: { data: RegData | null; load
         </div>
       </div>
 
+      {/* Go/No-Go — Decision first */}
+      <GoNoGo reg={data} />
+
       {/* CETO Score */}
       <CetoScorePanel reg={data} parcel={parcel} />
-
-      {/* Go/No-Go */}
-      <GoNoGo reg={data} />
 
       {/* Screening Summary Table */}
       <ScreeningSummary reg={data} />
