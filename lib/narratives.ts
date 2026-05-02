@@ -91,7 +91,21 @@ export function generateRiskInterpretation(reg: any, cetoScore?: number): string
     else positives.push(`${geology} geology — ${lith || 'consolidated'} substrate limits vertical contaminant migration`);
   }
   if (elevation) positives.push(`site elevation ${elevation} ft MSL (USGS NED)`);
-  if (streams.length > 0) issues.push(`surface water within 2km — ${streams[0].name || 'unnamed stream'} (USGS NHD)`);
+  if (streams.length > 0) {
+    const drainageBasin = reg?.hydrology?.drainageBasin || null;
+    const primaryStream = reg?.hydrology?.primaryStream || streams[0]?.name || null;
+    const closestMi = reg?.hydrology?.closestStreamMiles || null;
+    const allNames = streams.map((s: {name: string}) => s.name).filter(Boolean);
+    const unique = [...new Set(allNames)];
+    const distNote = closestMi && closestMi !== 'Unknown' ? ` (nearest: ${closestMi} mi)` : '';
+    if (drainageBasin && primaryStream) {
+      issues.push(`site is located within the ${drainageBasin}; named surface water features include ${unique.slice(0,3).join(', ')}${distNote} (USGS NHD)`);
+    } else if (primaryStream) {
+      issues.push(`surface water within 2km — ${primaryStream}${distNote} (USGS NHD)`);
+    } else {
+      issues.push(`surface water features present within 2km${distNote} (USGS NHD)`);
+    }
+  }
 
   const scoreContext = cetoScore !== undefined
     ? ` The CETO Environmental Risk Score of ${cetoScore}/100 reflects this overall assessment.`
