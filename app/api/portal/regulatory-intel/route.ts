@@ -188,21 +188,44 @@ async function fetchElevation(coords: Coordinates) {
 async function fetchHydrology(coords: Coordinates) {
   try {
     const { lat, lng } = coords;
-    // Lithic Engine hydro intelligence
-    const url = `${LITHIC_ENGINE_URL}/hydro?lat=${lat}&lng=${lng}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const deltaDeg = 0.018;
+    const envelope = `${lng - deltaDeg},${lat - deltaDeg},${lng + deltaDeg},${lat + deltaDeg}`;
+    const url = `https://hydro.nationalmap.gov/arcgis/rest/services/NHDPlus_HR/MapServer/2/query` +
+      `?geometry=${envelope}` +
+      `&geometryType=esriGeometryEnvelope` +
+      `&spatialRel=esriSpatialRelIntersects` +
+      `&outFields=GNIS_Name,FType,FCode,LengthKM,ReachCode` +
+      `&returnGeometry=true&outSR=4326&f=json`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
     const data = await res.json();
     const features = data?.features || [];
     if (features.length > 0) {
+      const ftypeMap: Record<number, string> = { 460: 'Stream/River', 558: 'Artificial Path', 336: 'Canal/Ditch', 420: 'Underground Conduit', 334: 'Connector' };
       const streams = features
-        .filter((f: {attributes: Record<string,string>}) => f.attributes.GNIS_Name)
-        .slice(0, 3)
-        .map((f: {attributes: Record<string,string>}) => ({ name: f.attributes.GNIS_Name, type: f.attributes.FType }));
-      return { nearbyStreams: streams, withinHUC: true, source: 'USGS NHD Plus HR' };
+        .map((f: { attributes: Record<string, string | number>; geometry?: { paths?: number[][][] } }) => {
+          const attrs = f.attributes;
+          let distMiles = 999;
+          if (f.geometry?.paths?.[0]?.[0]) {
+            const [fLng, fLat] = f.geometry.paths[0][0];
+            distMiles = haversine(lat, lng, fLat, fLng);
+          }
+          return {
+            name: (attrs.GNIS_Name as string) || 'Unnamed Waterway',
+            type: ftypeMap[Number(attrs.FType)] || `FType ${attrs.FType}`,
+            lengthKm: attrs.LengthKM ? Number(attrs.LengthKM).toFixed(2) : 'Unknown',
+            distanceMiles: distMiles < 999 ? distMiles.toFixed(2) : 'Unknown',
+          };
+        })
+        .sort((a: { distanceMiles: string }, b: { distanceMiles: string }) => parseFloat(a.distanceMiles) - parseFloat(b.distanceMiles))
+        .slice(0, 5);
+      const namedStreams = streams.filter((s: { name: string }) => s.name !== 'Unnamed Waterway');
+      const closestDist = streams[0]?.distanceMiles;
+      const risk = namedStreams.length > 0 && parseFloat(closestDist) < 0.25 ? 'MODERATE' : 'LOW';
+      return { nearbyStreams: streams, namedStreamCount: namedStreams.length, totalFeaturesFound: features.length, closestStreamMiles: closestDist || 'Unknown', withinHUC: true, source: 'USGS NHD Plus HR — NHDFlowline', risk };
     }
-    return { nearbyStreams: [], withinHUC: false, source: 'USGS NHD (no streams within 2km)' };
-  } catch {
-    return { nearbyStreams: [], withinHUC: false, source: 'USGS NHD (timeout)' };
+    return { nearbyStreams: [], namedStreamCount: 0, totalFeaturesFound: 0, closestStreamMiles: 'None within 2km', withinHUC: false, source: 'USGS NHD Plus HR (no streams within 2km)', risk: 'LOW' };
+  } catch (err) {
+    return { nearbyStreams: [], namedStreamCount: 0, totalFeaturesFound: 0, closestStreamMiles: 'Unknown', withinHUC: false, source: `USGS NHD Plus HR (error: ${err instanceof Error ? err.message : 'timeout'})`, risk: 'LOW' };
   }
 }
 
