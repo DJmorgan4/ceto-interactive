@@ -188,9 +188,9 @@ async function fetchElevation(coords: Coordinates) {
 async function fetchHydrology(coords: Coordinates) {
   try {
     const { lat, lng } = coords;
-    const deltaDeg = 0.018;
+    const deltaDeg = 0.05;
     const envelope = `${lng - deltaDeg},${lat - deltaDeg},${lng + deltaDeg},${lat + deltaDeg}`;
-    const url = `https://hydro.nationalmap.gov/arcgis/rest/services/NHDPlus_HR/MapServer/2/query` +
+    const url = `https://hydro.nationalmap.gov/arcgis/rest/services/NHDPlus_HR/MapServer/3/query` +
       `?geometry=${envelope}` +
       `&geometryType=esriGeometryEnvelope` +
       `&spatialRel=esriSpatialRelIntersects` +
