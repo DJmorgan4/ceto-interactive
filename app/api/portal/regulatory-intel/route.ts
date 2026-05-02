@@ -204,7 +204,8 @@ async function fetchHydrology(coords: Coordinates) {
       type StreamFeature = { attributes: Record<string, string | number>; geometry?: { paths?: number[][][] } };
       const ftypeMap: Record<number, string> = { 460: 'Stream/River', 558: 'Stream/River (Major)', 336: 'Canal/Ditch', 420: 'Underground Conduit', 334: 'Connector' };
 
-      const withDist = features.map((f: StreamFeature) => {
+      type MappedStream = { name: string | null; ftype: number; lengthKm: string; distanceMiles: number; type: string };
+      const withDist: MappedStream[] = features.map((f: StreamFeature) => {
         const attrs = f.attributes;
         let distMiles = 999;
         if (f.geometry?.paths?.[0]?.[0]) {
@@ -218,7 +219,7 @@ async function fetchHydrology(coords: Coordinates) {
           distanceMiles: distMiles,
           type: ftypeMap[Number(attrs.FType)] || 'NHD Flowline',
         };
-      }).sort((a, b) => a.distanceMiles - b.distanceMiles);
+      }).sort((a: MappedStream, b: MappedStream) => a.distanceMiles - b.distanceMiles);
 
       const seenNames = new Set();
       const namedStreams: { name: string; type: string; lengthKm: string; distanceMiles: string }[] = [];
