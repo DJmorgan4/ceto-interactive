@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const LITHIC_ENGINE_URL =
+  process.env.LITHIC_ENGINE_URL ||
+  process.env.GEO_API_URL ||
+  "http://127.0.0.1:8000";
+
+
 interface Coordinates { lat: number; lng: number; }
 
 // ── Haversine distance (miles) ────────────────────────────────────────────────
@@ -182,7 +188,8 @@ async function fetchElevation(coords: Coordinates) {
 async function fetchHydrology(coords: Coordinates) {
   try {
     const { lat, lng } = coords;
-    const url = `https://hydro.nationalmap.gov/arcgis/rest/services/NHDPlus_HR/MapServer/2/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&distance=2000&units=esriSRUnit_Meter&outFields=GNIS_Name,FType,LengthKM&returnGeometry=false&f=json`;
+    // Lithic Engine hydro intelligence
+    const url = `${LITHIC_ENGINE_URL}/hydro?lat=${lat}&lng=${lng}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
     const data = await res.json();
     const features = data?.features || [];
