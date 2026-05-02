@@ -768,8 +768,9 @@ export function deriveScoreInput(reg: any, parcelData: any, fieldNotes: string):
     nwiOnSite: reg?.nwi?.wetlandsPresent || false,
     nwiAdjacent: false,
     surfaceWaterWithin500ft: (() => {
+      const SURFACE_WATER_500FT_MI = 0.0947; // 500 feet in miles
       const dist = parseFloat(reg?.hydrology?.closestStreamMiles || '999');
-      return !isNaN(dist) && dist < 0.095; // 500ft = 0.095 miles
+      return !isNaN(dist) && dist < SURFACE_WATER_500FT_MI;
     })(),
     inFloodway: (reg?.fema?.floodZone || '') === 'FLOODWAY',
     shrinkSwell: shrinkSwell as ScoredInput['shrinkSwell'],
