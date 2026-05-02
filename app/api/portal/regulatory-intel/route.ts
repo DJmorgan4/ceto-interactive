@@ -257,9 +257,9 @@ function computeOverallRisk(femaRisk: string, echoRisk: string, nwiRisk: string,
   const score = Math.max(riskMap[femaRisk]||1, riskMap[echoRisk]||1, riskMap[nwiRisk]||1, riskMap[soilRisk]||1);
   const level = score === 3 ? 'HIGH' : score === 2 ? 'MODERATE' : 'LOW';
   const summaries: Record<string,string> = {
-    LOW: 'No significant environmental concerns identified. Site appears suitable for intended use without further Phase II investigation at this time.',
+    LOW: 'Preliminary screening indicates low environmental concern based on flood, wetland, and regulatory data. Review CETO Risk Score and full report for complete assessment.',
     MODERATE: 'Some environmental factors warrant attention. Recommend further evaluation of flagged items prior to transaction.',
-    HIGH: 'Significant environmental concerns identified. Phase II ESA strongly recommended prior to any property transaction.',
+    HIGH: 'Preliminary screening identified elevated environmental factors. Review CETO Risk Score and full report for complete analysis and Phase II determination.',
   };
   return { level, score, summary: summaries[level] };
 }

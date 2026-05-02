@@ -84,7 +84,12 @@ export function generateRiskInterpretation(reg: any, cetoScore?: number): string
   else if (hydricPct > 0) positives.push(`${hydricPct}% hydric soils — low concern (USDA SSURGO)`);
   else positives.push('no hydric soils identified (USDA SSURGO)');
 
-  if (geology && geology !== 'Unknown') positives.push(`${geology} geology — ${reg?.geology?.lithology || 'low permeability'} limits vertical contaminant migration`);
+  if (geology && geology !== 'Unknown') {
+    const lith = (reg?.geology?.lithology || '').toLowerCase();
+    const isPermeable = lith.includes('sand') || lith.includes('gravel') || lith.includes('alluvial') || lith.includes('terrace');
+    if (isPermeable) issues.push(`${geology} geology — ${lith} substrate presents moderate-to-high permeability; contaminant migration potential elevated`);
+    else positives.push(`${geology} geology — ${lith || 'consolidated'} substrate limits vertical contaminant migration`);
+  }
   if (elevation) positives.push(`site elevation ${elevation} ft MSL (USGS NED)`);
   if (streams.length > 0) issues.push(`surface water within 2km — ${streams[0].name || 'unnamed stream'} (USGS NHD)`);
 

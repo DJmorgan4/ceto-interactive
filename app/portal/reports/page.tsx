@@ -163,13 +163,16 @@ interface LibraryEntry {
 }
 
 // ── Risk Score Engine ─────────────────────────────────────────────────────────
-function computeCetoScore(reg: RegData, parcelArg?: ParcelData | null): { total: number; breakdown: Record<string, { score: number; max: number; label: string; risk: string }> } {
+function computeCetoScore(reg: RegData, parcelArg?: ParcelData | null): { total: number; reason: string; recommendedAction: string; ratingCode: string; breakdown: Record<string, { score: number; max: number; label: string; risk: string }> } {
   try {
     const input = deriveScoreInput(reg, parcelArg || null, '');
     const result = computeCetoScoreReal(input);
     const b = result.breakdown;
     return {
       total: result.finalScore,
+      reason: result.reason,
+      recommendedAction: result.recommendedAction,
+      ratingCode: result.ratingCode,
       breakdown: {
         flood:         { score: Math.round((1 - b.flood / 100)         * 20), max: 20, label: 'Flood Risk',             risk: b.flood > 50 ? 'HIGH' : b.flood > 20 ? 'MODERATE' : 'LOW' },
         wetland:       { score: Math.round((1 - b.wetland / 100)       * 20), max: 20, label: 'Wetland Risk',           risk: b.wetland > 50 ? 'HIGH' : b.wetland > 20 ? 'MODERATE' : 'LOW' },
@@ -185,6 +188,9 @@ function computeCetoScore(reg: RegData, parcelArg?: ParcelData | null): { total:
     const soilScore   = reg.soils.hydricPercent > 50 ? 5 : reg.soils.hydricPercent > 0 ? 12 : 20;
     return {
       total: floodScore + wetlandScore + contScore + soilScore + 12,
+      reason: "Score computed from fallback data — full analysis unavailable.",
+      recommendedAction: "Complete TCEQ STEERS manual search and verify flagged items before closing.",
+      ratingCode: "MODERATE",
       breakdown: {
         flood:         { score: floodScore,   max: 20, label: 'Flood Risk',             risk: floodScore >= 16   ? 'LOW' : floodScore >= 10   ? 'MODERATE' : 'HIGH' },
         wetland:       { score: wetlandScore, max: 20, label: 'Wetland Risk',           risk: wetlandScore >= 16 ? 'LOW' : wetlandScore >= 10 ? 'MODERATE' : 'HIGH' },
@@ -266,9 +272,9 @@ function CetoScorePanel({ reg, parcel }: { reg: RegData; parcel: ParcelData | nu
 
 // ── Go/No-Go Dashboard ────────────────────────────────────────────────────────
 function GoNoGo({ reg }: { reg: RegData }) {
-  const { total } = computeCetoScore(reg, null);
-  const proceed = total >= 70;
-  const phase2 = reg.epaEcho.totalCount > 0 || reg.soils.hydricPercent > 25;
+  const { total, reason, recommendedAction, ratingCode } = computeCetoScore(reg, null);
+  const proceed = ratingCode === "LOW" || ratingCode === "MODERATE_LOW";
+  const phase2 = ratingCode === "HIGH" || ratingCode === "ELEVATED" || ratingCode === "MODERATE";
   const wetlandConcern = reg.nwi.wetlandsPresent ? 'MODERATE' : 'LOW';
   const floodConcern = reg.fema.floodZone === 'X' ? 'LOW' : 'HIGH';
   const permitConcern = reg.nwi.wetlandsPresent || reg.fema.floodZone !== 'X' ? 'MODERATE' : 'LOW';
@@ -298,7 +304,7 @@ function GoNoGo({ reg }: { reg: RegData }) {
         ))}
       </div>
       <div style={{ padding: '10px 18px', borderTop: `1px solid ${T.border}`, backgroundColor: 'rgba(17,26,36,0.02)', fontSize: 10, color: T.muted, fontFamily: FONT_SANS, lineHeight: 1.6 }}>
-        {reg.overallRisk.summary}
+        {reason}
       </div>
     </div>
   );
