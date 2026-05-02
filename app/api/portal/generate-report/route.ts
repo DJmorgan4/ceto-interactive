@@ -378,7 +378,7 @@ USFWS NWI: ${reg.nwi?.wetlandsPresent ? reg.nwi.acresEstimate + ' acres mapped �
 USDA SSURGO: ${reg.soils?.mapUnits?.map((u: {name: string; drainage: string; hydric: boolean}) => u.name + ' / ' + u.drainage + (u.hydric ? ' / Hydric' : ' / Non-hydric')).join('; ') || 'No soil data'} (${reg.soils?.hydricPercent || 0}% hydric)
 Soils Interpretation: ${reg.soils?.interpretation || 'Not available'}
 Geology: ${reg.geology?.formation} — ${reg.geology?.lithology} (${reg.geology?.age})
-Hydrology: ${reg.hydrology?.nearbyStreams?.length > 0 ? reg.hydrology.nearbyStreams.map((s: {name: string}) => s.name).join(', ') : 'No named streams within 2km'}
+Hydrology: ${reg.hydrology?.primaryStream ? 'Site is within the ' + reg.hydrology.drainageBasin + '. Named streams within 5km: ' + reg.hydrology.nearbyStreams.map((s: {name: string}) => s.name).join(', ') + '. Nearest named stream: ' + reg.hydrology.closestStreamName + ' at ' + reg.hydrology.closestStreamMiles + ' mi.' : 'No named streams identified within search radius'}
 TCEQ: ${reg.tceq?.checked
     ? reg.tceq.totalCount > 0
       ? reg.tceq.totalCount + ' facilities found — LPST: ' + (reg.tceq.lpstCount || 0) + ', Dry Cleaner: ' + (reg.tceq.dryCleanerCount || 0) + ', High Risk: ' + (reg.tceq.highRiskCount || 0) + ' (Source: TCEQ GIS)'

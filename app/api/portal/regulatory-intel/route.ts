@@ -200,28 +200,61 @@ async function fetchHydrology(coords: Coordinates) {
     const data = await res.json();
     const features = data?.features || [];
     if (features.length > 0) {
-      const ftypeMap: Record<number, string> = { 460: 'Stream/River', 558: 'Artificial Path', 336: 'Canal/Ditch', 420: 'Underground Conduit', 334: 'Connector' };
-      const streams = features
-        .map((f: { attributes: Record<string, string | number>; geometry?: { paths?: number[][][] } }) => {
-          const attrs = f.attributes;
-          let distMiles = 999;
-          if (f.geometry?.paths?.[0]?.[0]) {
-            const [fLng, fLat] = f.geometry.paths[0][0];
-            distMiles = haversine(lat, lng, fLat, fLng);
-          }
-          return {
-            name: (attrs.GNIS_Name as string) || 'Unnamed Waterway',
-            type: ftypeMap[Number(attrs.FType)] || `FType ${attrs.FType}`,
-            lengthKm: attrs.LengthKM ? Number(attrs.LengthKM).toFixed(2) : 'Unknown',
-            distanceMiles: distMiles < 999 ? distMiles.toFixed(2) : 'Unknown',
-          };
-        })
-        .sort((a: { distanceMiles: string }, b: { distanceMiles: string }) => parseFloat(a.distanceMiles) - parseFloat(b.distanceMiles))
-        .slice(0, 5);
-      const namedStreams = streams.filter((s: { name: string }) => s.name !== 'Unnamed Waterway');
-      const closestDist = streams[0]?.distanceMiles;
-      const risk = namedStreams.length > 0 && parseFloat(closestDist) < 0.25 ? 'MODERATE' : 'LOW';
-      return { nearbyStreams: streams, namedStreamCount: namedStreams.length, totalFeaturesFound: features.length, closestStreamMiles: closestDist || 'Unknown', withinHUC: true, source: 'USGS NHD Plus HR — NHDFlowline', risk };
+      // Deduplicate, distance-sort, prioritize named + major streams
+      type StreamFeature = { attributes: Record<string, string | number>; geometry?: { paths?: number[][][] } };
+      const ftypeMap: Record<number, string> = { 460: 'Stream/River', 558: 'Stream/River (Major)', 336: 'Canal/Ditch', 420: 'Underground Conduit', 334: 'Connector' };
+
+      const withDist = features.map((f: StreamFeature) => {
+        const attrs = f.attributes;
+        let distMiles = 999;
+        if (f.geometry?.paths?.[0]?.[0]) {
+          const [fLng, fLat] = f.geometry.paths[0][0];
+          distMiles = haversine(lat, lng, fLat, fLng);
+        }
+        return {
+          name: (attrs.GNIS_Name as string) || null,
+          ftype: Number(attrs.FType),
+          lengthKm: attrs.LengthKM ? Number(attrs.LengthKM).toFixed(2) : 'Unknown',
+          distanceMiles: distMiles,
+          type: ftypeMap[Number(attrs.FType)] || 'NHD Flowline',
+        };
+      }).sort((a, b) => a.distanceMiles - b.distanceMiles);
+
+      const seenNames = new Set();
+      const namedStreams: { name: string; type: string; lengthKm: string; distanceMiles: string }[] = [];
+      for (const f of withDist) {
+        if (f.name && !seenNames.has(f.name)) {
+          seenNames.add(f.name);
+          namedStreams.push({
+            name: f.name,
+            type: f.type,
+            lengthKm: f.lengthKm,
+            distanceMiles: f.distanceMiles < 999 ? f.distanceMiles.toFixed(2) : 'Unknown',
+          });
+        }
+        if (namedStreams.length >= 5) break;
+      }
+
+      const closestNamed = namedStreams[0];
+      const closestDist = closestNamed?.distanceMiles || 'Unknown';
+      const closestDistNum = parseFloat(closestDist);
+      const risk = closestDistNum < 0.25 ? 'MODERATE' : 'LOW';
+      const majorStreams = namedStreams.filter(s => s.type.includes('Major'));
+      const primaryStream = majorStreams[0]?.name || namedStreams[0]?.name || null;
+      const drainageBasin = primaryStream ? primaryStream + ' drainage basin' : 'local drainage basin';
+
+      return {
+        nearbyStreams: namedStreams,
+        namedStreamCount: namedStreams.length,
+        totalFeaturesFound: features.length,
+        closestStreamMiles: closestDist,
+        closestStreamName: closestNamed?.name || null,
+        drainageBasin,
+        primaryStream,
+        withinHUC: true,
+        source: 'USGS NHD Plus HR — NetworkNHDFlowline',
+        risk,
+      };
     }
     return { nearbyStreams: [], namedStreamCount: 0, totalFeaturesFound: 0, closestStreamMiles: 'None within 2km', withinHUC: false, source: 'USGS NHD Plus HR (no streams within 2km)', risk: 'LOW' };
   } catch (err) {
