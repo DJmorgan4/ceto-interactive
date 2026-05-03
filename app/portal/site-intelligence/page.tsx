@@ -43,7 +43,7 @@ export default function SiteIntelligencePage() {
   }
 
   const toggleOutput = (id: string) => {
-    setOutputs(prev => prev.includes(id) ? prev.filter(o => o !== id) : [...prev, o])
+    setOutputs(prev => prev.includes(id) ? prev.filter(o => o !== id) : [...prev, id])
   }
 
   const autoCenter = () => {
