@@ -55,7 +55,7 @@ export default function SiteIntelligenceClient() {
     if (!mapContainer.current || map.current) return
     map.current = new maplibregl.Map({
       container: mapContainer.current,
-      style: `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12?access_token=${MAPBOX_TOKEN}`,
+      style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
       center: [-96.625, 33.20],
       zoom: 9,
     })
