@@ -18,6 +18,7 @@ const NAV = [
   { href:'/portal', label:'Dashboard', icon:'grid' },
   { href:'/portal/upload', label:'Upload Data', icon:'upload' },
   { href:'/portal/reports', label:'Reports', icon:'doc' },
+  { href:'/portal/site-intelligence', label:'Site Intelligence', icon:'terrain' },
 ];
 
 const INTEL_NAV = [
@@ -30,6 +31,7 @@ function Icon({ name, size=20 }: { name:string; size?:number }) {
   const paths: Record<string,string> = {
     grid: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z',
     upload: 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12',
+    terrain: 'M3 21h18M3 10h18M3 6l9-3 9 3M4 10v11M20 10v11M8 10v11M12 10v11M16 10v11',
     doc: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
     satellite: 'M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064',
     map: 'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7',
@@ -205,6 +207,23 @@ export default function PortalDashboard() {
               </div>
             ))}
           </div>
+
+          {/* Site Intelligence CTA */}
+          <a href="/portal/site-intelligence" className="block rounded-2xl p-6 mb-6 transition-all"
+            style={{ background:'linear-gradient(135deg, #0a1628 0%, #1a2f4a 100%)', border:'1px solid rgba(47,93,140,0.35)', textDecoration:'none' }}
+            onMouseEnter={e=>{ e.currentTarget.style.borderColor='rgba(47,93,140,0.7)'; e.currentTarget.style.boxShadow='0 4px 24px rgba(47,93,140,0.15)'; }}
+            onMouseLeave={e=>{ e.currentTarget.style.borderColor='rgba(47,93,140,0.35)'; e.currentTarget.style.boxShadow='none'; }}>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[10px] font-light tracking-widest uppercase mb-2" style={{ color:'rgba(47,93,140,0.8)' }}>New</div>
+                <div className="text-lg font-light mb-1" style={{ color:'white' }}>Site Intelligence</div>
+                <div className="text-sm font-light" style={{ color:'rgba(255,255,255,0.50)' }}>DEM · Geology · Soils · Hydrology · Cross-Section → PDF Report</div>
+              </div>
+              <div className="flex items-center gap-3 ml-6">
+                <div className="text-xs font-light px-3 py-1.5 rounded-full" style={{ background:'rgba(47,93,140,0.25)', color:'rgba(47,93,140,1)', border:'1px solid rgba(47,93,140,0.4)' }}>Generate Report →</div>
+              </div>
+            </div>
+          </a>
 
           <div className="grid lg:grid-cols-3 gap-6 mb-6">
             {/* Quick Generate */}

@@ -4,6 +4,7 @@ import matplotlib.colors as mcolors
 from pathlib import Path
 import rasterio
 from rasterio.plot import show
+from scipy.ndimage import gaussian_filter
 import json
 
 
@@ -17,10 +18,13 @@ def read_dem(dem_path: str):
     return data, transform, crs, res
 
 
-def compute_hillshade(dem: np.ndarray, azimuth: float = 315, altitude: float = 45) -> np.ndarray:
+def compute_hillshade(dem: np.ndarray, azimuth: float = 315, altitude: float = 45, res: tuple = (30, 30)) -> np.ndarray:
     az = np.radians(360 - azimuth + 90)
     alt = np.radians(altitude)
-    dy, dx = np.gradient(np.where(np.isnan(dem), 0, dem))
+    dem_filled = np.where(np.isnan(dem), np.nanmean(dem), dem)
+    smoothed = gaussian_filter(dem_filled, sigma=1.5)
+    res_m = (res[0] * 111320, res[1] * 111320)
+    dy, dx = np.gradient(smoothed, res_m[1], res_m[0])
     slope = np.arctan(np.sqrt(dx**2 + dy**2))
     aspect = np.arctan2(-dy, dx)
     hs = (np.sin(alt) * np.cos(slope) +
@@ -31,7 +35,12 @@ def compute_hillshade(dem: np.ndarray, azimuth: float = 315, altitude: float = 4
 
 
 def compute_slope_degrees(dem: np.ndarray, res: tuple) -> np.ndarray:
-    dy, dx = np.gradient(np.where(np.isnan(dem), 0, dem), res[1], res[0])
+    # Smooth DEM before gradient to suppress SRTM noise on low-relief terrain
+    dem_filled = np.where(np.isnan(dem), np.nanmean(dem), dem)
+    smoothed = gaussian_filter(dem_filled, sigma=2.0)
+    # Convert res from degrees to meters approx (1 deg ~ 111km)
+    res_m = (res[0] * 111320, res[1] * 111320)
+    dy, dx = np.gradient(smoothed, res_m[1], res_m[0])
     slope = np.degrees(np.arctan(np.sqrt(dx**2 + dy**2)))
     slope[np.isnan(dem)] = np.nan
     return slope
@@ -119,7 +128,7 @@ def run_terrain(dem_path: str, output_dir: str, project_name: str = "Site") -> d
     maps_dir = Path(output_dir) / "maps"
     maps_dir.mkdir(parents=True, exist_ok=True)
 
-    hs = compute_hillshade(dem)
+    hs = compute_hillshade(dem, res=res)
     slope = compute_slope_degrees(dem, res)
     slope_stats = classify_slope(slope)
 
