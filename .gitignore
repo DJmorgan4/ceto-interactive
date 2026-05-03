@@ -40,3 +40,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .aider*
+site-intelligence/backend/__pycache__/
+site-intelligence/__pycache__/
