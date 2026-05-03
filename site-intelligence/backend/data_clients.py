@@ -3,12 +3,20 @@ from pathlib import Path
 from typing import Optional
 
 
+# Shared DEM cache — persists across jobs
+DEM_CACHE_DIR = Path.home() / ".ceto" / "dem_cache"
+DEM_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+
 def fetch_usgs_dem(bbox: list, output_dir: str) -> str:
     min_lon, min_lat, max_lon, max_lat = bbox
-    output_path = Path(output_dir) / "dem.tif"
-    if output_path.exists():
-        print(f"  [DEM] Using cached {output_path}")
-        return str(output_path)
+    # Use shared cache keyed by bbox
+    cache_key = f"usgs_{min_lon}_{min_lat}_{max_lon}_{max_lat}.tif".replace("-", "n").replace(".", "d")
+    cached_path = DEM_CACHE_DIR / cache_key
+    if cached_path.exists():
+        print(f"  [DEM] Using shared cache: {cached_path}")
+        return str(cached_path)
+    output_path = cached_path
     url = "https://tnmaccess.nationalmap.gov/api/v1/products"
     params = {
         "datasets": "National Elevation Dataset (NED) 1/3 arc-second",
@@ -39,9 +47,12 @@ def fetch_usgs_dem(bbox: list, output_dir: str) -> str:
 
 def fetch_srtm_dem(bbox: list, output_dir: str) -> str:
     min_lon, min_lat, max_lon, max_lat = bbox
-    output_path = Path(output_dir) / "dem_srtm.tif"
-    if output_path.exists():
-        return str(output_path)
+    cache_key = f"srtm_{min_lon}_{min_lat}_{max_lon}_{max_lat}.tif".replace("-", "n").replace(".", "d")
+    cached_path = DEM_CACHE_DIR / cache_key
+    if cached_path.exists():
+        print(f"  [SRTM] Using shared cache: {cached_path}")
+        return str(cached_path)
+    output_path = cached_path
     url = "https://portal.opentopography.org/API/globaldem"
     params = {
         "demtype": "SRTMGL1",

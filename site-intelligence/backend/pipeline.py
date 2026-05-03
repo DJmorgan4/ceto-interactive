@@ -57,63 +57,59 @@ def generate_site_report(
             except Exception as e2:
                 print(f"  [pipeline] SRTM also failed: {e2}")
 
-    progress(15, "Fetching geology data...")
+    progress(15, "Fetching all data sources in parallel...")
 
-    # --- GEOLOGY DATA ---
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     geo_data = {"status": "skipped", "units": [], "primary_unit": None}
-    if "macrostrat" in datasets:
-        try:
-            geo_data = fetch_macrostrat(center[0], center[1])
-        except Exception as e:
-            print(f"  [pipeline] Macrostrat failed: {e}")
-            geo_data = {"status": "error", "units": [], "primary_unit": None}
-
-    progress(25, "Fetching soil data...")
-
-    # --- SOIL DATA ---
     soil_data = {"status": "skipped", "summary": {}}
-    if "soilgrids" in datasets:
-        try:
-            soil_data = fetch_soilgrids(center[0], center[1])
-        except Exception as e:
-            print(f"  [pipeline] SoilGrids failed: {e}")
-            soil_data = {"status": "error", "summary": {}}
-
-    progress(28, "Fetching SSURGO soil data...")
     ssurgo_data = {"status": "skipped", "summary": {}}
-    if "soilgrids" in datasets:
-        try:
-            ssurgo_data = fetch_ssurgo(bbox)
-        except Exception as e:
-            print(f"  [pipeline] SSURGO failed: {e}")
-
-    progress(33, "Fetching hydrology data...")
-
-    # --- NHD ---
     nhd_data = {"status": "skipped"}
-    if "nhd" in datasets:
-        try:
-            nhd_data = fetch_nhd(bbox)
-        except Exception as e:
-            print(f"  [pipeline] NHD failed: {e}")
-
-    progress(40, "Fetching OSM context...")
-
-    # --- OSM ---
     osm_data = {"status": "skipped", "highways": 0, "railways": 0, "waterways": 0}
-    if "osm" in datasets:
-        try:
-            osm_data = fetch_osm(bbox)
-        except Exception as e:
-            print(f"  [pipeline] OSM failed: {e}")
-
-    # --- NLCD ---
     nlcd_data = {"status": "skipped"}
-    if "nlcd" in datasets:
-        try:
-            nlcd_data = fetch_nlcd(bbox, data_dir)
-        except Exception as e:
-            print(f"  [pipeline] NLCD fetch failed: {e}")
+
+    def _fetch_macrostrat():
+        return "geo", fetch_macrostrat(center[0], center[1])
+
+    def _fetch_soilgrids():
+        return "soil", fetch_soilgrids(center[0], center[1])
+
+    def _fetch_ssurgo():
+        return "ssurgo", fetch_ssurgo(bbox)
+
+    def _fetch_nhd():
+        return "nhd", fetch_nhd(bbox)
+
+    def _fetch_osm():
+        return "osm", fetch_osm(bbox)
+
+    def _fetch_nlcd():
+        return "nlcd", fetch_nlcd(bbox, data_dir)
+
+    fetch_tasks = []
+    if "macrostrat" in datasets: fetch_tasks.append(_fetch_macrostrat)
+    if "soilgrids" in datasets:
+        fetch_tasks.append(_fetch_soilgrids)
+        fetch_tasks.append(_fetch_ssurgo)
+    if "nhd" in datasets: fetch_tasks.append(_fetch_nhd)
+    if "osm" in datasets: fetch_tasks.append(_fetch_osm)
+    if "nlcd" in datasets: fetch_tasks.append(_fetch_nlcd)
+
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        futures = {executor.submit(fn): fn.__name__ for fn in fetch_tasks}
+        for future in as_completed(futures):
+            try:
+                key, result = future.result()
+                if key == "geo": geo_data = result
+                elif key == "soil": soil_data = result
+                elif key == "ssurgo": ssurgo_data = result
+                elif key == "nhd": nhd_data = result
+                elif key == "osm": osm_data = result
+                elif key == "nlcd": nlcd_data = result
+                progress(int(15 + len([f for f in futures if f.done()]) / len(futures) * 30),
+                         f"Fetched {key}...")
+            except Exception as e:
+                print(f"  [pipeline] Fetch failed ({futures[future]}): {e}")
 
     progress(48, "Processing terrain...")
 
