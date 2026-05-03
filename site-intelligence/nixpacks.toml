@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["gdal", "python311"]
+nixPkgs = ["gdal", "python311", "pango", "cairo", "gdk-pixbuf", "libffi", "gobject-introspection"]
 
 [phases.install]
 cmds = ["pip install -r requirements.txt"]

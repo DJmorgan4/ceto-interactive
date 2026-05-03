@@ -74,6 +74,9 @@ def generate_site_report(
     if "soilgrids" in datasets:
         try:
             soil_data = fetch_soilgrids(center[0], center[1])
+        except Exception as e:
+            print(f"  [pipeline] SoilGrids failed: {e}")
+            soil_data = {"status": "error", "summary": {}}
 
     progress(28, "Fetching SSURGO soil data...")
     ssurgo_data = {"status": "skipped", "summary": {}}
@@ -82,9 +85,6 @@ def generate_site_report(
             ssurgo_data = fetch_ssurgo(bbox)
         except Exception as e:
             print(f"  [pipeline] SSURGO failed: {e}")
-        except Exception as e:
-            print(f"  [pipeline] SoilGrids failed: {e}")
-            soil_data = {"status": "error", "summary": {}}
 
     progress(33, "Fetching hydrology data...")
 
