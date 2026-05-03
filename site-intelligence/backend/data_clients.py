@@ -13,9 +13,7 @@ def fetch_usgs_dem(bbox: list, output_dir: str) -> str:
     params = {
         "datasets": "National Elevation Dataset (NED) 1/3 arc-second",
         "bbox": f"{min_lon},{min_lat},{max_lon},{max_lat}",
-        "outputFormat": "JSON",
-        "prodFormats": "GeoTIFF",
-        "max": 10,
+        "outputFormat": "JSON", "prodFormats": "GeoTIFF", "max": 10,
     }
     print(f"  [DEM] Querying TNM for bbox {bbox}...")
     resp = requests.get(url, params=params, timeout=30)
@@ -73,20 +71,32 @@ def fetch_macrostrat(center_lon: float, center_lat: float) -> dict:
         data = resp.json()
         units = data.get("success", {}).get("data", [])
         if not units:
-            return {"source": "Macrostrat", "status": "no_data", "units": [], "summary": "No mapped geology found at this location."}
+            return {"source": "Macrostrat", "status": "no_data", "units": [], "primary_unit": None}
         geology = []
         for unit in units[:5]:
+            # correct field names from actual API response
+            lith_raw = unit.get("lith", "")
+            liths_ids = unit.get("liths", [])
             geology.append({
-                "name": unit.get("unit_name", "Unknown"),
-                "lithology": unit.get("lith", []),
+                "name": unit.get("name", "Unknown"),
+                "lithology": lith_raw,
+                "lith_ids": liths_ids,
                 "age_top": unit.get("t_age"),
                 "age_bottom": unit.get("b_age"),
-                "period": unit.get("period", ""),
-                "formation": unit.get("formation", ""),
-                "group": unit.get("gp", ""),
-                "environment": unit.get("environ", []),
+                "period": unit.get("best_int_name", unit.get("t_int_name", "")),
+                "interval_name": unit.get("t_int_name", ""),
+                "formation": unit.get("strat_name", ""),
+                "group": "",
+                "color": unit.get("color", ""),
+                "descrip": unit.get("descrip", ""),
+                "environment": [],
             })
-        return {"source": "Macrostrat API v2", "status": "ok", "units": geology, "primary_unit": geology[0]}
+        return {
+            "source": "Macrostrat API v2",
+            "status": "ok",
+            "units": geology,
+            "primary_unit": geology[0] if geology else None,
+        }
     except Exception as e:
         return {"source": "Macrostrat", "status": "error", "error": str(e)}
 
@@ -187,3 +197,105 @@ def fetch_osm(bbox: list) -> dict:
         }
     except Exception as e:
         return {"source": "OpenStreetMap", "status": "error", "error": str(e)}
+
+
+def fetch_ssurgo(bbox: list) -> dict:
+    """
+    Fetch SSURGO soil data for bbox via USDA Soil Data Access REST API.
+    Gets mapunit keys first via spatial query, then pulls component/horizon data.
+    """
+    min_lon, min_lat, max_lon, max_lat = bbox
+    print(f"  [SSURGO] Querying soil mapunits for bbox {bbox}...")
+
+    # Step 1: spatial query to get mukeys in bbox
+    aoi_wkt = f"POLYGON(({min_lon} {min_lat},{max_lon} {min_lat},{max_lon} {max_lat},{min_lon} {max_lat},{min_lon} {min_lat}))"
+    spatial_sql = f"""
+    SELECT mu.mukey, mu.muname
+    FROM mapunit mu
+    INNER JOIN SDA_Get_Mukey_from_intersection_with_WktWgs84('{aoi_wkt}') AS x ON mu.mukey = x.mukey
+    """
+    try:
+        resp = requests.post(
+            "https://sdmdataaccess.sc.egov.usda.gov/Tabular/post.rest",
+            data={"query": spatial_sql, "format": "JSON"},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        mukey_data = resp.json()
+        rows = mukey_data.get("Table", [])
+        if not rows:
+            return {"source": "USDA SSURGO", "status": "no_data", "units": [], "summary": {}}
+
+        mukeys = [r[0] for r in rows[:10]]
+        mukey_list = ",".join(f"'{m}'" for m in mukeys)
+
+        # Step 2: get component + horizon data
+        detail_sql = f"""
+        SELECT
+            mu.mukey, mu.muname,
+            co.compname, co.comppct_r, co.drainagecl,
+            ch.hzname, ch.hzdept_r, ch.hzdepb_r,
+            ch.sandtotal_r, ch.silttotal_r, ch.claytotal_r
+        FROM mapunit mu
+        INNER JOIN component co ON mu.mukey = co.mukey
+        INNER JOIN chorizon ch ON co.cokey = ch.cokey
+        WHERE mu.mukey IN ({mukey_list})
+        AND co.majcompflag = 'Yes'
+        ORDER BY mu.mukey, co.comppct_r DESC, ch.hzdept_r
+        """
+        resp2 = requests.post(
+            "https://sdmdataaccess.sc.egov.usda.gov/Tabular/post.rest",
+            data={"query": detail_sql, "format": "JSON"},
+            timeout=30,
+        )
+        resp2.raise_for_status()
+        detail_data = resp2.json()
+        detail_rows = detail_data.get("Table", [])
+
+        units = []
+        seen = set()
+        for row in detail_rows:
+            mukey, muname, compname, comppct, drainage, hzname, hzdept, hzdepb, sand, silt, clay = row
+            if mukey not in seen:
+                seen.add(mukey)
+                units.append({
+                    "mukey": mukey,
+                    "muname": muname,
+                    "compname": compname,
+                    "comppct_r": comppct,
+                    "drainagecl": drainage,
+                    "surface_sand": sand,
+                    "surface_silt": silt,
+                    "surface_clay": clay,
+                })
+
+        # Dominant component summary
+        dominant = units[0] if units else {}
+        clay_val = float(dominant.get("surface_clay") or 0)
+        sand_val = float(dominant.get("surface_sand") or 0)
+        silt_val = float(dominant.get("surface_silt") or 0)
+
+        from backend.data_clients import _classify_texture, _estimate_drainage
+        texture = _classify_texture(clay_val or None, sand_val or None, silt_val or None)
+        drainage_class = dominant.get("drainagecl", "Unknown")
+
+        return {
+            "source": "USDA SSURGO via Soil Data Access",
+            "status": "ok",
+            "mukey_count": len(mukeys),
+            "units": units[:5],
+            "summary": {
+                "dominant_component": dominant.get("compname", "Unknown"),
+                "dominant_muname": dominant.get("muname", "Unknown"),
+                "drainage_class": drainage_class,
+                "clay_pct": clay_val or None,
+                "sand_pct": sand_val or None,
+                "silt_pct": silt_val or None,
+                "texture_class": texture,
+                "shrink_swell_risk": "High" if clay_val > 35 else "Moderate" if clay_val > 20 else "Low",
+            },
+        }
+
+    except Exception as e:
+        print(f"  [SSURGO] Failed: {e}")
+        return {"source": "USDA SSURGO", "status": "error", "error": str(e)}

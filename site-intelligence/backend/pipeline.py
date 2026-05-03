@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 from backend.data_clients import (
+    fetch_ssurgo,
     fetch_usgs_dem, fetch_srtm_dem, fetch_macrostrat,
     fetch_soilgrids, fetch_nhd, fetch_osm
 )
@@ -73,6 +74,14 @@ def generate_site_report(
     if "soilgrids" in datasets:
         try:
             soil_data = fetch_soilgrids(center[0], center[1])
+
+    progress(28, "Fetching SSURGO soil data...")
+    ssurgo_data = {"status": "skipped", "summary": {}}
+    if "soilgrids" in datasets:
+        try:
+            ssurgo_data = fetch_ssurgo(bbox)
+        except Exception as e:
+            print(f"  [pipeline] SSURGO failed: {e}")
         except Exception as e:
             print(f"  [pipeline] SoilGrids failed: {e}")
             soil_data = {"status": "error", "summary": {}}
@@ -139,7 +148,7 @@ def generate_site_report(
     soils_summary = {"status": "skipped"}
     if "soils" in outputs:
         try:
-            soils_summary = run_soils(soil_data, output_dir, project_name)
+            soils_summary = run_soils(ssurgo_data, soil_data, output_dir, project_name)
             results["soils"] = soils_summary
         except Exception as e:
             print(f"  [pipeline] Soils processing failed: {e}")
