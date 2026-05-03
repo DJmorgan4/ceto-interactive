@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 def generate_insights(terrain: dict, hydro: dict, soils: dict, geology: dict,
-                      osm: dict, cross_section: dict = None) -> dict:
+                      osm: dict, cross_section: dict = None, nlcd: dict = None) -> dict:
 
     observations = []
     concerns = []
@@ -112,6 +112,22 @@ def generate_insights(terrain: dict, hydro: dict, soils: dict, geology: dict,
     if highways == 0:
         observations.append("Limited mapped road infrastructure in the immediate area. Access feasibility should be evaluated.")
 
+    # --- NLCD LAND COVER ---
+    if nlcd and nlcd.get("status") == "ok":
+        wetland_pct = nlcd.get("wetland_pct", 0) or 0
+        developed_pct = nlcd.get("developed_pct", 0) or 0
+        ag_pct = nlcd.get("agriculture_pct", 0) or 0
+        top = nlcd.get("top_classes", [])
+        if top:
+            observations.append(f"Dominant land cover: {top[0][0]} ({top[0][1]}% of AOI).")
+        if wetland_pct > 5:
+            concerns.append(f"Mapped wetland land cover present ({wetland_pct:.0f}%). NWI and field delineation recommended.")
+            flags.append(f"LAND COVER: {wetland_pct:.0f}% wetland cover — jurisdictional wetland review required.")
+        if developed_pct > 50:
+            observations.append(f"Site is substantially developed ({developed_pct:.0f}%). Prior use investigation recommended.")
+        if ag_pct > 30:
+            observations.append(f"Agricultural land cover present ({ag_pct:.0f}%). Consider pesticide/fertilizer legacy concerns.")
+
     # --- CROSS SECTION ---
     if cross_section:
         breaks = cross_section.get("terrain_breaks", [])
@@ -158,9 +174,9 @@ def generate_insights(terrain: dict, hydro: dict, soils: dict, geology: dict,
 
 
 def run_insights(terrain: dict, hydro: dict, soils: dict, geology: dict,
-                 osm: dict, output_dir: str, cross_section: dict = None) -> dict:
+                 osm: dict, output_dir: str, cross_section: dict = None, nlcd: dict = None) -> dict:
     print(f"  [insights] Generating evidence-based interpretations...")
-    insights = generate_insights(terrain, hydro, soils, geology, osm, cross_section)
+    insights = generate_insights(terrain, hydro, soils, geology, osm, cross_section, nlcd)
 
     with open(Path(output_dir) / "insights.json", "w") as f:
         json.dump(insights, f, indent=2)

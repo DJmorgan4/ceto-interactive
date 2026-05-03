@@ -61,6 +61,25 @@ def fetch_srtm_dem(bbox: list, output_dir: str) -> str:
     return str(output_path)
 
 
+def _resolve_lith_ids(lith_ids: list) -> list:
+    """Resolve Macrostrat lith_ids to human-readable names."""
+    if not lith_ids:
+        return []
+    try:
+        id_str = ",".join(str(i) for i in lith_ids[:10])
+        resp = requests.get(
+            "https://macrostrat.org/api/v2/defs/lithologies",
+            params={"lith_id": id_str, "format": "json"},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        liths = data.get("success", {}).get("data", [])
+        return [l.get("name", "") for l in liths if l.get("name")]
+    except Exception:
+        return []
+
+
 def fetch_macrostrat(center_lon: float, center_lat: float) -> dict:
     url = "https://macrostrat.org/api/v2/geologic_units/map"
     params = {"lat": center_lat, "lng": center_lon, "format": "json"}
@@ -72,15 +91,35 @@ def fetch_macrostrat(center_lon: float, center_lat: float) -> dict:
         units = data.get("success", {}).get("data", [])
         if not units:
             return {"source": "Macrostrat", "status": "no_data", "units": [], "primary_unit": None}
+
+        # Collect all unique lith_ids across units for batch resolve
+        all_lith_ids = []
+        for unit in units[:5]:
+            all_lith_ids.extend(unit.get("liths", []))
+        all_lith_ids = list(dict.fromkeys(all_lith_ids))  # dedupe preserve order
+        lith_name_map = {}
+        if all_lith_ids:
+            try:
+                id_str = ",".join(str(i) for i in all_lith_ids[:20])
+                lr = requests.get("https://macrostrat.org/api/v2/defs/lithologies",
+                    params={"lith_id": id_str, "format": "json"}, timeout=15)
+                lr.raise_for_status()
+                for l in lr.json().get("success", {}).get("data", []):
+                    lith_name_map[l["lith_id"]] = l["name"]
+            except Exception:
+                pass
+
         geology = []
         for unit in units[:5]:
-            # correct field names from actual API response
-            lith_raw = unit.get("lith", "")
             liths_ids = unit.get("liths", [])
+            lith_names = [lith_name_map.get(i, str(i)) for i in liths_ids]
+            # fallback to lith string field if no ids resolved
+            lith_display = ", ".join(lith_names) if lith_names else unit.get("lith", "Unknown")
             geology.append({
                 "name": unit.get("name", "Unknown"),
-                "lithology": lith_raw,
+                "lithology": lith_display,
                 "lith_ids": liths_ids,
+                "lith_names": lith_names,
                 "age_top": unit.get("t_age"),
                 "age_bottom": unit.get("b_age"),
                 "period": unit.get("best_int_name", unit.get("t_int_name", "")),
@@ -299,3 +338,27 @@ def fetch_ssurgo(bbox: list) -> dict:
     except Exception as e:
         print(f"  [SSURGO] Failed: {e}")
         return {"source": "USDA SSURGO", "status": "error", "error": str(e)}
+
+
+def fetch_nlcd(bbox: list, output_dir: str) -> dict:
+    min_lon, min_lat, max_lon, max_lat = bbox
+    output_path = Path(output_dir) / "nlcd.tif"
+    wcs_url = (
+        "https://www.mrlc.gov/geoserver/mrlc_display/NLCD_2021_Land_Cover_L48/wcs"
+        f"?service=WCS&version=1.0.0&request=GetCoverage"
+        f"&coverage=NLCD_2021_Land_Cover_L48"
+        f"&bbox={min_lon},{min_lat},{max_lon},{max_lat}"
+        f"&crs=EPSG:4326&format=GeoTIFF&width=512&height=512"
+    )
+    print(f"  [NLCD] Downloading land cover...")
+    try:
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        resp = requests.get(wcs_url, stream=True, timeout=60)
+        resp.raise_for_status()
+        with open(output_path, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=8192):
+                f.write(chunk)
+        return {"source": "NLCD 2021 (MRLC)", "status": "ok", "path": str(output_path)}
+    except Exception as e:
+        print(f"  [NLCD] Fetch failed: {e}")
+        return {"source": "NLCD 2021", "status": "error", "error": str(e)}

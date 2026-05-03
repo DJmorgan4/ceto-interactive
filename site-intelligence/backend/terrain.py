@@ -152,3 +152,102 @@ def run_terrain(dem_path: str, output_dir: str, project_name: str = "Site") -> d
 
     print(f"  [terrain] Complete. Elev range: {summary['elev_min_m']}–{summary['elev_max_m']}m")
     return summary
+
+
+# NLCD class definitions
+NLCD_CLASSES = {
+    11: ("Open Water", "#466B9F"),
+    21: ("Developed, Open Space", "#D99282"),
+    22: ("Developed, Low Intensity", "#EA4F4F"),
+    23: ("Developed, Medium Intensity", "#CC1212"),
+    24: ("Developed, High Intensity", "#7F0000"),
+    31: ("Barren Land", "#B3AC9F"),
+    41: ("Deciduous Forest", "#68AA63"),
+    42: ("Evergreen Forest", "#1C6330"),
+    43: ("Mixed Forest", "#B5C98E"),
+    52: ("Shrub/Scrub", "#CCBA7C"),
+    71: ("Herbaceous", "#E2E2C1"),
+    81: ("Hay/Pasture", "#DBD83D"),
+    82: ("Cultivated Crops", "#AA7028"),
+    90: ("Woody Wetlands", "#BAD8EA"),
+    95: ("Emergent Herbaceous Wetlands", "#70A3BA"),
+}
+
+
+def render_nlcd(nlcd_path: str, output_path: str, project_name: str = "Site") -> dict:
+    import rasterio as rio
+    from matplotlib.patches import Patch
+
+    try:
+        with rio.open(nlcd_path) as src:
+            data = src.read(1)
+            nodata = src.nodata
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+    if nodata is not None:
+        data = np.where(data == nodata, 0, data)
+
+    unique, counts = np.unique(data[data > 0], return_counts=True)
+    total_pixels = np.sum(counts)
+    class_pcts = {}
+    for cls, cnt in zip(unique, counts):
+        cls = int(cls)
+        if cls in NLCD_CLASSES:
+            name, _ = NLCD_CLASSES[cls]
+            class_pcts[name] = round(cnt / total_pixels * 100, 1)
+
+    # Build color image
+    rgb = np.zeros((*data.shape, 3), dtype=np.uint8)
+    for cls, (name, hex_color) in NLCD_CLASSES.items():
+        r = int(hex_color[1:3], 16)
+        g = int(hex_color[3:5], 16)
+        b = int(hex_color[5:7], 16)
+        mask = data == cls
+        rgb[mask] = [r, g, b]
+
+    fig, ax = plt.subplots(figsize=(10, 8), facecolor="#0a0a0a")
+    ax.set_facecolor("#0a0a0a")
+    ax.imshow(rgb, interpolation="nearest")
+    ax.set_title(f"{project_name} — Land Cover (NLCD 2021)",
+                 color="white", fontsize=13, fontweight="bold", pad=12)
+    ax.tick_params(colors="#555")
+    for spine in ax.spines.values():
+        spine.set_edgecolor("#333")
+    ax.annotate("N ↑", xy=(0.97, 0.97), xycoords="axes fraction",
+                ha="right", va="top", color="white", fontsize=11, fontweight="bold")
+
+    # Legend for classes present
+    legend_patches = []
+    for cls, (name, color) in NLCD_CLASSES.items():
+        if cls in unique:
+            pct = class_pcts.get(name, 0)
+            legend_patches.append(Patch(facecolor=color, label=f"{name} ({pct}%)"))
+
+    if legend_patches:
+        ax.legend(handles=legend_patches, loc="lower left", fontsize=7,
+                  facecolor="#1a1a1a", labelcolor="white", edgecolor="#333",
+                  ncol=2 if len(legend_patches) > 5 else 1)
+
+    ax.annotate("Source: NLCD 2021 (MRLC)", xy=(0.01, 0.01), xycoords="axes fraction",
+                ha="left", va="bottom", color="#555", fontsize=7)
+
+    plt.tight_layout()
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(output_path, dpi=150, bbox_inches="tight", facecolor="#0a0a0a")
+    plt.close()
+    print(f"  [nlcd] Land cover map saved → {output_path}")
+
+    # Sort by coverage
+    top_classes = sorted(class_pcts.items(), key=lambda x: x[1], reverse=True)
+
+    return {
+        "status": "ok",
+        "class_percentages": class_pcts,
+        "top_classes": top_classes[:5],
+        "developed_pct": sum(v for k, v in class_pcts.items() if "Developed" in k),
+        "forest_pct": sum(v for k, v in class_pcts.items() if "Forest" in k),
+        "wetland_pct": sum(v for k, v in class_pcts.items() if "Wetland" in k),
+        "agriculture_pct": sum(v for k, v in class_pcts.items() if k in ["Hay/Pasture", "Cultivated Crops"]),
+        "maps": ["nlcd.png"],
+    }

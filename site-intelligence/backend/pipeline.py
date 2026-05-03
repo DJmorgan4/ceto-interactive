@@ -3,11 +3,12 @@ from datetime import datetime
 from pathlib import Path
 
 from backend.data_clients import (
+    fetch_nlcd,
     fetch_ssurgo,
     fetch_usgs_dem, fetch_srtm_dem, fetch_macrostrat,
     fetch_soilgrids, fetch_nhd, fetch_osm
 )
-from backend.terrain import run_terrain
+from backend.terrain import run_terrain, render_nlcd
 from backend.hydrology import run_hydrology
 from backend.geology import run_geology
 from backend.soils import run_soils
@@ -106,6 +107,14 @@ def generate_site_report(
         except Exception as e:
             print(f"  [pipeline] OSM failed: {e}")
 
+    # --- NLCD ---
+    nlcd_data = {"status": "skipped"}
+    if "nlcd" in datasets:
+        try:
+            nlcd_data = fetch_nlcd(bbox, data_dir)
+        except Exception as e:
+            print(f"  [pipeline] NLCD fetch failed: {e}")
+
     progress(48, "Processing terrain...")
 
     # --- TERRAIN ---
@@ -117,6 +126,15 @@ def generate_site_report(
         except Exception as e:
             print(f"  [pipeline] Terrain processing failed: {e}")
             terrain_summary = {"status": "error", "slope": {}}
+
+    # --- NLCD RENDER ---
+    nlcd_summary = {"status": "skipped"}
+    if nlcd_data.get("status") == "ok" and "nlcd" in outputs:
+        try:
+            nlcd_summary = render_nlcd(nlcd_data["path"], str(Path(output_dir) / "maps" / "nlcd.png"), project_name)
+            results["nlcd"] = nlcd_summary
+        except Exception as e:
+            print(f"  [pipeline] NLCD render failed: {e}")
 
     progress(58, "Processing hydrology...")
 
@@ -178,6 +196,7 @@ def generate_site_report(
             osm=osm_data,
             output_dir=output_dir,
             cross_section=cross_summary,
+            nlcd=nlcd_summary,
         )
         results["insights"] = insights
     except Exception as e:

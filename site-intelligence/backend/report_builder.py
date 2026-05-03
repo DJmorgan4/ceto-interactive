@@ -33,6 +33,7 @@ def build_report(
     geology_b64 = img_to_b64(str(maps_dir / "geology.png"))
     soils_b64 = img_to_b64(str(maps_dir / "soils.png"))
     cross_b64 = img_to_b64(str(maps_dir / "cross_section.png"))
+    nlcd_b64 = img_to_b64(str(maps_dir / "nlcd.png"))
 
     risk = insights.get("overall_risk", "Unknown")
     risk_colors = {"Low": "#27ae60", "Moderate": "#f39c12", "Elevated": "#e74c3c", "Unknown": "#7f8c8d"}
@@ -233,6 +234,10 @@ def build_report(
     <div>{geo_table}<p style='margin-top:10px;font-size:9.5pt;color:#555'>{geology.get('engineering_implication','')}</p></div>
     <div>{map_block(geology_b64, "Geology Summary — Macrostrat")}</div>
   </div>
+""")}
+
+{section("Land Cover", f"""
+  {map_block(nlcd_b64, "Land Cover — NLCD 2021 (MRLC)")}
 """)}
 
 {section("Cross-Section", cs_content)}
