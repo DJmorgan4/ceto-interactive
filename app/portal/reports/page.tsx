@@ -33,7 +33,7 @@ const FONT_SANS = "'Jost', sans-serif";
 const FONT_SERIF = "'Cormorant Garamond', Georgia, serif";
 
 const REPORT_TYPES = [
-  { id: 'phase1', label: 'Phase I ESA', desc: 'ASTM E1527-21 site assessment' },
+  { id: 'phase1', label: 'Phase I ESA', desc: 'ASTM E1527-21 informed screening' },
   { id: 'swppp', label: 'SWPPP Inspection', desc: 'TPDES TXR150000 stormwater' },
   { id: 'wetland', label: 'Wetland Delineation', desc: '1987 Corps manual + regional supp.' },
   { id: 'sar', label: 'SAR Analysis', desc: 'Backscatter, NDVI, land cover' },
@@ -196,7 +196,7 @@ function computeCetoScore(reg: RegData, parcelArg?: ParcelData | null): { total:
         wetland:       { score: wetlandScore, max: 20, label: 'Wetland Risk',           risk: wetlandScore >= 16 ? 'LOW' : wetlandScore >= 10 ? 'MODERATE' : 'HIGH' },
         contamination: { score: contScore,    max: 25, label: 'Contamination Risk',     risk: contScore >= 20    ? 'LOW' : contScore >= 12    ? 'MODERATE' : 'HIGH' },
         soil:          { score: soilScore,    max: 20, label: 'Soil / Development Risk',risk: soilScore >= 16    ? 'LOW' : soilScore >= 10    ? 'MODERATE' : 'HIGH' },
-        regulatory:    { score: 12,           max: 15, label: 'Regulatory Compliance',  risk: 'LOW' },
+        regulatory:    { score: Math.min(12, 15),  max: 15, label: 'Regulatory Compliance',  risk: 'LOW' },
       },
     };
   }
@@ -472,6 +472,9 @@ function exportPDF(reportText: string, title: string, reg: RegData | null, parce
     .footer{margin-top:48px;padding-top:16px;border-top:1px solid #ddd;font-size:7.5pt;color:#aaa;font-family:Arial,sans-serif}
     @media print{.page{padding:48px 64px}}
   </style></head><body><div class="page">
+  <div style="background:#7C2D12;color:white;padding:10px 20px;font-size:8pt;font-family:Arial,sans-serif;letter-spacing:.05em;text-align:center;margin-bottom:0">
+    ⚠ PRELIMINARY SCREENING REPORT — NOT A COMPLETED PHASE I ESA. Site reconnaissance, owner interviews, and full database review are required for ASTM E1527-21 compliance. This document is a draft support tool only.
+  </div>
   <div class="cover">
     <div class="logo">Ceto<span>Interactive</span></div>
     <div class="title">${title}</div>
@@ -490,7 +493,7 @@ function exportPDF(reportText: string, title: string, reg: RegData | null, parce
       <div style="display:flex;align-items:flex-end;gap:8px">
         <span class="score-num">${score.total}</span>
         <span style="opacity:.5;margin-bottom:6px">/100</span>
-        <span class="score-risk">${score.total >= 80 ? 'LOW' : score.total >= 55 ? 'MODERATE' : 'HIGH'} RISK</span>
+        <span class="score-risk">${score.total >= 80 ? 'LOW' : score.total >= 55 ? 'MODERATE' : 'HIGH'} RISK  ·  CONFIDENCE: ${score.confidenceScore >= 70 ? 'MODERATE' : 'LOW'}</span>
       </div>
     </div>
   </div>
@@ -675,7 +678,7 @@ ${generateRiskInterpretation(r as any)}`;
     const t = `${rType?.label} — ${projectName}`;
     setReportTitle(t);
 
-    const systemPrompt = `You are DJ Morgan, a credentialed Environmental Professional (EP-TX-2025-0814) at Ceto Interactive Environmental Consulting, McKinney, Texas. You generate Phase I Environmental Site Assessments that are fully compliant with ASTM E1527-21 and the EPA All Appropriate Inquiries (AAI) Rule (40 CFR Part 312).
+    const systemPrompt = `You are DJ Morgan, a credentialed Environmental Professional (EP-TX-2025-0814) at Ceto Interactive Environmental Consulting, McKinney, Texas. You generate Phase I ESA screening reports that are informed by ASTM E1527-21 and EPA AAI (40 CFR Part 312). These are draft support tools — not completed Phase I ESAs. Always note when site reconnaissance, interviews, or database reviews are incomplete, as these constitute material data gaps that preclude ASTM E1527-21 compliance.
 
 CRITICAL COMPLIANCE REQUIREMENTS — follow these exactly:
 
@@ -749,7 +752,11 @@ Include: all databases reviewed (NPL, RCRA, TRI, ERNS, Brownfields, TCEQ STEERS)
 SECTION 6 — RECOGNIZED ENVIRONMENTAL CONDITIONS (RECs)
 REQUIRED: Include definitions of REC, HREC, CREC, and De Minimis Condition.
 Then list each identified condition as:
-- Condition name (Potential REC / Confirmed REC / HREC / CREC / De Minimis)
+- Condition name — use exactly one of these three tiers:
+  • CONFIRMED REC: release evidence present in regulatory record
+  • POTENTIAL REC: regulatory listing with compliance action, proximity <0.25mi, migration pathway plausible
+  • PROXIMITY CONCERN: within search radius, no regulatory action, no release evidence — do NOT call this a REC
+  Do not escalate a PROXIMITY CONCERN to a Potential REC based on proximity alone.
 - Supporting evidence
 - Basis of determination (proximity vs confirmed release)
 - What additional investigation would clarify status
