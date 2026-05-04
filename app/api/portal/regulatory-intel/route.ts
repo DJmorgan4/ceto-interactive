@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 const LITHIC_ENGINE_URL =
   process.env.LITHIC_ENGINE_URL ||
   process.env.GEO_API_URL ||
@@ -333,6 +328,10 @@ export async function POST(req: NextRequest) {
 
     // ── STRATUM write — every ESA pull becomes a spatial record ──────────────
     try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
       await supabase.from('stratum_sites').insert({
         name: geo.address,
         source: 'ceto',
