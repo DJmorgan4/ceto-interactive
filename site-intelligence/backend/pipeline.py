@@ -51,16 +51,24 @@ def generate_site_report(
 
     progress(5, "Fetching DEM...")
 
+    dem_path = None
     try:
         dem_path = fetch_usgs_dem(bbox, str(data))
-    except:
-        dem_path = fetch_srtm_dem(bbox, str(data))
+    except Exception as e:
+        print(f"[WARN] USGS failed: {e}")
+
+    if not dem_path:
+        try:
+            dem_path = fetch_srtm_dem(bbox, str(data))
+        except Exception as e:
+            print(f"[WARN] SRTM failed: {e}")
+            print("[WARN] Continuing WITHOUT DEM (terrain/hydro disabled)")
 
     progress(30, "Running terrain...")
-    terrain = run_terrain(dem_path, output_dir, project_name)
+    terrain = run_terrain(dem_path, output_dir, project_name) if dem_path else {'status':'skipped'}
 
     progress(50, "Running hydrology...")
-    hydro = run_hydrology(dem_path, output_dir, project_name)
+    hydro = run_hydrology(dem_path, output_dir, project_name) if dem_path else {'status':'skipped'}
 
     progress(65, "Fetching geology/soils...")
     geo = fetch_macrostrat(center[0], center[1])
