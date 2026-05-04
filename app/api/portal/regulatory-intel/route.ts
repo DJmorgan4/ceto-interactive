@@ -1,4 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const LITHIC_ENGINE_URL =
   process.env.LITHIC_ENGINE_URL ||
@@ -324,6 +330,35 @@ export async function POST(req: NextRequest) {
     const geoData = geology.status === 'fulfilled' ? geology.value : { formation: 'Unknown', lithology: 'Unknown', age: 'Unknown', description: '', source: 'Error' };
 
     const overallRisk = computeOverallRisk(femaData.risk, echoData.risk, nwiData.risk, soilData.risk);
+
+    // ── STRATUM write — every ESA pull becomes a spatial record ──────────────
+    try {
+      await supabase.from('stratum_sites').insert({
+        name: geo.address,
+        source: 'ceto',
+        site_type: 'ESA',
+        latitude: geo.coords.lat,
+        longitude: geo.coords.lng,
+        address: geo.address,
+        state: geo.state,
+        county: geo.county,
+        ceto_tier: overallRisk.level,
+        regulatory_flags: echoData.facilitiesNearby?.slice(0, 5).map((f: {name: string; type: string}) => ({ name: f.name, type: f.type })) || [],
+        status: 'active',
+        tags: ['phase1', 'automated'],
+        metadata: {
+          floodZone: femaData.floodZone,
+          wetlandsPresent: nwiData.wetlandsPresent,
+          facilitiesCount: echoData.totalCount,
+          elevationFt: elevData.elevationFt,
+          geology: geoData.formation,
+          pulledAt: new Date().toISOString(),
+        }
+      });
+    } catch (stratumErr) {
+      console.warn('STRATUM write failed (non-blocking):', stratumErr);
+    }
+    // ── end STRATUM write ────────────────────────────────────────────────────
 
     return NextResponse.json({
       coordinates: geo.coords,
