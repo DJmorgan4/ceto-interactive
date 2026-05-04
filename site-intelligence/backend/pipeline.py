@@ -131,27 +131,32 @@ def generate_site_report(
         f'<title>Site Intelligence — {project_name}</title>' +
         '<style>' +
         '*{box-sizing:border-box;margin:0;padding:0}' +
-        'body{font-family:"Helvetica Neue",Arial,sans-serif;background:#0d0d0d;color:#e0e0e0;padding:40px}' +
-        'h1{font-size:26px;font-weight:300;letter-spacing:.05em;color:white;margin-bottom:4px}' +
-        '.sub{font-size:11px;color:#555;letter-spacing:.15em;text-transform:uppercase;margin-bottom:20px}' +
-        '.header{border-bottom:1px solid #222;padding-bottom:24px;margin-bottom:32px}' +
-        '.meta{display:flex;gap:32px;margin-top:16px;flex-wrap:wrap}' +
-        '.mi{font-size:11px;color:#555}' +
-        '.mi span{display:block;color:#aaa;font-size:13px;margin-top:2px}' +
-        f'.badge{{display:inline-block;padding:6px 16px;border-radius:4px;font-size:12px;font-weight:600;letter-spacing:.08em;background:{risk_color}22;color:{risk_color};border:1px solid {risk_color}55;margin-top:12px}}' +
-        '.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px}' +
-        '.card{background:#111;border:1px solid #1e1e1e;border-radius:8px;padding:18px}' +
-        '.stat{font-size:22px;font-weight:300;color:white;margin:6px 0 2px}' +
-        '.stat-label{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.1em}' +
-        '.section{background:#111;border:1px solid #1e1e1e;border-radius:8px;padding:20px;margin-bottom:18px}' +
-        '.section-title{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px}' +
-        'img{width:100%;border-radius:6px;display:block}' +
-        'ul{padding-left:18px}' +
-        'li{font-size:13px;color:#aaa;margin-bottom:5px;line-height:1.5}' +
-        '.flag{color:#e74c3c}' +
-        '.concern{color:#f39c12}' +
-        '.step{color:#3498db}' +
-        '.footer{margin-top:40px;padding-top:20px;border-top:1px solid #1e1e1e;font-size:10px;color:#333;display:flex;justify-content:space-between}' +
+        'body{font-family:"Helvetica Neue",Arial,sans-serif;background:#0a0a0a;color:#d0d0d0;padding:48px 56px;max-width:1100px;margin:0 auto}' +
+        'h1{font-size:28px;font-weight:200;letter-spacing:.08em;color:#ffffff;margin-bottom:6px}' +
+        '.sub{font-size:10px;color:#444;letter-spacing:.2em;text-transform:uppercase;margin-bottom:0}' +
+        '.header{border-bottom:1px solid #1a1a1a;padding-bottom:28px;margin-bottom:36px}' +
+        '.meta{display:flex;gap:40px;margin-top:20px;flex-wrap:wrap}' +
+        '.mi{font-size:10px;color:#444;letter-spacing:.08em;text-transform:uppercase}' +
+        '.mi span{display:block;color:#bbb;font-size:14px;margin-top:4px;letter-spacing:0;text-transform:none;font-weight:300}' +
+        f'.badge{{display:inline-block;padding:7px 18px;border-radius:3px;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;background:{risk_color}18;color:{risk_color};border:1px solid {risk_color}44;margin-top:16px}}' +
+        '.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:36px}' +
+        '.card{background:#0f0f0f;border:1px solid #181818;border-radius:6px;padding:20px 22px}' +
+        '.stat{font-size:24px;font-weight:200;color:white;margin:8px 0 4px;letter-spacing:.02em}' +
+        '.stat-label{font-size:9px;color:#444;text-transform:uppercase;letter-spacing:.15em}' +
+        '.section{background:#0f0f0f;border:1px solid #181818;border-radius:6px;padding:24px 26px;margin-bottom:16px}' +
+        '.section-title{font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.18em;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid #1a1a1a}' +
+        'img{width:100%;border-radius:4px;display:block;margin-top:4px}' +
+        'ul{padding-left:0;list-style:none}' +
+        'li{font-size:13px;color:#999;margin-bottom:10px;line-height:1.65;padding-left:16px;position:relative}' +
+        'li::before{content:"";position:absolute;left:0;top:8px;width:4px;height:4px;border-radius:50%;background:#333}' +
+        '.flag{color:#e05555}' +
+        '.flag::before{background:#e05555}' +
+        '.concern{color:#c9882a}' +
+        '.concern::before{background:#c9882a}' +
+        '.step{color:#3a8fd1}' +
+        '.step::before{background:#3a8fd1}' +
+        '.divider{border:none;border-top:1px solid #1a1a1a;margin:32px 0}' +
+        '.footer{margin-top:48px;padding-top:20px;border-top:1px solid #141414;font-size:9px;color:#2a2a2a;display:flex;justify-content:space-between;letter-spacing:.1em;text-transform:uppercase}' +
         '</style></head><body>' +
         '<div class="header">' +
         '<h1>Site Intelligence Report</h1>' +
