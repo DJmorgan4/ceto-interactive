@@ -493,7 +493,7 @@ function exportPDF(reportText: string, title: string, reg: RegData | null, parce
       <div style="display:flex;align-items:flex-end;gap:8px">
         <span class="score-num">${score.total}</span>
         <span style="opacity:.5;margin-bottom:6px">/100</span>
-        <span class="score-risk">${score.total >= 80 ? 'LOW' : score.total >= 55 ? 'MODERATE' : 'HIGH'} RISK  ·  CONFIDENCE: ${score.confidenceScore >= 70 ? 'MODERATE' : 'LOW'}</span>
+        <span class="score-risk">${score.total >= 80 ? 'LOW' : score.total >= 55 ? 'MODERATE' : 'HIGH'} RISK  ·  CONFIDENCE: ${score.total >= 60 ? 'MODERATE' : 'LOW'}</span>
       </div>
     </div>
   </div>
