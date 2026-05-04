@@ -24,7 +24,7 @@ def fetch_usgs_dem(bbox: list, output_dir: str) -> str:
         "outputFormat": "JSON", "prodFormats": "GeoTIFF", "max": 10,
     }
     print(f"  [DEM] Querying TNM for bbox {bbox}...")
-    resp = requests.get(url, params=params, timeout=30)
+    resp = requests.get(url, params=params, timeout=8)
     resp.raise_for_status()
     data = resp.json()
     items = data.get("items", [])
@@ -96,7 +96,7 @@ def fetch_macrostrat(center_lon: float, center_lat: float) -> dict:
     params = {"lat": center_lat, "lng": center_lon, "format": "json"}
     print(f"  [Macrostrat] Querying geology at ({center_lat}, {center_lon})...")
     try:
-        resp = requests.get(url, params=params, timeout=30)
+        resp = requests.get(url, params=params, timeout=8)
         resp.raise_for_status()
         data = resp.json()
         units = data.get("success", {}).get("data", [])
@@ -161,7 +161,7 @@ def fetch_soilgrids(center_lon: float, center_lat: float) -> dict:
     }
     print(f"  [SoilGrids] Querying soil at ({center_lat}, {center_lon})...")
     try:
-        resp = requests.get(url, params=params, timeout=30)
+        resp = requests.get(url, params=params, timeout=8)
         resp.raise_for_status()
         data = resp.json()
         props = data.get("properties", {}).get("layers", [])
@@ -218,7 +218,7 @@ def fetch_nhd(bbox: list) -> dict:
     }
     print(f"  [NHD] Fetching flowlines...")
     try:
-        resp = requests.get(url, params=params, timeout=30)
+        resp = requests.get(url, params=params, timeout=8)
         resp.raise_for_status()
         fc = resp.json()
         return {"source": "USGS NHD Plus HR", "status": "ok", "flowlines": fc, "flowline_count": len(fc.get("features", []))}
@@ -232,7 +232,7 @@ def fetch_osm(bbox: list) -> dict:
     query = f'[out:json][timeout:30];(way["highway"]({ob});way["railway"]({ob});way["waterway"]({ob});way["landuse"]({ob}););out geom;'
     print(f"  [OSM] Fetching context features...")
     try:
-        resp = requests.post("https://overpass-api.de/api/interpreter", data={"data": query}, timeout=45)
+        resp = requests.post("https://overpass-api.de/api/interpreter", data={"data": query}, timeout=12)
         resp.raise_for_status()
         data = resp.json()
         els = data.get("elements", [])
@@ -268,7 +268,7 @@ def fetch_ssurgo(bbox: list) -> dict:
         resp = requests.post(
             "https://sdmdataaccess.sc.egov.usda.gov/Tabular/post.rest",
             data={"query": spatial_sql, "format": "JSON"},
-            timeout=30,
+            timeout=8,
         )
         resp.raise_for_status()
         mukey_data = resp.json()
@@ -296,7 +296,7 @@ def fetch_ssurgo(bbox: list) -> dict:
         resp2 = requests.post(
             "https://sdmdataaccess.sc.egov.usda.gov/Tabular/post.rest",
             data={"query": detail_sql, "format": "JSON"},
-            timeout=30,
+            timeout=8,
         )
         resp2.raise_for_status()
         detail_data = resp2.json()
