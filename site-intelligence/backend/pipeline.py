@@ -221,10 +221,13 @@ def generate_site_report(
             print(f"  [pipeline] Report build failed: {e}")
 
     # --- METADATA ---
+    report_id = str(uuid.uuid4())
+
     metadata = {
         "report_id": report_id,
         "job_id": job_id,
         "project_name": project_name,
+        "report_id": report_id,
         "bbox": bbox,
         "center": center,
         "date_generated": datetime.utcnow().isoformat() + "Z",
@@ -267,3 +270,6 @@ def generate_site_report(
     progress(100, "Complete.")
     print(f"\n  [pipeline] Report {report_id} complete. Risk: {insights.get('overall_risk')} | Flags: {insights.get('flag_count')}")
     return metadata
+
+
+    return report_id
