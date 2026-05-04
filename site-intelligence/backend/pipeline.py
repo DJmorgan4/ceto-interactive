@@ -203,7 +203,7 @@ def generate_site_report(
     # --- REPORT ---
     if "pdf" in outputs:
         try:
-            from backend.report_builder import build_report
+            from backend.report_builder import build_report, ensure_report_written
             build_report(
                 report_id=report_id,
                 project_name=project_name,
@@ -261,6 +261,8 @@ def generate_site_report(
 
     with open(Path(output_dir) / "metadata.json", "w") as f:
         json.dump(metadata, f, indent=2)
+
+    ensure_report_written(report_id, metadata)
 
     progress(100, "Complete.")
     print(f"\n  [pipeline] Report {report_id} complete. Risk: {insights.get('overall_risk')} | Flags: {insights.get('flag_count')}")
