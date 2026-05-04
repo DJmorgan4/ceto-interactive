@@ -42,3 +42,9 @@ next-env.d.ts
 .aider*
 site-intelligence/backend/__pycache__/
 site-intelligence/__pycache__/
+site-intelligence/outputs/
+site-intelligence/data/cache/
+site-intelligence/data/raw/
+site-intelligence/data/processed/
+__pycache__/
+*.pyc
