@@ -285,3 +285,29 @@ def build_report(
         print(f"  [report] PDF saved → {pdf_path}")
     except Exception as e:
         print(f"  [report] WeasyPrint PDF failed: {e} — HTML report still available")
+
+
+def ensure_report_written(report_id, report_data):
+    from pathlib import Path
+    import json
+
+    report_dir = Path('outputs') / report_id
+    report_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save JSON
+    with open(report_dir / "report.json", "w") as f:
+        json.dump(report_data, f, indent=2)
+
+    # Save simple HTML
+    html = f"""
+    <html>
+    <body>
+    <h1>Site Intelligence Report</h1>
+    <pre>{json.dumps(report_data, indent=2)}</pre>
+    </body>
+    </html>
+    """
+    with open(report_dir / "report.html", "w") as f:
+        f.write(html)
+
+    return report_dir
