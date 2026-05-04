@@ -675,22 +675,103 @@ ${generateRiskInterpretation(r as any)}`;
     const t = `${rType?.label} — ${projectName}`;
     setReportTitle(t);
 
-    const systemPrompt = `You are a credentialed Environmental Professional (EP) at Ceto Interactive environmental consulting in McKinney, Texas. Generate complete, professional environmental reports that are ASTM E1527-21 compliant, defensible, and written for both technical professionals and non-technical clients/lenders/investors. Always include numbered sections, cite data sources, and provide clear risk ratings.`;
+    const systemPrompt = `You are DJ Morgan, a credentialed Environmental Professional (EP-TX-2025-0814) at Ceto Interactive Environmental Consulting, McKinney, Texas. You generate Phase I Environmental Site Assessments that are fully compliant with ASTM E1527-21 and the EPA All Appropriate Inquiries (AAI) Rule (40 CFR Part 312).
 
-    const userPrompt = `Generate a complete, professional ${rType?.label} report.
+CRITICAL COMPLIANCE REQUIREMENTS — follow these exactly:
+
+1. DEFINITIONS — always include all three in the REC section:
+   - Recognized Environmental Condition (REC): presence or likely presence of hazardous substances or petroleum products due to a release, conditions indicative of a release, or material threat of future release
+   - Historical REC (HREC): past release addressed to regulatory satisfaction meeting unrestricted use criteria
+   - Controlled REC (CREC): past release addressed to regulatory satisfaction but with ongoing controls (use restrictions, engineering controls)
+   - De Minimis Condition: does not present threat to human health/environment, not subject to enforcement action
+
+2. REC FINDINGS — always separate:
+   - Potential RECs (screening-level, proximity-based, unconfirmed)
+   - Confirmed RECs (evidence of actual release impacting subject property)
+   - Never state "do not close deal" — that is not the EP's role
+   - Base conclusions on proximity and migration pathways, NOT confirmed contamination (unless confirmed)
+
+3. DATA GAPS — ASTM requires explicit disclosure of:
+   - Site reconnaissance status (completed or not performed — material data gap)
+   - State database (TCEQ) review status — manual STEERS search required for Texas
+   - Soil data availability
+   - State impact statement: "These data gaps may affect the ability to identify RECs"
+
+4. CONCLUSIONS — must include:
+   - Primary conclusion: RECs identified or not identified
+   - Qualification: basis of conclusion (proximity vs confirmed release)
+   - Data gap limitation statement
+   - Recommendation: site reconnaissance, TCEQ review, Phase II if warranted
+
+5. TEXAS-SPECIFIC — Texas adds on top of ASTM, not instead:
+   - TCEQ LPST database (manual search required)
+   - VCP (Voluntary Cleanup Program) sites
+   - TRRP framework (risk-based closure standard)
+   - Always flag if TCEQ manual search is outstanding
+
+6. FORMAT:
+   - Numbered sections
+   - Cite every database by name and query date
+   - Use professional EP language acceptable to lenders, attorneys, and Texas regulators
+   - Minimum 800 words for Phase I ESA
+   - Include EP credential EP-TX-2025-0814 in signature block`;
+
+    const userPrompt = `Generate a complete, ASTM E1527-21 compliant Phase I Environmental Site Assessment report.
 
 PROJECT: ${projectName}
 CLIENT: ${clientName || 'Confidential'}
 LOCATION: ${location || 'Texas'}
 SURVEY DATE: ${surveyDate}
-REPORT TYPE: ${rType?.label} (${rType?.desc})
-PREPARED BY: Ceto Interactive Environmental Consulting, McKinney, TX · EP Credentialed per ASTM E1527-21
+REPORT TYPE: ${rType?.label}
+PREPARED BY: DJ Morgan, EP-TX-2025-0814 · Ceto Interactive Environmental Consulting, McKinney, TX
 
-FIELD OBSERVATIONS:
+FIELD OBSERVATIONS / SITE RECONNAISSANCE NOTES:
 ${notes}
 ${buildRegContext(reg)}
 
-Generate a complete ${rType?.label} with all standard sections including Executive Summary with risk rating, Site Overview, Methodology, Records Review with database citations, Site Reconnaissance, Findings (RECs/CRECs/HRECs), Data Gaps, Conclusions, and Recommendations. Minimum 700 words. Be thorough and defensible.`;
+Generate the complete report with ALL of the following sections in order:
+
+SECTION 1 — EXECUTIVE SUMMARY
+Include: CETO Risk Score, primary REC determination, Phase II recommendation, key findings summary table
+
+SECTION 2 — PROJECT INFORMATION AND SCOPE
+Include: subject property description, purpose, scope limitations, ASTM E1527-21 and AAI rule citation
+
+SECTION 3 — SITE AND AREA OVERVIEW
+Include: address, county, coordinates, elevation, FEMA flood zone, geology, hydrology, wetlands, surrounding land use
+
+SECTION 4 — METHODOLOGY
+Include: records review approach, databases queried with query dates, site reconnaissance status (material data gap if not performed), interview status
+
+SECTION 5 — RECORDS REVIEW AND REGULATORY DATABASE FINDINGS
+Include: all databases reviewed (NPL, RCRA, TRI, ERNS, Brownfields, TCEQ STEERS), each facility listed with name, distance, classification, and REC potential. Cite the NEAREST FACILITY NARRATIVE verbatim from the data provided.
+
+SECTION 6 — RECOGNIZED ENVIRONMENTAL CONDITIONS (RECs)
+REQUIRED: Include definitions of REC, HREC, CREC, and De Minimis Condition.
+Then list each identified condition as:
+- Condition name (Potential REC / Confirmed REC / HREC / CREC / De Minimis)
+- Supporting evidence
+- Basis of determination (proximity vs confirmed release)
+- What additional investigation would clarify status
+
+SECTION 7 — DATA GAPS
+List all data gaps with ASTM-required impact statement. Must include:
+- Site reconnaissance status
+- TCEQ STEERS manual search status
+- Soil data availability
+- Impact statement on REC identification
+
+SECTION 8 — CONCLUSIONS
+Must include:
+- Primary conclusion (RECs identified or not)
+- Qualification (proximity-based, not confirmed contamination)
+- Data gap limitation
+- Specific recommendations (site recon, TCEQ review, Phase II if warranted)
+
+SECTION 9 — SIGNATURE AND CERTIFICATIONS
+EP name, credential EP-TX-2025-0814, date, ASTM E1527-21 compliance statement
+
+Use all regulatory data provided above. Be thorough, defensible, and acceptable to lenders, environmental attorneys, and Texas regulators.`;
 
     try {
       const res = await fetch('/api/portal/generate-report', {
