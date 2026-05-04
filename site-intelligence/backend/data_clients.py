@@ -9,42 +9,8 @@ DEM_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def fetch_usgs_dem(bbox: list, output_dir: str) -> str:
-    min_lon, min_lat, max_lon, max_lat = bbox
-    # Use shared cache keyed by bbox
-    cache_key = f"usgs_{min_lon}_{min_lat}_{max_lon}_{max_lat}.tif".replace("-", "n").replace(".", "d")
-    cached_path = DEM_CACHE_DIR / cache_key
-    if cached_path.exists():
-        print(f"  [DEM] Using shared cache: {cached_path}")
-        return str(cached_path)
-    output_path = cached_path
-    url = "https://tnmaccess.nationalmap.gov/api/v1/products"
-    params = {
-        "datasets": "National Elevation Dataset (NED) 1/3 arc-second",
-        "bbox": f"{min_lon},{min_lat},{max_lon},{max_lat}",
-        "outputFormat": "JSON", "prodFormats": "GeoTIFF", "max": 10,
-    }
-    print(f"  [DEM] Querying TNM for bbox {bbox}...")
-    resp = requests.get(url, params=params, timeout=8)
-    resp.raise_for_status()
-    data = resp.json()
-    items = data.get("items", [])
-    if not items:
-        print("  [DEM] TNM returned no results, falling back to SRTM...")
-        return fetch_srtm_dem(bbox, output_dir)
-    download_url = items[0].get("downloadURL")
-    if not download_url:
-        return fetch_srtm_dem(bbox, output_dir)
-    print(f"  [DEM] Downloading from {download_url}...")
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
-    with requests.get(download_url, stream=True, timeout=120) as r:
-        r.raise_for_status()
-        with open(output_path, "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
-    print(f"  [DEM] Saved to {output_path}")
-    return str(output_path)
-
-
+    print("  [DEM] USGS disabled on Railway to prevent OOM; using SRTM...")
+    return fetch_srtm_dem(bbox, output_dir)
 def fetch_srtm_dem(bbox: list, output_dir: str) -> str:
     min_lon, min_lat, max_lon, max_lat = bbox
     cache_key = f"srtm_{min_lon}_{min_lat}_{max_lon}_{max_lat}.tif".replace("-", "n").replace(".", "d")
