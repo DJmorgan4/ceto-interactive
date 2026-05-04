@@ -115,39 +115,82 @@ def generate_site_report(
     with open(base / "report.json", "w") as f:
         json.dump(metadata, f, indent=2)
 
-    def img(name, label):
-        return f'<h3>{label}</h3><img src="maps/{name}">' if (maps / name).exists() else ""
+    import base64 as _b64
 
-    html = f"""
-<html>
-<head>
-<style>
-body {{ font-family: Arial; padding:40px; background:#f6f7f9; }}
-.card {{ background:white; padding:20px; margin-bottom:20px; border-radius:10px; }}
-img {{ max-width:800px; width:100%; border-radius:8px; }}
-</style>
-</head>
-<body>
+    def img_b64(name, label):
+        path = maps / name
+        if not path.exists():
+            return ""
+        data = _b64.b64encode(path.read_bytes()).decode()
+        return f'<div class="section"><div class="section-title">{label}</div><img src="data:image/png;base64,{data}"></div>'
 
-<h1>Site Intelligence Report</h1>
+    risk_color = {"Low":"#27ae60","Moderate":"#f39c12","Elevated":"#e74c3c"}.get(metadata.get("overall_risk",""),"#888")
 
-<div class="card">
-<h2>{project_name}</h2>
-<p>Risk: <b>{metadata["overall_risk"]}</b></p>
-</div>
-
-<div class="card">
-<h2>Maps</h2>
-{img("hillshade.png","Hillshade")}
-{img("slope.png","Slope")}
-{img("drainage.png","Drainage")}
-{img("geology.png","Geology")}
-{img("soils.png","Soils")}
-</div>
-
-</body>
-</html>
-"""
+    html = (
+        '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+        f'<title>Site Intelligence — {project_name}</title>' +
+        '<style>' +
+        '*{box-sizing:border-box;margin:0;padding:0}' +
+        'body{font-family:"Helvetica Neue",Arial,sans-serif;background:#0d0d0d;color:#e0e0e0;padding:40px}' +
+        'h1{font-size:26px;font-weight:300;letter-spacing:.05em;color:white;margin-bottom:4px}' +
+        '.sub{font-size:11px;color:#555;letter-spacing:.15em;text-transform:uppercase;margin-bottom:20px}' +
+        '.header{border-bottom:1px solid #222;padding-bottom:24px;margin-bottom:32px}' +
+        '.meta{display:flex;gap:32px;margin-top:16px;flex-wrap:wrap}' +
+        '.mi{font-size:11px;color:#555}' +
+        '.mi span{display:block;color:#aaa;font-size:13px;margin-top:2px}' +
+        f'.badge{{display:inline-block;padding:6px 16px;border-radius:4px;font-size:12px;font-weight:600;letter-spacing:.08em;background:{risk_color}22;color:{risk_color};border:1px solid {risk_color}55;margin-top:12px}}' +
+        '.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px}' +
+        '.card{background:#111;border:1px solid #1e1e1e;border-radius:8px;padding:18px}' +
+        '.stat{font-size:22px;font-weight:300;color:white;margin:6px 0 2px}' +
+        '.stat-label{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.1em}' +
+        '.section{background:#111;border:1px solid #1e1e1e;border-radius:8px;padding:20px;margin-bottom:18px}' +
+        '.section-title{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px}' +
+        'img{width:100%;border-radius:6px;display:block}' +
+        'ul{padding-left:18px}' +
+        'li{font-size:13px;color:#aaa;margin-bottom:5px;line-height:1.5}' +
+        '.flag{color:#e74c3c}' +
+        '.concern{color:#f39c12}' +
+        '.step{color:#3498db}' +
+        '.footer{margin-top:40px;padding-top:20px;border-top:1px solid #1e1e1e;font-size:10px;color:#333;display:flex;justify-content:space-between}' +
+        '</style></head><body>' +
+        '<div class="header">' +
+        '<h1>Site Intelligence Report</h1>' +
+        '<div class="sub">Ceto Interactive Environmental Consulting &middot; EP-TX-2025-0814</div>' +
+        '<div class="meta">' +
+        f'<div class="mi">Project<span>{project_name}</span></div>' +
+        f'<div class="mi">Bbox<span>{bbox[0]:.4f},{bbox[1]:.4f} &rarr; {bbox[2]:.4f},{bbox[3]:.4f}</span></div>' +
+        f'<div class="mi">Generated<span>{metadata.get("date_generated","")[:10]}</span></div>' +
+        '</div>' +
+        f'<div class="badge">{metadata.get("overall_risk","Unknown")} Risk &middot; {metadata.get("flag_count",0)} Flag(s)</div>' +
+        '</div>' +
+        '<div class="grid">' +
+        f'<div class="card"><div class="stat-label">Elevation Range</div><div class="stat">{terrain.get("elev_min_m","—")}–{terrain.get("elev_max_m","—")} m</div></div>' +
+        f'<div class="card"><div class="stat-label">Ponding Risk</div><div class="stat">{hydro.get("ponding_risk","—")}</div></div>' +
+        f'<div class="card"><div class="stat-label">Primary Geology</div><div class="stat" style="font-size:15px">{geology.get("primary_unit_name","—")}</div></div>' +
+        f'<div class="card"><div class="stat-label">Soil Texture</div><div class="stat" style="font-size:15px">{soils.get("texture_class","—")}</div></div>' +
+        '</div>' +
+        img_b64("hillshade.png","Terrain — Hillshade + Elevation") +
+        img_b64("slope.png","Terrain — Slope Classification") +
+        img_b64("drainage.png","Hydrology — Flow Accumulation") +
+        img_b64("geology.png","Geology — Macrostrat") +
+        img_b64("soils.png","Soils — SSURGO / SoilGrids") +
+        img_b64("cross_section.png","Cross-Section — Interpreted Profile") +
+        img_b64("nlcd.png","Land Cover — NLCD 2021") +
+        '<div class="section"><div class="section-title">Screening Flags</div><ul>' +
+        "".join(f'<li class="flag">&#9888; {f}</li>' for f in insights.get("flags",[])) +
+        '</ul></div>' +
+        '<div class="section"><div class="section-title">Concerns</div><ul>' +
+        "".join(f'<li class="concern">&bull; {c}</li>' for c in insights.get("concerns",[])) +
+        '</ul></div>' +
+        '<div class="section"><div class="section-title">Recommended Next Steps</div><ul>' +
+        "".join(f'<li class="step">&rarr; {st}</li>' for st in insights.get("recommended_next_steps",[])) +
+        '</ul></div>' +
+        '<div class="footer">' +
+        '<span>Ceto Interactive &middot; cetointeractive.com</span>' +
+        '<span>DJ Morgan EP-TX-2025-0814</span>' +
+        '<span>DESKTOP SCREENING ONLY</span>' +
+        '</div></body></html>'
+    )
 
     with open(base / "report.html", "w") as f:
         f.write(html)
