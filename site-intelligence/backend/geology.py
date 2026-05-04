@@ -70,8 +70,11 @@ def render_geology_summary(geo_data: dict, output_path: str, project_name: str =
     step = 0.9 / max(len(units), 1)
 
     for i, unit in enumerate(units):
-        liths = unit.get("lithology", [])
-        lith_names = [l.get("name", "") if isinstance(l, dict) else str(l) for l in liths]
+        liths_raw = unit.get("lithology", "")
+        if isinstance(liths_raw, list):
+            lith_names = [l.get("name", "") if isinstance(l, dict) else str(l) for l in liths_raw]
+        else:
+            lith_names = [n.strip() for n in str(liths_raw).split(",") if n.strip()] if liths_raw else []
         primary_lith = lith_names[0] if lith_names else "Unknown"
         color = get_lith_color(primary_lith)
 
@@ -132,8 +135,11 @@ def run_geology(geo_data: dict, output_dir: str, project_name: str = "Site") -> 
 
     units = geo_data.get("units", [])
     primary = geo_data.get("primary_unit", {}) or {}
-    liths = primary.get("lithology", [])
-    lith_names = [l.get("name", "") if isinstance(l, dict) else str(l) for l in liths]
+    liths_raw = primary.get("lithology", "")
+    if isinstance(liths_raw, list):
+        lith_names = [l.get("name", "") if isinstance(l, dict) else str(l) for l in liths_raw]
+    else:
+        lith_names = [n.strip() for n in str(liths_raw).split(",") if n.strip()] if liths_raw else []
     primary_lith = lith_names[0] if lith_names else "Unknown"
 
     summary = {
