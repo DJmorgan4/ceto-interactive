@@ -1,8 +1,12 @@
 [phases.setup]
-nixPkgs = ["gdal", "python311", "pango", "cairo", "gdk-pixbuf", "libffi", "gobject-introspection", "expat", "libxml2"]
+nixPkgs = ["python311", "gdal", "pango", "cairo", "gdk-pixbuf", "libffi", "gobject-introspection", "expat", "libxml2", "zlib", "libjpeg", "libpng", "libtiff", "proj", "geos"]
 
 [phases.install]
-cmds = ["pip install -r requirements.txt"]
+cmds = [
+  "pip install --upgrade pip",
+  "pip install rasterio==1.3.11 --no-binary rasterio",
+  "pip install -r requirements.txt"
+]
 
 [start]
 cmd = "uvicorn main:app --host 0.0.0.0 --port $PORT"
