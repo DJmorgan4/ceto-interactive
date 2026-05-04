@@ -96,9 +96,27 @@ def get_report(report_id: str):
 
 @app.get("/api/reports/{report_id}/download")
 def download_report(report_id: str):
-    pdf = OUTPUTS_DIR / report_id / "report.pdf"
-    if not pdf.exists(): raise HTTPException(status_code=404, detail="PDF not found")
-    return FileResponse(path=str(pdf), media_type="application/pdf", filename=f"site-intel-{report_id[:8]}.pdf")
+    report_dir = OUTPUTS_DIR / report_id
+
+    html = report_dir / "report.html"
+    json_file = report_dir / "report.json"
+
+    if html.exists():
+        return FileResponse(
+            path=str(html),
+            media_type="text/html",
+            filename=f"site-intel-{report_id[:8]}.html"
+        )
+
+    if json_file.exists():
+        return FileResponse(
+            path=str(json_file),
+            media_type="application/json",
+            filename=f"site-intel-{report_id[:8]}.json"
+        )
+
+    raise HTTPException(status_code=404, detail="Report not found")
+
 
 @app.get("/api/reports/{report_id}/maps/{map_name}")
 def get_map(report_id: str, map_name: str):
