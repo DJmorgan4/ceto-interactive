@@ -126,6 +126,79 @@ def generate_site_report(
 
     risk_color = {"Low":"#27ae60","Moderate":"#f39c12","Elevated":"#e74c3c"}.get(metadata.get("overall_risk",""),"#888")
 
+
+    def _slope_stats_card(t: dict) -> str:
+        s = t.get("slope", {})
+        if not s:
+            return ""
+        rows = ""
+        colors = ["#2ecc71","#f1c40f","#e67e22","#e74c3c","#8e44ad"]
+        for i, (label, pct) in enumerate(s.get("class_pct", {}).items()):
+            c = colors[i % len(colors)]
+            rows += (f'<tr><td style="color:#94a3b8;padding:2px 8px;font-size:11px">{label}</td>'
+                     f'<td style="padding:2px 8px"><div style="background:#1e293b;border-radius:3px;height:8px;width:120px;overflow:hidden">'
+                     f'<div style="background:{c};width:{min(pct,100):.1f}%;height:100%"></div></div></td>'
+                     f'<td style="color:white;padding:2px 8px;font-size:11px;font-weight:600">{pct:.1f}%</td></tr>')
+        return ('<div class="section"><div class="section-title">Slope Statistics</div>'
+                f'<div style="display:flex;gap:32px;margin-bottom:12px">'
+                f'<div><div style="color:#555;font-size:10px;text-transform:uppercase">Mean Slope</div>'
+                f'<div style="color:white;font-size:20px;font-weight:200">{s.get("mean_slope_deg","—")}°</div></div>'
+                f'<div><div style="color:#555;font-size:10px;text-transform:uppercase">Max Slope</div>'
+                f'<div style="color:white;font-size:20px;font-weight:200">{s.get("max_slope_deg","—")}°</div></div>'
+                f'<div><div style="color:#555;font-size:10px;text-transform:uppercase">Dominant Class</div>'
+                f'<div style="color:#2ecc71;font-size:14px;font-weight:400;margin-top:4px">{s.get("dominant_class","—")}</div></div>'
+                f'<div><div style="color:#555;font-size:10px;text-transform:uppercase">Adaptive Range</div>'
+                f'<div style="color:#aaa;font-size:14px;margin-top:4px">{s.get("adaptive_range","—")}</div></div>'
+                f'</div><table style="border-collapse:collapse">{rows}</table></div>')
+
+    def _cross_section_metrics_card(cs: dict) -> str:
+        if not cs or cs.get("status") != "ok":
+            return ""
+        m  = cs.get("metrics", {})
+        ss = m.get("steepest_segment", {})
+        cf = m.get("cut_fill_level", "—")
+        cf_color = {"Minimal":"#27ae60","Moderate":"#f39c12","Significant":"#e74c3c"}.get(cf,"#888")
+        ch_color = {"Flat":"#27ae60","Rolling":"#f39c12","Hilly":"#e67e22","Steep":"#e74c3c"}.get(m.get("terrain_character",""),"#888")
+        return ('<div class="section"><div class="section-title">Cross-Section Metrics</div>'
+                f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:14px">'
+                f'<div><div style="color:#555;font-size:10px;text-transform:uppercase">Total Relief</div><div style="color:white;font-size:18px;font-weight:200">{m.get("total_relief_m","—")} m</div></div>'
+                f'<div><div style="color:#555;font-size:10px;text-transform:uppercase">Transect Length</div><div style="color:white;font-size:18px;font-weight:200">{m.get("total_distance_km","—")} km</div></div>'
+                f'<div><div style="color:#555;font-size:10px;text-transform:uppercase">Terrain Type</div><div style="color:{ch_color};font-size:16px;font-weight:400;margin-top:4px">{m.get("terrain_character","—")}</div></div>'
+                f'<div><div style="color:#555;font-size:10px;text-transform:uppercase">Cut / Fill</div><div style="color:{cf_color};font-size:16px;font-weight:400;margin-top:4px">{cf}</div></div>'
+                f'</div>'
+                f'<div style="background:#0a0a0a;border-radius:4px;padding:10px 14px;margin-bottom:10px">'
+                f'<span style="color:#f97316;font-size:10px;text-transform:uppercase;letter-spacing:.1em">Steepest Segment</span>'
+                f'<span style="color:white;font-size:13px;font-weight:600;margin-left:12px">{ss.get("gradient_pct","—")}% grade</span>'
+                f'<span style="color:#555;font-size:11px;margin-left:8px">({ss.get("start_km","—")}–{ss.get("end_km","—")} km) · {ss.get("description","—")}</span>'
+                f'</div>'
+                f'<div style="color:#94a3b8;font-size:12px;line-height:1.65;border-left:3px solid {cf_color};padding-left:10px">{m.get("cut_fill_note","—")}</div>'
+                f'</div>')
+
+    def _soils_enhance_card(s: dict) -> str:
+        if not s:
+            return ""
+        dtb  = s.get("depth_to_bedrock", {})
+        spat = s.get("spatial_variability", {})
+        if not dtb and not spat:
+            return ""
+        var_color = {"Low":"#27ae60","Moderate":"#f39c12","High":"#e74c3c"}.get(spat.get("level",""),"#888")
+        depth_cm  = dtb.get("depth_cm")
+        bar_fill  = f"{min(int(depth_cm or 0),200)/200*100:.0f}" if depth_cm else "0"
+        d_color   = "#e74c3c" if (depth_cm or 999)<51 else "#f39c12" if (depth_cm or 999)<102 else "#27ae60"
+        return ('<div class="section"><div class="section-title">Soils — Enhanced Intelligence</div>'
+                f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">'
+                f'<div style="background:#0a0a0a;border-radius:4px;padding:14px">'
+                f'<div style="color:#555;font-size:10px;text-transform:uppercase;margin-bottom:8px">Depth to Bedrock / Restriction</div>'
+                f'<div style="color:white;font-size:14px;font-weight:400;margin-bottom:8px">{dtb.get("label","Unknown")}</div>'
+                f'<div style="background:#1e293b;border-radius:3px;height:6px;margin-bottom:6px"><div style="background:{d_color};width:{bar_fill}%;height:100%;border-radius:3px"></div></div>'
+                f'<div style="color:#444;font-size:10px">Source: {dtb.get("source","—")}</div></div>'
+                f'<div style="background:#0a0a0a;border-radius:4px;padding:14px">'
+                f'<div style="color:#555;font-size:10px;text-transform:uppercase;margin-bottom:8px">Soil Spatial Variability</div>'
+                f'<div style="color:{var_color};font-size:18px;font-weight:200;margin-bottom:4px">{spat.get("level","—")}</div>'
+                f'<div style="color:#555;font-size:10px;margin-bottom:8px">{spat.get("mapunit_count","—")} mapunit(s) · dominant ~{spat.get("dominant_pct","—")}%</div>'
+                f'<div style="color:#94a3b8;font-size:11px;line-height:1.5;font-style:italic">{spat.get("note","")}</div>'
+                f'</div></div></div>')
+
     html = (
         '<!DOCTYPE html><html><head><meta charset="utf-8">' +
         f'<title>Site Intelligence — {project_name}</title>' +
@@ -176,10 +249,13 @@ def generate_site_report(
         '</div>' +
         img_b64("hillshade.png","Terrain — Hillshade + Elevation") +
         img_b64("slope.png","Terrain — Slope Classification") +
+        _slope_stats_card(terrain) +
         img_b64("drainage.png","Hydrology — Flow Accumulation") +
         img_b64("geology.png","Geology — Macrostrat") +
         img_b64("soils.png","Soils — SSURGO / SoilGrids") +
+        _soils_enhance_card(soils) +
         img_b64("cross_section.png","Cross-Section — Interpreted Profile") +
+        _cross_section_metrics_card(cross) +
         img_b64("nlcd.png","Land Cover — NLCD 2021") +
         '<div class="section"><div class="section-title">Screening Flags</div><ul>' +
         "".join(f'<li class="flag">&#9888; {f}</li>' for f in insights.get("flags",[])) +

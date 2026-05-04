@@ -9,36 +9,33 @@ DEM_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def fetch_usgs_dem(bbox: list, output_dir: str) -> str:
-    print("  [DEM] USGS disabled on Railway to prevent OOM; using SRTM...")
-    return fetch_srtm_dem(bbox, output_dir)
-def fetch_srtm_dem(bbox: list, output_dir: str) -> str:
+    """Fetch DEM via USGS 3DEP WCS — no API key required, no OOM risk at 512px."""
     min_lon, min_lat, max_lon, max_lat = bbox
-    # Buffer bbox to meet OpenTopography minimum tile size
-    BUFFER = 0.05
-    min_lon -= BUFFER; min_lat -= BUFFER; max_lon += BUFFER; max_lat += BUFFER
-    cache_key = f"srtm_{min_lon}_{min_lat}_{max_lon}_{max_lat}.tif".replace("-", "n").replace(".", "d")
+    cache_key = f"3dep_{min_lon}_{min_lat}_{max_lon}_{max_lat}.tif".replace("-","n").replace(".","d")
     cached_path = DEM_CACHE_DIR / cache_key
     if cached_path.exists():
-        print(f"  [SRTM] Using shared cache: {cached_path}")
+        print(f"  [3DEP] Using cache: {cached_path}")
         return str(cached_path)
-    output_path = cached_path
-    url = "https://portal.opentopography.org/API/globaldem"
-    params = {
-        "demtype": "SRTMGL1",
-        "south": min_lat, "north": max_lat,
-        "west": min_lon, "east": max_lon,
-        "outputFormat": "GTiff",
-        "API_Key": os.getenv("OPENTOPO_API_KEY", "demoapikeyot2022"),
-    }
-    print(f"  [SRTM] Downloading via OpenTopography...")
+    url = (
+        "https://elevation.nationalmap.gov/arcgis/services/3DEPElevation/ImageServer/WCSServer"
+        "?SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage"
+        "&COVERAGE=DEP3Elevation&CRS=EPSG:4326"
+        f"&BBOX={min_lon},{min_lat},{max_lon},{max_lat}"
+        "&WIDTH=512&HEIGHT=512&FORMAT=GeoTIFF"
+    )
+    print(f"  [3DEP] Fetching WCS GeoTIFF...")
     Path(output_dir).mkdir(parents=True, exist_ok=True)
-    resp = requests.get(url, params=params, stream=True, timeout=60)
+    resp = requests.get(url, timeout=30, stream=True)
     resp.raise_for_status()
-    with open(output_path, "wb") as f:
+    with open(cached_path, "wb") as f:
         for chunk in resp.iter_content(chunk_size=8192):
             f.write(chunk)
-    print(f"  [SRTM] Saved to {output_path}")
-    return str(output_path)
+    print(f"  [3DEP] Saved → {cached_path}")
+    return str(cached_path)
+
+def fetch_srtm_dem(bbox: list, output_dir: str) -> str:
+    """Fallback: also uses USGS 3DEP WCS (OpenTopography key is dead)."""
+    return fetch_usgs_dem(bbox, output_dir)
 
 
 def _resolve_lith_ids(lith_ids: list) -> list:

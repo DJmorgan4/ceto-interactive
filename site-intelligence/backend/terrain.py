@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import matplotlib.patches as mpatches
 from pathlib import Path
 import rasterio
 from rasterio.plot import show
@@ -35,10 +36,8 @@ def compute_hillshade(dem: np.ndarray, azimuth: float = 315, altitude: float = 4
 
 
 def compute_slope_degrees(dem: np.ndarray, res: tuple) -> np.ndarray:
-    # Smooth DEM before gradient to suppress SRTM noise on low-relief terrain
     dem_filled = np.where(np.isnan(dem), np.nanmean(dem), dem)
     smoothed = gaussian_filter(dem_filled, sigma=2.0)
-    # Convert res from degrees to meters approx (1 deg ~ 111km)
     res_m = (res[0] * 111320, res[1] * 111320)
     dy, dx = np.gradient(smoothed, res_m[1], res_m[0])
     slope = np.degrees(np.arctan(np.sqrt(dx**2 + dy**2)))
@@ -51,14 +50,30 @@ def classify_slope(slope: np.ndarray) -> dict:
     if len(valid) == 0:
         return {}
     total = valid.size
+    mean_s = float(np.nanmean(slope))
+    max_s  = float(np.nanmax(slope))
+
+    # Adaptive bins: if max slope < 10°, compress range for visibility
+    if max_s <= 10:
+        bins = [(0,2,'Flat (0–2°)'), (2,4,'Gentle (2–4°)'), (4,6,'Moderate (4–6°)'), (6,8,'Steep (6–8°)'), (8,999,'Very Steep (>8°)')]
+    elif max_s <= 25:
+        bins = [(0,5,'Flat (0–5°)'), (5,10,'Gentle (5–10°)'), (10,15,'Moderate (10–15°)'), (15,20,'Steep (15–20°)'), (20,999,'Very Steep (>20°)')]
+    else:
+        bins = [(0,5,'Flat (0–5°)'), (5,15,'Gentle (5–15°)'), (15,25,'Moderate (15–25°)'), (25,35,'Steep (25–35°)'), (35,999,'Very Steep (>35°)')]
+
+    class_pct = {}
+    for lo, hi, label in bins:
+        mask = (valid >= lo) & (valid < hi)
+        class_pct[label] = round(float(mask.sum() / total * 100), 1)
+
+    dominant = max(class_pct, key=class_pct.get)
+
     return {
-        "flat_pct": round(float(np.sum(valid < 5) / total * 100), 1),
-        "moderate_pct": round(float(np.sum((valid >= 5) & (valid < 15)) / total * 100), 1),
-        "steep_pct": round(float(np.sum((valid >= 15) & (valid < 30)) / total * 100), 1),
-        "very_steep_pct": round(float(np.sum(valid >= 30) / total * 100), 1),
-        "mean_slope_deg": round(float(np.nanmean(slope)), 2),
-        "max_slope_deg": round(float(np.nanmax(slope)), 2),
-        "min_elev_m": round(float(np.nanmin(slope)), 2),
+        "mean_slope_deg":  round(mean_s, 2),
+        "max_slope_deg":   round(max_s, 2),
+        "class_pct":       class_pct,
+        "dominant_class":  dominant,
+        "adaptive_range":  f"0–{int(max_s)+1}°",
     }
 
 
@@ -85,29 +100,84 @@ def render_hillshade(dem: np.ndarray, hs: np.ndarray, output_path: str, title: s
     print(f"  [terrain] Hillshade saved → {output_path}")
 
 
-def render_slope(slope: np.ndarray, output_path: str, title: str = "Slope Classification"):
-    cmap = mcolors.LinearSegmentedColormap.from_list(
-        "slope", ["#2ecc71", "#f1c40f", "#e67e22", "#e74c3c", "#8e44ad"]
-    )
-    bounds = [0, 5, 15, 30, 45, 90]
+def render_slope(slope: np.ndarray, slope_stats: dict, output_path: str, title: str = "Slope Classification"):
+    max_s = slope_stats.get("max_slope_deg", 90)
+
+    # Adaptive colormap bounds matching classify_slope logic
+    if max_s <= 10:
+        bounds = [0, 2, 4, 6, 8, max(10, max_s + 1)]
+        bin_labels = ["Flat (0–2°)", "Gentle (2–4°)", "Moderate (4–6°)", "Steep (6–8°)", f"Very Steep (>{8}°)"]
+    elif max_s <= 25:
+        bounds = [0, 5, 10, 15, 20, max(25, max_s + 1)]
+        bin_labels = ["Flat (0–5°)", "Gentle (5–10°)", "Moderate (10–15°)", "Steep (15–20°)", f"Very Steep (>{20}°)"]
+    else:
+        bounds = [0, 5, 15, 25, 35, max(45, max_s + 1)]
+        bin_labels = ["Flat (0–5°)", "Gentle (5–15°)", "Moderate (15–25°)", "Steep (25–35°)", f"Very Steep (>{35}°)"]
+
+    bin_colors = ["#2ecc71", "#f1c40f", "#e67e22", "#e74c3c", "#8e44ad"]
+    cmap = mcolors.LinearSegmentedColormap.from_list("slope", bin_colors, N=256)
     norm = mcolors.BoundaryNorm(bounds, cmap.N)
-    fig, ax = plt.subplots(figsize=(10, 8), facecolor="#0a0a0a")
-    ax.set_facecolor("#0a0a0a")
-    im = ax.imshow(slope, cmap=cmap, norm=norm, interpolation="bilinear")
-    cbar = plt.colorbar(im, ax=ax, fraction=0.03, pad=0.02, ticks=[0, 5, 15, 30, 45])
+
+    fig, (ax_map, ax_stats) = plt.subplots(1, 2, figsize=(13, 7),
+                                            gridspec_kw={"width_ratios": [3, 1]},
+                                            facecolor="#0a0a0a")
+    ax_map.set_facecolor("#0a0a0a")
+    im = ax_map.imshow(slope, cmap=cmap, norm=norm, interpolation="bilinear")
+    cbar = plt.colorbar(im, ax=ax_map, fraction=0.03, pad=0.02, ticks=bounds[:-1])
     cbar.set_label("Slope (degrees)", color="white", fontsize=9)
     cbar.ax.yaxis.set_tick_params(color="white")
     plt.setp(cbar.ax.yaxis.get_ticklabels(), color="white")
-    labels = ["Flat (0-5°)", "Moderate (5-15°)", "Steep (15-30°)", "Very Steep (30°+)"]
-    colors = ["#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"]
-    for i, (lbl, col) in enumerate(zip(labels, colors)):
-        ax.plot([], [], color=col, linewidth=6, label=lbl)
-    ax.legend(loc="lower right", fontsize=8, facecolor="#1a1a1a", labelcolor="white", edgecolor="#333")
-    ax.set_title(title, color="white", fontsize=13, fontweight="bold", pad=12)
-    ax.tick_params(colors="#555")
-    for spine in ax.spines.values():
+
+    for lbl, col in zip(bin_labels, bin_colors):
+        ax_map.plot([], [], color=col, linewidth=6, label=lbl)
+    ax_map.legend(loc="lower right", fontsize=8, facecolor="#1a1a1a", labelcolor="white", edgecolor="#333")
+    ax_map.set_title(title, color="white", fontsize=13, fontweight="bold", pad=12)
+    ax_map.tick_params(colors="#555")
+    for spine in ax_map.spines.values():
         spine.set_edgecolor("#333")
-    _add_map_furniture(ax, "USGS 3DEP")
+    _add_map_furniture(ax_map, "USGS 3DEP")
+
+    # Stats panel
+    ax_stats.set_facecolor("#111111")
+    ax_stats.axis("off")
+    ax_stats.set_title("Slope Stats", color="white", fontsize=10, fontweight="bold", pad=10)
+
+    mean_s = slope_stats.get("mean_slope_deg", 0)
+    max_slope = slope_stats.get("max_slope_deg", 0)
+    dominant = slope_stats.get("dominant_class", "—")
+    class_pct = slope_stats.get("class_pct", {})
+
+    ax_stats.text(0.5, 0.97, f"Mean: {mean_s:.1f}°", ha="center", va="top",
+                  color="white", fontsize=11, fontweight="bold", transform=ax_stats.transAxes)
+    ax_stats.text(0.5, 0.89, f"Max: {max_slope:.1f}°", ha="center", va="top",
+                  color="#aaa", fontsize=10, transform=ax_stats.transAxes)
+    ax_stats.text(0.5, 0.81, f"Dominant:", ha="center", va="top",
+                  color="#666", fontsize=8, transform=ax_stats.transAxes)
+    ax_stats.text(0.5, 0.75, dominant.split("(")[0].strip(), ha="center", va="top",
+                  color="#2ecc71", fontsize=9, fontweight="bold", transform=ax_stats.transAxes)
+
+    y = 0.62
+    for label, pct in class_pct.items():
+        color = bin_colors[list(class_pct.keys()).index(label)]
+        short = label.split("(")[0].strip()
+        ax_stats.text(0.05, y, f"{short}", ha="left", va="top",
+                      color="#aaa", fontsize=7.5, transform=ax_stats.transAxes)
+        # bar
+        bar_w = 0.9 * (pct / 100)
+        ax_stats.add_patch(mpatches.FancyBboxPatch(
+            (0.05, y - 0.055), 0.90, 0.028,
+            boxstyle="round,pad=0.005", facecolor="#2a2a2a",
+            edgecolor="#333", transform=ax_stats.transAxes))
+        if bar_w > 0:
+            ax_stats.add_patch(mpatches.FancyBboxPatch(
+                (0.05, y - 0.055), bar_w, 0.028,
+                boxstyle="round,pad=0.005", facecolor=color,
+                edgecolor="none", transform=ax_stats.transAxes))
+        ax_stats.text(0.97, y - 0.025, f"{pct:.1f}%", ha="right", va="center",
+                      color="white", fontsize=7.5, fontweight="600",
+                      transform=ax_stats.transAxes)
+        y -= 0.115
+
     plt.tight_layout()
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(output_path, dpi=150, bbox_inches="tight", facecolor="#0a0a0a")
@@ -133,14 +203,14 @@ def run_terrain(dem_path: str, output_dir: str, project_name: str = "Site") -> d
     slope_stats = classify_slope(slope)
 
     render_hillshade(dem, hs, str(maps_dir / "hillshade.png"), f"{project_name} — Hillshade")
-    render_slope(slope, str(maps_dir / "slope.png"), f"{project_name} — Slope Classification")
+    render_slope(slope, slope_stats, str(maps_dir / "slope.png"), f"{project_name} — Slope Classification")
 
     elev_valid = dem[~np.isnan(dem)]
     summary = {
         "status": "ok",
-        "elev_min_m": round(float(np.min(elev_valid)), 2) if len(elev_valid) else None,
-        "elev_max_m": round(float(np.max(elev_valid)), 2) if len(elev_valid) else None,
-        "elev_mean_m": round(float(np.mean(elev_valid)), 2) if len(elev_valid) else None,
+        "elev_min_m":   round(float(np.min(elev_valid)), 2) if len(elev_valid) else None,
+        "elev_max_m":   round(float(np.max(elev_valid)), 2) if len(elev_valid) else None,
+        "elev_mean_m":  round(float(np.mean(elev_valid)), 2) if len(elev_valid) else None,
         "elev_range_m": round(float(np.max(elev_valid) - np.min(elev_valid)), 2) if len(elev_valid) else None,
         "slope": slope_stats,
         "maps": ["hillshade.png", "slope.png"],
@@ -150,7 +220,7 @@ def run_terrain(dem_path: str, output_dir: str, project_name: str = "Site") -> d
     with open(Path(output_dir) / "terrain_summary.json", "w") as f:
         json.dump(summary, f, indent=2)
 
-    print(f"  [terrain] Complete. Elev range: {summary['elev_min_m']}–{summary['elev_max_m']}m")
+    print(f"  [terrain] Complete. Elev range: {summary['elev_min_m']}–{summary['elev_max_m']}m | Mean slope: {slope_stats.get('mean_slope_deg')}°")
     return summary
 
 
@@ -197,7 +267,6 @@ def render_nlcd(nlcd_path: str, output_path: str, project_name: str = "Site") ->
             name, _ = NLCD_CLASSES[cls]
             class_pcts[name] = round(cnt / total_pixels * 100, 1)
 
-    # Build color image
     rgb = np.zeros((*data.shape, 3), dtype=np.uint8)
     for cls, (name, hex_color) in NLCD_CLASSES.items():
         r = int(hex_color[1:3], 16)
@@ -217,7 +286,6 @@ def render_nlcd(nlcd_path: str, output_path: str, project_name: str = "Site") ->
     ax.annotate("N ↑", xy=(0.97, 0.97), xycoords="axes fraction",
                 ha="right", va="top", color="white", fontsize=11, fontweight="bold")
 
-    # Legend for classes present
     legend_patches = []
     for cls, (name, color) in NLCD_CLASSES.items():
         if cls in unique:
@@ -238,7 +306,6 @@ def render_nlcd(nlcd_path: str, output_path: str, project_name: str = "Site") ->
     plt.close()
     print(f"  [nlcd] Land cover map saved → {output_path}")
 
-    # Sort by coverage
     top_classes = sorted(class_pcts.items(), key=lambda x: x[1], reverse=True)
 
     return {
