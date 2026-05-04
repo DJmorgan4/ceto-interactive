@@ -550,14 +550,14 @@ export default function TexasEnvironmentalNews() {
                     className="text-3xl sm:text-4xl lg:text-6xl font-black tracking-tight"
                     style={{ color: THEME.texasBlue, letterSpacing: '-0.02em' }}
                   >
-                    TEXAS INTEL
+                    CETO INTEL
                   </h1>
                   <span className="text-xs sm:text-sm font-bold tracking-widest opacity-80" style={{ color: THEME.lonestarGold }}>
-                    BY CETO INTERACTIVE
+                    ENVIRONMENTAL INTELLIGENCE
                   </span>
                 </div>
                 <p className="text-sm sm:text-base font-medium" style={{ color: THEME.inkMuted }}>
-                  Your Source for Texas
+                  Regulatory · Conservation · Compliance · Land
                 </p>
               </div>
               <div className="text-right">
