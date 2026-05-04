@@ -181,6 +181,9 @@ def render_cross_section(profile: dict, geo_data: dict, output_path: str, projec
 
 def run_cross_section(dem_path: str, geo_data: dict, transect: dict,
                       output_dir: str, project_name: str = "Site") -> dict:
+    if not dem_path:
+        print("  [cross_section] Skipped — no DEM available")
+        return {"status": "skipped", "reason": "no_dem"}
     print(f"  [cross_section] Running transect {transect['start']} → {transect['end']}")
     maps_dir = Path(output_dir) / "maps"
     maps_dir.mkdir(parents=True, exist_ok=True)

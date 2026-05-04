@@ -13,6 +13,9 @@ def fetch_usgs_dem(bbox: list, output_dir: str) -> str:
     return fetch_srtm_dem(bbox, output_dir)
 def fetch_srtm_dem(bbox: list, output_dir: str) -> str:
     min_lon, min_lat, max_lon, max_lat = bbox
+    # Buffer bbox to meet OpenTopography minimum tile size
+    BUFFER = 0.05
+    min_lon -= BUFFER; min_lat -= BUFFER; max_lon += BUFFER; max_lat += BUFFER
     cache_key = f"srtm_{min_lon}_{min_lat}_{max_lon}_{max_lat}.tif".replace("-", "n").replace(".", "d")
     cached_path = DEM_CACHE_DIR / cache_key
     if cached_path.exists():
@@ -175,6 +178,9 @@ def _estimate_drainage(clay_pct) -> str:
 
 def fetch_nhd(bbox: list) -> dict:
     min_lon, min_lat, max_lon, max_lat = bbox
+    # Buffer bbox to meet OpenTopography minimum tile size
+    BUFFER = 0.05
+    min_lon -= BUFFER; min_lat -= BUFFER; max_lon += BUFFER; max_lat += BUFFER
     bbox_str = f"{min_lon},{min_lat},{max_lon},{max_lat}"
     url = "https://hydro.nationalmap.gov/arcgis/services/NHDPlus_HR/MapServer/WFSServer"
     params = {
@@ -194,6 +200,9 @@ def fetch_nhd(bbox: list) -> dict:
 
 def fetch_osm(bbox: list) -> dict:
     min_lon, min_lat, max_lon, max_lat = bbox
+    # Buffer bbox to meet OpenTopography minimum tile size
+    BUFFER = 0.05
+    min_lon -= BUFFER; min_lat -= BUFFER; max_lon += BUFFER; max_lat += BUFFER
     ob = f"{min_lat},{min_lon},{max_lat},{max_lon}"
     query = f'[out:json][timeout:30];(way["highway"]({ob});way["railway"]({ob});way["waterway"]({ob});way["landuse"]({ob}););out geom;'
     print(f"  [OSM] Fetching context features...")
@@ -221,6 +230,9 @@ def fetch_ssurgo(bbox: list) -> dict:
     Gets mapunit keys first via spatial query, then pulls component/horizon data.
     """
     min_lon, min_lat, max_lon, max_lat = bbox
+    # Buffer bbox to meet OpenTopography minimum tile size
+    BUFFER = 0.05
+    min_lon -= BUFFER; min_lat -= BUFFER; max_lon += BUFFER; max_lat += BUFFER
     print(f"  [SSURGO] Querying soil mapunits for bbox {bbox}...")
 
     # Step 1: spatial query to get mukeys in bbox
@@ -319,6 +331,9 @@ def fetch_ssurgo(bbox: list) -> dict:
 
 def fetch_nlcd(bbox: list, output_dir: str) -> dict:
     min_lon, min_lat, max_lon, max_lat = bbox
+    # Buffer bbox to meet OpenTopography minimum tile size
+    BUFFER = 0.05
+    min_lon -= BUFFER; min_lat -= BUFFER; max_lon += BUFFER; max_lat += BUFFER
     output_path = Path(output_dir) / "nlcd.tif"
     wcs_url = (
         "https://www.mrlc.gov/geoserver/mrlc_display/NLCD_2021_Land_Cover_L48/wcs"

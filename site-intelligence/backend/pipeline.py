@@ -79,7 +79,7 @@ def generate_site_report(
     soils = run_soils(ssurgo, soil, output_dir, project_name)
 
     cross = None
-    if transect:
+    if transect and dem_path:
         cross = run_cross_section(dem_path, geo, transect, output_dir, project_name)
 
     progress(85, "Generating insights...")
