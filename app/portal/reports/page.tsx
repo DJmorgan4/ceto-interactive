@@ -531,7 +531,11 @@ function ReportsPageInner() {
   const [report, setReport] = useState<string | null>(null);
   const [reportTitle, setReportTitle] = useState('');
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
-  const [tab, setTab] = useState<'generate' | 'parcel' | 'historical' | 'swppp' | 'library'>('generate');
+  const [tab, setTab] = useState<'generate' | 'parcel' | 'historical' | 'swppp' | 'library' | 'astra'>('generate');
+  const [astraText, setAstraText] = useState('');
+  const [astraCritique, setAstraCritique] = useState<any>(null);
+  const [astraLoading, setAstraLoading] = useState(false);
+  const [astraError, setAstraError] = useState('');
   const [copied, setCopied] = useState(false);
   const [genError, setGenError] = useState('');
   const [exportingPdf, setExportingPdf] = useState(false);
@@ -897,6 +901,7 @@ Use all regulatory data provided above. Be thorough, defensible, and acceptable 
             { id: 'historical', label: 'Historical Research' },
             { id: 'swppp', label: 'SWPPP Inspections' },
             { id: 'library', label: `Library (${library.length})` },
+            { id: 'astra', label: '🧠 ASTRA Critique' },
           ] as const).map(t => (
             <button key={t.id} onClick={() => setTab(t.id as any)} style={{ padding: '7px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', backgroundColor: tab === t.id ? 'white' : 'transparent', color: tab === t.id ? T.ink : T.muted, fontSize: 11, fontFamily: FONT_SANS, fontWeight: tab === t.id ? 400 : 300, boxShadow: tab === t.id ? '0 1px 3px rgba(17,26,36,0.10)' : 'none', transition: 'all 0.15s', whiteSpace: 'nowrap' }}>
               {t.label}
@@ -1127,6 +1132,68 @@ Use all regulatory data provided above. Be thorough, defensible, and acceptable 
             ))}
           </div>
         )}
+
+        {tab === 'astra' && (
+          <div style={{ backgroundColor: '#F8F9FA', border: '1px solid rgba(17,26,36,0.11)', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(17,26,36,0.11)', background: 'white' }}>
+              <div style={{ fontSize: 13, fontFamily: 'Jost, sans-serif', fontWeight: 600, color: '#111A24', marginBottom: 4 }}>🧠 ASTRA ESA Critique Engine</div>
+              <div style={{ fontSize: 11, color: 'rgba(17,26,36,0.5)', fontFamily: 'Jost, sans-serif' }}>Paste any Phase I ESA draft below. ASTRA will critique it against ASTM E1527-21 and return a structured defensibility analysis.</div>
+            </div>
+            <div style={{ padding: '20px 24px' }}>
+              <textarea
+                value={astraText}
+                onChange={e => setAstraText(e.target.value)}
+                placeholder="Paste Phase I ESA report text here..."
+                rows={12}
+                style={{ width: '100%', padding: '12px', fontFamily: 'monospace', fontSize: 11, border: '1px solid rgba(17,26,36,0.15)', borderRadius: 3, resize: 'vertical', outline: 'none', backgroundColor: 'white', color: '#111A24', boxSizing: 'border-box' }}
+              />
+              {astraError && <div style={{ color: '#B43C28', fontSize: 11, marginTop: 6, fontFamily: 'Jost, sans-serif' }}>{astraError}</div>}
+              <button
+                onClick={async () => {
+                  if (!astraText.trim() || astraLoading) return;
+                  setAstraLoading(true); setAstraError(""); setAstraCritique(null);
+                  try {
+                    const r = await fetch("/api/portal/astra-critique", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ report_text: astraText, site_address: location }) });
+                    const j = await r.json();
+                    if (j.error) setAstraError(j.error);
+                    else setAstraCritique(j.critique);
+                  } catch(e) { setAstraError(String(e)); }
+                  finally { setAstraLoading(false); }
+                }}
+                disabled={astraLoading || astraText.length < 50}
+                style={{ marginTop: 12, padding: '10px 24px', backgroundColor: '#1E4976', color: 'white', border: 'none', borderRadius: 3, cursor: astraLoading ? 'wait' : 'pointer', fontSize: 12, fontFamily: 'Jost, sans-serif', opacity: astraLoading || astraText.length < 50 ? 0.6 : 1 }}
+              >
+                {astraLoading ? 'ASTRA Analyzing...' : 'Run ASTRA Critique'}
+              </button>
+            </div>
+            {astraCritique && (
+              <div style={{ padding: '0 24px 24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, padding: '16px', backgroundColor: astraCritique.grade === 'A' || astraCritique.grade === 'B' ? 'rgba(45,106,79,0.06)' : astraCritique.grade === 'F' ? 'rgba(180,60,40,0.06)' : 'rgba(140,94,26,0.06)', border: '1px solid', borderColor: astraCritique.grade === 'A' || astraCritique.grade === 'B' ? 'rgba(45,106,79,0.2)' : astraCritique.grade === 'F' ? 'rgba(180,60,40,0.2)' : 'rgba(140,94,26,0.2)', borderRadius: 3 }}>
+                  <div style={{ fontSize: 36, fontWeight: 700, fontFamily: 'Cormorant Garamond, Georgia, serif', color: astraCritique.grade === 'A' || astraCritique.grade === 'B' ? '#2D6A4F' : astraCritique.grade === 'F' ? '#B43C28' : '#8C5E1A' }}>{astraCritique.grade}</div>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 600, fontFamily: 'Jost, sans-serif', color: '#111A24' }}>Defensibility Score: {astraCritique.overall_defensibility_score}/100</div>
+                    <div style={{ fontSize: 12, color: 'rgba(17,26,36,0.6)', fontFamily: 'Jost, sans-serif', marginTop: 3 }}>{astraCritique.summary}</div>
+                  </div>
+                </div>
+                {[{key:'missing_sections',label:'Missing Sections',color:'#B43C28'},{key:'rec_tier_errors',label:'REC Tier Errors',color:'#B43C28'},{key:'data_gap_flags',label:'Data Gaps',color:'#8C5E1A'},{key:'overstatements',label:'Overstatements',color:'#8C5E1A'},{key:'language_audit',label:'Language Audit',color:'#8C5E1A'},{key:'regulatory_flags',label:'Regulatory Flags',color:'#1E4976'},{key:'strengths',label:'Strengths',color:'#2D6A4F'},{key:'recommended_actions',label:'Recommended Actions',color:'#1E4976'}].map(({key,label,color}) => {
+                  const items = astraCritique[key];
+                  if (!items || (Array.isArray(items) && items.length === 0)) return null;
+                  return (
+                    <div key={key} style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color, fontFamily: 'Jost, sans-serif', fontWeight: 600, marginBottom: 8 }}>{label}</div>
+                      {Array.isArray(items) ? items.map((item: any, i: number) => (
+                        <div key={i} style={{ fontSize: 12, color: '#111A24', fontFamily: 'Jost, sans-serif', padding: '8px 12px', backgroundColor: 'white', border: '1px solid rgba(17,26,36,0.08)', borderRadius: 2, marginBottom: 4, lineHeight: 1.5 }}>
+                          {typeof item === 'object' ? JSON.stringify(item) : item}
+                        </div>
+                      )) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
     </div>
   );
