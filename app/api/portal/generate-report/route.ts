@@ -427,32 +427,28 @@ ${regContext}`;
   let astraEnrichment = ''
   if (reg && isPhase1) {
     try {
-      const astraMsg = `You are ASTRA, an environmental intelligence system with deep ASTM E1527-21 and TCEQ regulatory knowledge. Analyze this Phase I ESA site data and return a structured pre-report intelligence brief.
+      // Build ASTRA prompt based on report type
+      const siteCtx = [
+        `SITE: ${resolvedLocation} | ${reg.county || "Unknown"} County, TX`,
+        `FEMA: Zone ${reg.fema?.floodZone} — ${reg.fema?.floodZoneDesc}`,
+        `TCEQ: ${reg.tceq?.totalCount || 0} facilities (LPST:${reg.tceq?.lpstCount||0} DC:${reg.tceq?.dryCleanerCount||0} HR:${reg.tceq?.highRiskCount||0})`,
+        `WETLANDS: ${reg.nwi?.wetlandsPresent ? reg.nwi.acresEstimate+" acres — "+(reg.nwi.wetlandTypes||[]).join(", ") : "None mapped"}`,
+        `SOILS: ${reg.soils?.hydricPercent||0}% hydric — ${reg.soils?.interpretation||"no interpretation"}`,
+        `HYDROLOGY: ${reg.hydrology?.closestStreamName||"No named stream"} at ${reg.hydrology?.closestStreamMiles||"unknown"} mi`,
+        `EPA ECHO: ${reg.epaEcho?.totalCount||0} regulated facilities within 1 mile`,
+        `FIELD NOTES: ${resolvedNotes||"None provided"}`,
+      ].join("\n")
 
-SITE: ${resolvedLocation} | ${reg.county || 'Unknown'} County, TX
-FEMA ZONE: ${reg.fema?.floodZone} — ${reg.fema?.floodZoneDesc}
-TCEQ FACILITIES: ${reg.tceq?.totalCount || 0} within 1 mile (LPST: ${reg.tceq?.lpstCount || 0}, Dry Cleaner: ${reg.tceq?.dryCleanerCount || 0}, High Risk: ${reg.tceq?.highRiskCount || 0})
-WETLANDS (NWI): ${reg.nwi?.wetlandsPresent ? reg.nwi.acresEstimate + ' acres — ' + (reg.nwi.wetlandTypes || []).join(', ') : 'None mapped within AOI'}
-HYDRIC SOILS: ${reg.soils?.hydricPercent || 0}% hydric — ${reg.soils?.interpretation || 'no interpretation'}
-HYDROLOGY: ${reg.hydrology?.closestStreamName || 'No named stream'} at ${reg.hydrology?.closestStreamMiles || 'unknown'} mi
-EPA ECHO: ${reg.epaEcho?.totalCount || 0} regulated facilities within 1 mile
-
-Return ONLY these 5 sections, no preamble:
-
-REC DETERMINATION:
-State whether RECs, HRECs, or CRECs exist based on ASTM E1527-21 Section 7. One sentence per applicable category. If no RECs, state "No RECs identified based on available data."
-
-TCEQ REGULATORY FLAGS:
-List any TCEQ Chapter 335, LPST, dry cleaner, or VCP flags visible in this data. If none, state "No TCEQ flags identified."
-
-USACE §404 WETLAND TRIGGER:
-State Yes or No. If yes, cite NWI wetland type and likely permit pathway (NWP vs Individual Permit). If no, state basis for determination.
-
-LENDER FLAGS:
-List the top 3 items a lender's environmental attorney would flag for this site. Be specific to the data.
-
-EP PROFESSIONAL OPINION:
-One paragraph, written in first-person EP voice, defensible under ASTM E1527-21 Section 12, suitable for inclusion in the Phase I conclusions section. Reference actual site data.`
+      const rType = reportType.toLowerCase()
+      let astraMsg = ""
+      if (rType.includes("swppp") || rType.includes("stormwater")) {
+        astraMsg = `You are ASTRA with deep TPDES TXR150000 and stormwater knowledge. Analyze this SWPPP inspection site and return ONLY these 4 sections:\n\n${siteCtx}\n\nTPDES TXR150000 COMPLIANCE FLAGS:\nList permit conditions at risk — BMP maintenance, outfall locations, drainage, TCEQ proximity. If none, state "No flags identified."\n\nIMPAIRED WATERS RISK:\nIs this site in or near a 303(d) impaired watershed? Flag receiving water concerns.\n\nBMP RECOMMENDATIONS:\nTop 3 BMPs needed at this site based on soils, slope, and hydrology.\n\nINSPECTOR PROFESSIONAL NOTES:\nOne paragraph for the inspection record — first-person, specific to site conditions, suitable for SWPPP documentation.`
+      } else if (rType.includes("field") || rType.includes("survey") || rType.includes("walk")) {
+        astraMsg = `You are ASTRA with deep environmental field assessment knowledge. Analyze this field survey site and return ONLY these 4 sections:\n\n${siteCtx}\n\nOBSERVED CONDITIONS ANALYSIS:\nBased on field notes and site data, identify the most significant environmental observations requiring follow-up.\n\nJURISDICTIONAL CONCERNS:\nFlag any USACE, TCEQ, or EPA jurisdictional issues — wetlands, waters of the US, regulated facilities.\n\nDOCUMENTATION GAPS:\nList what additional documentation or site reconnaissance is needed.\n\nFIELD PROFESSIONAL NOTES:\nOne paragraph summary for the field assessment record. Reference actual site conditions.`
+      } else {
+        // Default: Phase I ESA
+        astraMsg = `You are ASTRA with deep ASTM E1527-21 and TCEQ regulatory knowledge. Analyze this Phase I ESA site and return ONLY these 5 sections:\n\n${siteCtx}\n\nREC DETERMINATION:\nState whether RECs, HRECs, or CRECs exist per ASTM E1527-21 Section 7. One sentence per applicable category. If none: "No RECs identified based on available data."\n\nTCEQ REGULATORY FLAGS:\nList TCEQ Chapter 335, LPST, dry cleaner, or VCP flags. If none: "No TCEQ flags identified."\n\nUSACE §404 WETLAND TRIGGER:\nYes or No. If yes, cite NWI type and permit pathway (NWP vs Individual). If no, state basis.\n\nLENDER FLAGS:\nTop 3 items a lender environmental attorney would flag. Be specific to the data.\n\nEP PROFESSIONAL OPINION:\nOne paragraph, first-person EP voice, defensible under ASTM E1527-21 Section 12. Reference actual site data.`
+      }
 
       const astraRes = await fetch('https://www.astarteworks.com/api/astra/query', {
         method: 'POST',
