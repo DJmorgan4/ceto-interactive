@@ -864,7 +864,7 @@ Use all regulatory data provided above. Be thorough, defensible, and acceptable 
           parcelData: parcelIntel,
           historicalData: historicalResearch,
           mapSnapshot: mapSnapshot || null,
-          preparedBy: 'Ceto Interactive Environmental Consulting · McKinney, Texas',
+          preparedBy: 'DJ Morgan, EP-TX',
         }),
       });
 
