@@ -423,12 +423,66 @@ Survey Date: ${resolvedDate}
 Field Observations: ${resolvedNotes}
 ${regContext}`;
 
+  // ── ASTRA ENRICHMENT — pulls ASTM E1527-21 knowledge before Claude writes report ──
+  let astraEnrichment = ''
+  if (reg && isPhase1) {
+    try {
+      const astraMsg = `You are ASTRA, an environmental intelligence system with deep ASTM E1527-21 and TCEQ regulatory knowledge. Analyze this Phase I ESA site data and return a structured pre-report intelligence brief.
+
+SITE: ${resolvedLocation} | ${reg.county || 'Unknown'} County, TX
+FEMA ZONE: ${reg.fema?.floodZone} — ${reg.fema?.floodZoneDesc}
+TCEQ FACILITIES: ${reg.tceq?.totalCount || 0} within 1 mile (LPST: ${reg.tceq?.lpstCount || 0}, Dry Cleaner: ${reg.tceq?.dryCleanerCount || 0}, High Risk: ${reg.tceq?.highRiskCount || 0})
+WETLANDS (NWI): ${reg.nwi?.wetlandsPresent ? reg.nwi.acresEstimate + ' acres — ' + (reg.nwi.wetlandTypes || []).join(', ') : 'None mapped within AOI'}
+HYDRIC SOILS: ${reg.soils?.hydricPercent || 0}% hydric — ${reg.soils?.interpretation || 'no interpretation'}
+HYDROLOGY: ${reg.hydrology?.closestStreamName || 'No named stream'} at ${reg.hydrology?.closestStreamMiles || 'unknown'} mi
+EPA ECHO: ${reg.epaEcho?.totalCount || 0} regulated facilities within 1 mile
+
+Return ONLY these 5 sections, no preamble:
+
+REC DETERMINATION:
+State whether RECs, HRECs, or CRECs exist based on ASTM E1527-21 Section 7. One sentence per applicable category. If no RECs, state "No RECs identified based on available data."
+
+TCEQ REGULATORY FLAGS:
+List any TCEQ Chapter 335, LPST, dry cleaner, or VCP flags visible in this data. If none, state "No TCEQ flags identified."
+
+USACE §404 WETLAND TRIGGER:
+State Yes or No. If yes, cite NWI wetland type and likely permit pathway (NWP vs Individual Permit). If no, state basis for determination.
+
+LENDER FLAGS:
+List the top 3 items a lender's environmental attorney would flag for this site. Be specific to the data.
+
+EP PROFESSIONAL OPINION:
+One paragraph, written in first-person EP voice, defensible under ASTM E1527-21 Section 12, suitable for inclusion in the Phase I conclusions section. Reference actual site data.`
+
+      const astraRes = await fetch('https://www.astarteworks.com/api/astra/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: astraMsg, history: [] }),
+        signal: AbortSignal.timeout(25000),
+      })
+      const astraData = await astraRes.json()
+      astraEnrichment = astraData.response || ''
+      console.log('ASTRA enrichment:', astraEnrichment.slice(0, 100))
+    } catch (e) {
+      console.error('ASTRA enrichment failed (non-blocking):', e)
+    }
+  }
+  // ── end ASTRA enrichment ──
+
+  // Inject ASTRA analysis into the Claude prompt
+  const finalPrompt = astraEnrichment
+    ? userPrompt + `
+
+ASTRA INTELLIGENCE PRE-ANALYSIS (incorporate into report — do not reproduce verbatim, use to inform professional opinions and REC determinations):
+${astraEnrichment}`
+    : userPrompt
+
   try {
     const message = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 4096,
       system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
+      messages: [{ role: 'user', content: finalPrompt }],
     });
 
     const report = message.content.map(b => b.type === 'text' ? b.text : '').join('');
