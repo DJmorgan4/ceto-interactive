@@ -32,7 +32,7 @@ Return ONLY valid JSON — no markdown, no preamble:
 }`
 
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-5',
+      model: 'claude-sonnet-4-6',
       max_tokens: 2048,
       system,
       messages: [{
