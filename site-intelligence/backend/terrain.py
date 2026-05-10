@@ -78,10 +78,10 @@ def classify_slope(slope: np.ndarray) -> dict:
 
 
 def render_hillshade(dem: np.ndarray, hs: np.ndarray, output_path: str, title: str = "Hillshade"):
-    fig, ax = plt.subplots(figsize=(10, 8), facecolor="#0a0a0a")
-    ax.set_facecolor("#0a0a0a")
+    fig, ax = plt.subplots(figsize=(10, 8), facecolor="#080808")
+    ax.set_facecolor("#080808")
     ax.imshow(hs, cmap="gray", interpolation="bilinear", vmin=0, vmax=1)
-    im = ax.imshow(dem, cmap="terrain", alpha=0.4, interpolation="bilinear")
+    im = ax.imshow(dem, cmap="gist_earth", alpha=0.65, interpolation="bilinear")
     cbar = plt.colorbar(im, ax=ax, fraction=0.03, pad=0.02)
     cbar.set_label("Elevation (m)", color="white", fontsize=9)
     cbar.ax.yaxis.set_tick_params(color="white")
@@ -95,7 +95,7 @@ def render_hillshade(dem: np.ndarray, hs: np.ndarray, output_path: str, title: s
     _add_map_furniture(ax, "USGS 3DEP")
     plt.tight_layout()
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    plt.savefig(output_path, dpi=150, bbox_inches="tight", facecolor="#0a0a0a")
+    plt.savefig(output_path, dpi=200, bbox_inches="tight", facecolor="#080808")
     plt.close()
     print(f"  [terrain] Hillshade saved → {output_path}")
 
@@ -120,8 +120,8 @@ def render_slope(slope: np.ndarray, slope_stats: dict, output_path: str, title: 
 
     fig, (ax_map, ax_stats) = plt.subplots(1, 2, figsize=(13, 7),
                                             gridspec_kw={"width_ratios": [3, 1]},
-                                            facecolor="#0a0a0a")
-    ax_map.set_facecolor("#0a0a0a")
+                                            facecolor="#080808")
+    ax_map.set_facecolor("#080808")
     im = ax_map.imshow(slope, cmap=cmap, norm=norm, interpolation="bilinear")
     cbar = plt.colorbar(im, ax=ax_map, fraction=0.03, pad=0.02, ticks=bounds[:-1])
     cbar.set_label("Slope (degrees)", color="white", fontsize=9)
@@ -180,7 +180,7 @@ def render_slope(slope: np.ndarray, slope_stats: dict, output_path: str, title: 
 
     plt.tight_layout()
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    plt.savefig(output_path, dpi=150, bbox_inches="tight", facecolor="#0a0a0a")
+    plt.savefig(output_path, dpi=200, bbox_inches="tight", facecolor="#080808")
     plt.close()
     print(f"  [terrain] Slope map saved → {output_path}")
 
@@ -275,8 +275,8 @@ def render_nlcd(nlcd_path: str, output_path: str, project_name: str = "Site") ->
         mask = data == cls
         rgb[mask] = [r, g, b]
 
-    fig, ax = plt.subplots(figsize=(10, 8), facecolor="#0a0a0a")
-    ax.set_facecolor("#0a0a0a")
+    fig, ax = plt.subplots(figsize=(10, 8), facecolor="#080808")
+    ax.set_facecolor("#080808")
     ax.imshow(rgb, interpolation="nearest")
     ax.set_title(f"{project_name} — Land Cover (NLCD 2021)",
                  color="white", fontsize=13, fontweight="bold", pad=12)
@@ -302,7 +302,7 @@ def render_nlcd(nlcd_path: str, output_path: str, project_name: str = "Site") ->
 
     plt.tight_layout()
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    plt.savefig(output_path, dpi=150, bbox_inches="tight", facecolor="#0a0a0a")
+    plt.savefig(output_path, dpi=200, bbox_inches="tight", facecolor="#080808")
     plt.close()
     print(f"  [nlcd] Land cover map saved → {output_path}")
 
