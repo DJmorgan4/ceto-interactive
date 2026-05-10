@@ -324,7 +324,11 @@ export async function POST(req: NextRequest) {
     const hydroData = hydrology.status === 'fulfilled' ? hydrology.value : { nearbyStreams: [], withinHUC: false, source: 'Error' };
     const geoData = geology.status === 'fulfilled' ? geology.value : { formation: 'Unknown', lithology: 'Unknown', age: 'Unknown', description: '', source: 'Error' };
 
-    const overallRisk = computeOverallRisk(femaData.risk, echoData.risk, nwiData.risk, soilData.risk);
+    // EPA ECHO retired 2026-04-27 — echoData.risk always LOW
+    // TCEQ data arrives via separate tceq-intel route called by the frontend
+    // Use MODERATE as conservative floor so overall risk isn't artificially low
+    const regulatoryRisk = echoData.totalCount > 0 ? 'MODERATE' : 'LOW';
+    const overallRisk = computeOverallRisk(femaData.risk, regulatoryRisk, nwiData.risk, soilData.risk);
 
     // ── STRATUM write — every ESA pull becomes a spatial record ──────────────
     try {
@@ -342,13 +346,13 @@ export async function POST(req: NextRequest) {
         state: geo.state,
         county: geo.county,
         ceto_tier: overallRisk.level,
-        regulatory_flags: echoData.facilitiesNearby?.slice(0, 5).map((f: {name: string; type: string}) => ({ name: f.name, type: f.type })) || [],
+        regulatory_flags: (echoData.facilitiesNearby || []).slice(0, 5).map((f: {name: string; type: string}) => ({ name: f.name, type: f.type })),
         status: 'active',
         tags: ['phase1', 'automated'],
         metadata: {
           floodZone: femaData.floodZone,
           wetlandsPresent: nwiData.wetlandsPresent,
-          facilitiesCount: echoData.totalCount,
+          facilitiesCount: echoData.totalCount || 0,
           elevationFt: elevData.elevationFt,
           geology: geoData.formation,
           pulledAt: new Date().toISOString(),

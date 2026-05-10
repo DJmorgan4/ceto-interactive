@@ -19,19 +19,28 @@ function facilityRiskLabel(f: Facility): string {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function generateNearestFacilityNarrative(reg: any): string {
-  const facilities: Facility[] = reg?.epaEcho?.facilitiesNearby || [];
+  // FIX 2+5: Use TCEQ data as primary source (EPA ECHO retired 2026-04-27)
+  // Surfaces dataset ID and facility name as regulatory record identifier
+  const tceqFacilities: Facility[] = reg?.tceq?.facilitiesNearby || [];
+  const echoFacilities: Facility[] = reg?.epaEcho?.facilitiesNearby || [];
+  const facilities: Facility[] = tceqFacilities.length > 0 ? tceqFacilities : echoFacilities;
+  const sourceLabel = tceqFacilities.length > 0
+    ? 'TCEQ ArcGIS FeatureServer'
+    : 'EPA ECHO';
 
   if (!facilities.length) {
-    return 'No EPA-regulated facilities were identified within the 1-mile search radius of the subject property. ' +
-      'This finding indicates no regulated operations in the immediate vicinity that could represent a source of hazardous substance release threatening the subject property.';
+    return 'No regulated facilities were identified within the 1-mile search radius of the subject property ' +
+      'based on a query of the TCEQ regulatory database (LPST, PST, Dry Cleaner Remediation, VCP, IHWCA, and Superfund datasets). ' +
+      'This finding indicates no documented regulated operations in the immediate vicinity that could represent a source of hazardous substance release threatening the subject property. ' +
+      'Manual TCEQ STEERS search is recommended to confirm this finding prior to transaction close.';
   }
 
   const withDist = facilities.filter(f => typeof f.distanceMi === 'number')
     .sort((a, b) => (a.distanceMi ?? 99) - (b.distanceMi ?? 99));
 
   if (!withDist.length) {
-    return `${facilities.length} EPA-regulated facility record(s) were identified within the 1-mile search radius. ` +
-      'Facility coordinate data was unavailable for distance-based ranking. Manual review at echo.epa.gov is recommended prior to transaction close.';
+    return `${facilities.length} regulated facility record(s) were identified within the 1-mile search radius (${sourceLabel}). ` +
+      'Facility coordinate data was unavailable for distance-based ranking. Manual review is recommended prior to transaction close.';
   }
 
   const nearest = withDist[0];
@@ -40,22 +49,28 @@ export function generateNearestFacilityNarrative(reg: any): string {
     : nearest.distanceMi! <= 0.5 ? 'in nearby proximity to'
     : 'within the 1-mile search radius of';
 
-  const prog = nearest.program || nearest.type || 'EPA-regulated activity';
+  // FIX 5: Surface dataset as regulatory ID
+  const dataset = (nearest as any).dataset || nearest.program || nearest.type || 'regulated facility';
   const label = facilityRiskLabel(nearest);
   const countNote = facilities.length > 1
-    ? ` A total of ${facilities.length} regulated facilities were identified within the 1-mile radius.`
+    ? ` A total of ${facilities.length} regulated facilities were identified within the 1-mile radius across all queried datasets.`
     : '';
 
-  return `The nearest EPA-regulated facility identified through the ECHO database search is ${nearest.name}, ` +
-    `a ${prog} facility located approximately ${nearest.distanceMi!.toFixed(2)} miles from the subject property — ` +
+  // FIX 5: Include dataset name as the regulatory record identifier
+  return `The nearest regulated facility identified through the ${sourceLabel} database query is ${nearest.name} ` +
+    `(TCEQ ${dataset} dataset), located approximately ${nearest.distanceMi!.toFixed(2)} miles from the subject property — ` +
     `${riskPhrase} the site. This facility is classified as ${label}.${countNote} ` +
     `Groundwater migration direction relative to the subject property was not determined through automated means; ` +
-    `an upgradient/downgradient analysis is recommended if this facility represents a potential concern.`;
+    `an upgradient/downgradient analysis is recommended per ASTM E1527-21 §8.2.3 if this facility represents a potential concern.`;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function generateRiskInterpretation(reg: any, cetoScore?: number): string {
-  const facilities: Facility[] = reg?.epaEcho?.facilitiesNearby || [];
+  // FIX 2: TCEQ is primary source; EPA ECHO retired 2026-04-27
+  const tceqFacs: Facility[] = reg?.tceq?.facilitiesNearby || [];
+  const echoFacs: Facility[] = reg?.epaEcho?.facilitiesNearby || [];
+  const facilities: Facility[] = tceqFacs.length > 0 ? tceqFacs : echoFacs;
+  const facilitySourceLabel = tceqFacs.length > 0 ? 'TCEQ ArcGIS' : 'EPA ECHO';
   const wetland = reg?.nwi?.wetlandsPresent;
   const floodZone = reg?.fema?.floodZone || 'X';
   const hydricPct = reg?.soils?.hydricPercent || 0;
@@ -69,9 +84,9 @@ export function generateRiskInterpretation(reg: any, cetoScore?: number): string
   if (facilities.length > 0) {
     const nearest = facilities.filter(f => typeof f.distanceMi === 'number').sort((a,b) => (a.distanceMi??99)-(b.distanceMi??99))[0];
     const distNote = nearest?.distanceMi !== undefined ? ` (nearest: ${nearest.distanceMi.toFixed(2)} mi)` : '';
-    issues.push(`${facilities.length} nearby EPA-regulated facility record(s)${distNote}`);
+    issues.push(`${facilities.length} nearby regulated facility record(s)${distNote} (${facilitySourceLabel})`);
   } else {
-    positives.push('no regulated facilities identified within 1 mile (EPA ECHO)');
+    positives.push(`no regulated facilities identified within 1 mile (${facilitySourceLabel})`);
   }
 
   if (wetland) issues.push(`mapped wetland indicators — ${reg?.nwi?.acresEstimate || '<1'} acres (USFWS NWI)`);
