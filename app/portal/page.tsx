@@ -183,8 +183,8 @@ export default function PortalDashboard() {
             </div>
           )}
 
-          {INTEL_NAV.map(item=>(
-            
+          {INTEL_NAV.map((item) => (
+            <a
               key={item.href}
               href={item.href}
               className="flex items-center gap-3 px-3 rounded-xl transition-all"
