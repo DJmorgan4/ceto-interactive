@@ -160,8 +160,8 @@ export default function PortalDashboard() {
         </div>
 
         <nav className="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto">
-          {NAV.map(item=>(
-            
+          {NAV.map((item) => (
+            <a
               key={item.href}
               href={item.href}
               onClick={() => isMobile && setMobileNavOpen(false)}
