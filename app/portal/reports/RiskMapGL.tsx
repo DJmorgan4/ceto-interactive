@@ -252,7 +252,7 @@ export default function RiskMapGL({ reg, projectName, onSnapshot }: Props) {
 
       {/* Map container */}
       <div style={{ position: 'relative', overflow: 'hidden' }}>
-        <div ref={mapContainerRef} style={{ height: 380, width: '100%', overflow: 'hidden' }} />
+        <div ref={mapContainerRef} style={{ height: "min(380px, 55vw)", minHeight: 220, width: '100%', overflow: 'hidden' }} />
         {!mapReady && !mapError && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(244,245,243,0.85)', fontSize: 11, color: T.muted, fontFamily: FS }}>
             Loading map…

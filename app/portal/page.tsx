@@ -39,6 +39,7 @@ function Icon({ name, size=20 }: { name:string; size?:number }) {
     external: 'M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14',
     lightning: 'M13 10V3L4 14h7v7l9-11h-7z',
     refresh: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15',
+    close: 'M6 18L18 6M6 6l12 12',
   };
   return (
     <svg width={size} height={size} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -55,15 +56,28 @@ export default function PortalDashboard() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [reportCount, setReportCount] = useState(0);
   const [time, setTime] = useState(new Date());
+  // Desktop: sidebar open/collapsed. Mobile: drawer open/closed.
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Live clock
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  // Close mobile nav on resize to desktop
+  useEffect(() => {
+    if (!isMobile) setMobileNavOpen(false);
+  }, [isMobile]);
+
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  // Real weather — Open-Meteo (free, no key)
   useEffect(() => {
     fetch('https://api.open-meteo.com/v1/forecast?latitude=33.197&longitude=-96.615&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code&temperature_unit=fahrenheit&wind_speed_unit=mph')
       .then(r=>r.json())
@@ -74,13 +88,11 @@ export default function PortalDashboard() {
       }).catch(()=>{});
   }, []);
 
-  // EPA/TCEQ news via RSS proxy
   useEffect(() => {
     fetch('/api/texas-updates')
       .then(r=>r.json())
       .then(d => { if (d.items) setNews(d.items.slice(0,4)); })
       .catch(()=>{
-        // Fallback static items if news API not wired
         setNews([
           { title:'TCEQ Proposed Amendments to 30 TAC Chapter 305 — Water Quality Permits', source:'TCEQ', url:'https://www.tceq.texas.gov', date:new Date().toLocaleDateString() },
           { title:'EPA ECHO Updated Facility Compliance Data — Q1 2026', source:'EPA ECHO', url:'https://echo.epa.gov', date:new Date().toLocaleDateString() },
@@ -90,7 +102,6 @@ export default function PortalDashboard() {
       });
   }, []);
 
-  // Report count from localStorage
   useEffect(() => {
     try {
       const stored = localStorage.getItem('ceto_report_count');
@@ -108,77 +119,159 @@ export default function PortalDashboard() {
     { type:'field',  label:'Field Survey', color:'#7A6F5A' },
   ];
 
+  // Sidebar width — desktop only
+  const sidebarW = sidebarOpen ? 220 : 64;
+
   return (
     <div className="flex min-h-screen" style={{ backgroundColor:THEME.bg }}>
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full z-30 flex flex-col transition-all duration-300"
-        style={{ width:sidebarOpen?220:64, backgroundColor:THEME.surfaceStrong, borderRight:`1px solid ${THEME.border}`, backdropFilter:'blur(12px)' }}>
+
+      {/* ── Mobile backdrop ── */}
+      {isMobile && mobileNavOpen && (
+        <div
+          className="fixed inset-0 z-40"
+          style={{ backgroundColor:'rgba(20,35,55,0.45)', backdropFilter:'blur(2px)' }}
+          onClick={() => setMobileNavOpen(false)}
+        />
+      )}
+
+      {/* ── Sidebar / Mobile Drawer ── */}
+      <aside
+        className="fixed left-0 top-0 h-full z-50 flex flex-col transition-all duration-300"
+        style={{
+          width: isMobile ? 240 : sidebarW,
+          transform: isMobile ? (mobileNavOpen ? 'translateX(0)' : 'translateX(-100%)') : 'translateX(0)',
+          backgroundColor: THEME.surfaceStrong,
+          borderRight: `1px solid ${THEME.border}`,
+          backdropFilter: 'blur(12px)',
+        }}
+      >
         <div className="flex items-center justify-between px-5 py-5" style={{ borderBottom:`1px solid ${THEME.border}` }}>
-          {sidebarOpen && <div className="text-base font-light" style={{ color:THEME.ink }}>Ceto<span style={{ color:THEME.leviBlue, fontWeight:400 }}>Portal</span></div>}
-          <button onClick={()=>setSidebarOpen(p=>!p)} className="p-1.5 rounded-lg" style={{ color:'rgba(20,35,55,0.45)' }}>
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16"/></svg>
+          <div className="text-base font-light" style={{ color:THEME.ink }}>
+            Ceto<span style={{ color:THEME.leviBlue, fontWeight:400 }}>Portal</span>
+          </div>
+          {/* Desktop collapse / Mobile close */}
+          <button
+            onClick={() => isMobile ? setMobileNavOpen(false) : setSidebarOpen(p=>!p)}
+            className="p-1.5 rounded-lg"
+            style={{ color:'rgba(20,35,55,0.45)', minWidth:32, minHeight:32, display:'flex', alignItems:'center', justifyContent:'center' }}
+          >
+            <Icon name={isMobile ? 'close' : 'grid'} size={16}/>
           </button>
         </div>
-        <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
+
+        <nav className="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto">
           {NAV.map(item=>(
-            <a key={item.href} href={item.href} className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
-              style={{ backgroundColor:item.href==='/portal'?'rgba(47,93,140,0.10)':'transparent', color:item.href==='/portal'?THEME.leviBlue:'rgba(20,35,55,0.65)' }}>
+            
+              key={item.href}
+              href={item.href}
+              onClick={() => isMobile && setMobileNavOpen(false)}
+              className="flex items-center gap-3 px-3 rounded-xl transition-all"
+              style={{
+                minHeight:44,
+                backgroundColor:item.href==='/portal'?'rgba(47,93,140,0.10)':'transparent',
+                color:item.href==='/portal'?THEME.leviBlue:'rgba(20,35,55,0.65)',
+              }}
+            >
               <Icon name={item.icon} size={16}/>
-              {sidebarOpen && <span className="text-sm font-light">{item.label}</span>}
+              {(isMobile || sidebarOpen) && <span className="text-sm font-light">{item.label}</span>}
             </a>
           ))}
-          {sidebarOpen && <div className="text-[10px] font-light tracking-widests uppercase mt-5 mb-2 px-3" style={{ color:'rgba(20,35,55,0.35)' }}>Intelligence</div>}
+
+          {(isMobile || sidebarOpen) && (
+            <div className="text-[10px] font-light tracking-widest uppercase mt-5 mb-2 px-3" style={{ color:'rgba(20,35,55,0.35)' }}>
+              Intelligence
+            </div>
+          )}
+
           {INTEL_NAV.map(item=>(
-            <a key={item.href} href={item.href} className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all" style={{ color:'rgba(20,35,55,0.55)' }}>
+            
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 px-3 rounded-xl transition-all"
+              style={{ minHeight:44, color:'rgba(20,35,55,0.55)' }}
+            >
               <Icon name={item.icon} size={16}/>
-              {sidebarOpen && <span className="text-sm font-light">{item.label}</span>}
+              {(isMobile || sidebarOpen) && <span className="text-sm font-light">{item.label}</span>}
             </a>
           ))}
         </nav>
+
         <div className="px-4 py-4" style={{ borderTop:`1px solid ${THEME.border}` }}>
-          <a href="/" className="flex items-center gap-2 text-xs font-light" style={{ color:'rgba(20,35,55,0.40)' }}>
+          <a href="/" className="flex items-center gap-2 text-xs font-light" style={{ color:'rgba(20,35,55,0.40)', minHeight:44 }}>
             <Icon name="external" size={13}/>
-            {sidebarOpen && 'cetointeractive.com'}
+            {(isMobile || sidebarOpen) && 'cetointeractive.com'}
           </a>
         </div>
       </aside>
 
-      {/* Main */}
-      <main className="flex-1 transition-all duration-300" style={{ marginLeft:sidebarOpen?220:64 }}>
+      {/* ── Main content ── */}
+      <main
+        className="flex-1 transition-all duration-300 min-w-0"
+        style={{ marginLeft: isMobile ? 0 : sidebarW }}
+      >
         {/* Top bar */}
-        <header className="sticky top-0 z-20 flex items-center justify-between px-8 py-4"
-          style={{ backgroundColor:THEME.surfaceStrong, borderBottom:`1px solid ${THEME.border}`, backdropFilter:'blur(12px)' }}>
-          <div>
-            <div className="text-lg font-light" style={{ color:THEME.ink }}>Operations Dashboard</div>
-            <div className="text-xs font-light" style={{ color:'rgba(20,35,55,0.45)' }}>Environmental Intelligence · Private Workspace</div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="text-sm font-light" style={{ color:THEME.ink }}>{timeStr}</div>
-              <div className="text-xs font-light" style={{ color:'rgba(20,35,55,0.45)' }}>{today}</div>
+        <header
+          className="sticky top-0 z-20"
+          style={{ backgroundColor:THEME.surfaceStrong, borderBottom:`1px solid ${THEME.border}`, backdropFilter:'blur(12px)' }}
+        >
+          <div className="flex items-center justify-between px-4 md:px-8 py-3 md:py-4 gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              {/* Mobile hamburger */}
+              {isMobile && (
+                <button
+                  onClick={() => setMobileNavOpen(true)}
+                  className="flex-shrink-0 rounded-lg flex items-center justify-center"
+                  style={{ minWidth:44, minHeight:44, color:'rgba(20,35,55,0.55)' }}
+                >
+                  <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16"/>
+                  </svg>
+                </button>
+              )}
+              <div className="min-w-0">
+                <div className="text-base md:text-lg font-light truncate" style={{ color:THEME.ink }}>Operations Dashboard</div>
+                <div className="hidden sm:block text-xs font-light" style={{ color:'rgba(20,35,55,0.45)' }}>Environmental Intelligence · Private Workspace</div>
+              </div>
             </div>
-            <a href="/portal/upload" className="flex items-center gap-2 text-white px-5 py-2.5 rounded-full font-light text-sm" style={{ backgroundColor:THEME.leviBlue }}>
-              <Icon name="upload" size={14}/> Upload Data
-            </a>
-            <a href="/portal/reports" className="flex items-center gap-2 px-5 py-2.5 rounded-full font-light text-sm border" style={{ color:THEME.leviBlue, borderColor:'rgba(47,93,140,0.30)' }}>
-              <Icon name="doc" size={14}/> Generate Report
-            </a>
+
+            <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+              {/* Clock — hide on small mobile */}
+              <div className="hidden sm:block text-right">
+                <div className="text-sm font-light" style={{ color:THEME.ink }}>{timeStr}</div>
+                <div className="hidden md:block text-xs font-light" style={{ color:'rgba(20,35,55,0.45)' }}>{today}</div>
+              </div>
+              <a href="/portal/upload"
+                className="flex items-center gap-1.5 text-white rounded-full font-light text-xs md:text-sm"
+                style={{ backgroundColor:THEME.leviBlue, padding:'8px 14px', minHeight:40 }}
+              >
+                <Icon name="upload" size={14}/>
+                <span className="hidden sm:inline">Upload</span>
+              </a>
+              <a href="/portal/reports"
+                className="flex items-center gap-1.5 rounded-full font-light text-xs md:text-sm border"
+                style={{ color:THEME.leviBlue, borderColor:'rgba(47,93,140,0.30)', padding:'8px 14px', minHeight:40 }}
+              >
+                <Icon name="doc" size={14}/>
+                <span className="hidden sm:inline">Report</span>
+              </a>
+            </div>
           </div>
         </header>
 
-        <div className="px-8 py-8 max-w-7xl">
+        {/* Page content */}
+        <div className="px-4 md:px-8 py-4 md:py-8 max-w-7xl">
 
           {/* Weather + Quick stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {/* Weather card */}
-            <div className="col-span-2 lg:col-span-1 rounded-2xl p-5" style={{ backgroundColor:THEME.surfaceStrong, border:`1px solid ${THEME.border}` }}>
-              <div className="text-[10px] font-light tracking-widests uppercase mb-2" style={{ color:'rgba(20,35,55,0.40)' }}>McKinney, TX · Field Conditions</div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+            {/* Weather */}
+            <div className="col-span-2 lg:col-span-1 rounded-2xl p-4 md:p-5" style={{ backgroundColor:THEME.surfaceStrong, border:`1px solid ${THEME.border}` }}>
+              <div className="text-[10px] font-light tracking-widest uppercase mb-2" style={{ color:'rgba(20,35,55,0.40)' }}>McKinney, TX · Field</div>
               {weather ? (
                 <>
-                  <div className="text-4xl font-light mb-1" style={{ color:THEME.ink }}>{weather.temp}°F</div>
+                  <div className="text-3xl md:text-4xl font-light mb-1" style={{ color:THEME.ink }}>{weather.temp}°F</div>
                   <div className="text-sm font-light mb-3" style={{ color:'rgba(20,35,55,0.65)' }}>{weather.desc}</div>
                   <div className="grid grid-cols-3 gap-2 text-[11px] font-light" style={{ color:'rgba(20,35,55,0.50)' }}>
-                    <div><div style={{ color:THEME.ink }}>{weather.feels}°</div>Feels like</div>
+                    <div><div style={{ color:THEME.ink }}>{weather.feels}°</div>Feels</div>
                     <div><div style={{ color:THEME.ink }}>{weather.humidity}%</div>Humidity</div>
                     <div><div style={{ color:THEME.ink }}>{weather.wind}mph</div>Wind</div>
                   </div>
@@ -186,7 +279,7 @@ export default function PortalDashboard() {
               ) : (
                 <div className="flex items-center gap-2 text-sm font-light" style={{ color:'rgba(20,35,55,0.40)' }}>
                   <svg className="animate-spin" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                  Loading weather...
+                  Loading...
                 </div>
               )}
             </div>
@@ -195,63 +288,64 @@ export default function PortalDashboard() {
             {[
               { label:'Reports Generated', value: reportCount, sub:'This session', color:THEME.leviBlue, icon:'doc' },
               { label:'Regulatory APIs', value:'4', sub:'FEMA · EPA · NWI · TCEQ', color:THEME.washedGreen, icon:'lightning' },
-              { label:'Report Types', value:'6', sub:'Phase I · SWPPP · Wetland · SAR…', color:'#7A6F5A', icon:'chart' },
+              { label:'Report Types', value:'6', sub:'Phase I · SWPPP · Wetland…', color:'#7A6F5A', icon:'chart' },
             ].map(s=>(
-              <div key={s.label} className="rounded-2xl p-5" style={{ backgroundColor:THEME.surfaceStrong, border:`1px solid ${THEME.border}` }}>
+              <div key={s.label} className="rounded-2xl p-4 md:p-5" style={{ backgroundColor:THEME.surfaceStrong, border:`1px solid ${THEME.border}` }}>
                 <div className="flex items-center justify-between mb-3">
-                  <div className="text-[10px] font-light tracking-widests uppercase" style={{ color:'rgba(20,35,55,0.40)' }}>{s.label}</div>
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor:`${s.color}18`, color:s.color }}><Icon name={s.icon} size={15}/></div>
+                  <div className="text-[10px] font-light tracking-widest uppercase leading-tight" style={{ color:'rgba(20,35,55,0.40)' }}>{s.label}</div>
+                  <div className="w-7 h-7 md:w-8 md:h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor:`${s.color}18`, color:s.color }}><Icon name={s.icon} size={14}/></div>
                 </div>
-                <div className="text-3xl font-light mb-1" style={{ color:THEME.ink }}>{s.value}</div>
+                <div className="text-2xl md:text-3xl font-light mb-1" style={{ color:THEME.ink }}>{s.value}</div>
                 <div className="text-xs font-light" style={{ color:'rgba(20,35,55,0.45)' }}>{s.sub}</div>
               </div>
             ))}
           </div>
 
           {/* Site Intelligence CTA */}
-          <a href="/portal/site-intelligence" className="block rounded-2xl p-6 mb-6 transition-all"
+          <a href="/portal/site-intelligence" className="block rounded-2xl p-4 md:p-6 mb-4 md:mb-6 transition-all"
             style={{ background:'linear-gradient(135deg, #0a1628 0%, #1a2f4a 100%)', border:'1px solid rgba(47,93,140,0.35)', textDecoration:'none' }}
             onMouseEnter={e=>{ e.currentTarget.style.borderColor='rgba(47,93,140,0.7)'; e.currentTarget.style.boxShadow='0 4px 24px rgba(47,93,140,0.15)'; }}
             onMouseLeave={e=>{ e.currentTarget.style.borderColor='rgba(47,93,140,0.35)'; e.currentTarget.style.boxShadow='none'; }}>
-            <div className="flex items-center justify-between">
+            <div className="flex items-start md:items-center justify-between gap-4">
               <div>
                 <div className="text-[10px] font-light tracking-widest uppercase mb-2" style={{ color:'rgba(47,93,140,0.8)' }}>New</div>
-                <div className="text-lg font-light mb-1" style={{ color:'white' }}>Site Intelligence</div>
-                <div className="text-sm font-light" style={{ color:'rgba(255,255,255,0.50)' }}>DEM · Geology · Soils · Hydrology · Cross-Section → PDF Report</div>
+                <div className="text-base md:text-lg font-light mb-1" style={{ color:'white' }}>Site Intelligence</div>
+                <div className="text-xs md:text-sm font-light" style={{ color:'rgba(255,255,255,0.50)' }}>DEM · Geology · Soils · Hydrology · Cross-Section → PDF</div>
               </div>
-              <div className="flex items-center gap-3 ml-6">
-                <div className="text-xs font-light px-3 py-1.5 rounded-full" style={{ background:'rgba(47,93,140,0.25)', color:'rgba(47,93,140,1)', border:'1px solid rgba(47,93,140,0.4)' }}>Generate Report →</div>
+              <div className="flex-shrink-0 text-xs font-light px-3 py-1.5 rounded-full" style={{ background:'rgba(47,93,140,0.25)', color:'rgba(47,93,140,1)', border:'1px solid rgba(47,93,140,0.4)', whiteSpace:'nowrap' }}>
+                Generate →
               </div>
             </div>
           </a>
 
-          <div className="grid lg:grid-cols-3 gap-6 mb-6">
+          {/* Three-col grid → single col on mobile */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-4 md:mb-6">
             {/* Quick Generate */}
-            <div className="rounded-2xl p-6" style={{ backgroundColor:THEME.surfaceStrong, border:`1px solid ${THEME.border}` }}>
-              <div className="text-xs font-light tracking-widests uppercase mb-4" style={{ color:'rgba(20,35,55,0.40)' }}>Quick Generate</div>
+            <div className="rounded-2xl p-5 md:p-6" style={{ backgroundColor:THEME.surfaceStrong, border:`1px solid ${THEME.border}` }}>
+              <div className="text-xs font-light tracking-widest uppercase mb-4" style={{ color:'rgba(20,35,55,0.40)' }}>Quick Generate</div>
               <div className="flex flex-col gap-2">
                 {QUICK_REPORTS.map(r=>(
-                  <a key={r.type} href={`/portal/reports`}
-                    className="flex items-center justify-between p-3.5 rounded-xl transition-all group"
-                    style={{ backgroundColor:'rgba(20,35,55,0.03)', border:`1px solid ${THEME.border}` }}
+                  <a key={r.type} href="/portal/reports"
+                    className="flex items-center justify-between rounded-xl transition-all"
+                    style={{ padding:'12px 14px', backgroundColor:'rgba(20,35,55,0.03)', border:`1px solid ${THEME.border}`, minHeight:48 }}
                     onMouseEnter={e=>{e.currentTarget.style.backgroundColor='rgba(47,93,140,0.06)';e.currentTarget.style.borderColor='rgba(47,93,140,0.20)';}}
                     onMouseLeave={e=>{e.currentTarget.style.backgroundColor='rgba(20,35,55,0.03)';e.currentTarget.style.borderColor=THEME.border;}}>
                     <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor:r.color }}/>
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor:r.color }}/>
                       <span className="text-sm font-light" style={{ color:THEME.ink }}>{r.label}</span>
                     </div>
-                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color:'rgba(20,35,55,0.30)' }}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7"/></svg>
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color:'rgba(20,35,55,0.30)', flexShrink:0 }}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7"/></svg>
                   </a>
                 ))}
               </div>
-              <a href="/portal/reports" className="flex items-center justify-center gap-2 mt-4 text-xs font-light py-2.5 rounded-xl" style={{ color:THEME.leviBlue, backgroundColor:'rgba(47,93,140,0.07)', border:`1px dashed rgba(47,93,140,0.25)` }}>
-                <Icon name="lightning" size={13}/> Open Full Report Generator
+              <a href="/portal/reports" className="flex items-center justify-center gap-2 mt-4 text-xs font-light py-3 rounded-xl" style={{ color:THEME.leviBlue, backgroundColor:'rgba(47,93,140,0.07)', border:`1px dashed rgba(47,93,140,0.25)` }}>
+                <Icon name="lightning" size={13}/> Open Report Generator
               </a>
             </div>
 
-            {/* Regulatory APIs Status */}
-            <div className="rounded-2xl p-6" style={{ backgroundColor:THEME.surfaceStrong, border:`1px solid ${THEME.border}` }}>
-              <div className="text-xs font-light tracking-widests uppercase mb-4" style={{ color:'rgba(20,35,55,0.40)' }}>Live Data Sources</div>
+            {/* Live Data Sources */}
+            <div className="rounded-2xl p-5 md:p-6" style={{ backgroundColor:THEME.surfaceStrong, border:`1px solid ${THEME.border}` }}>
+              <div className="text-xs font-light tracking-widest uppercase mb-4" style={{ color:'rgba(20,35,55,0.40)' }}>Live Data Sources</div>
               <div className="flex flex-col gap-3">
                 {[
                   { name:'FEMA National Flood Hazard Layer', status:'live', url:'https://msc.fema.gov' },
@@ -261,53 +355,53 @@ export default function PortalDashboard() {
                   { name:'US Census Geocoder', status:'live', url:'https://geocoding.geo.census.gov' },
                 ].map(s=>(
                   <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center justify-between group">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor:s.status==='live'?'#4F7A6A':'rgba(20,35,55,0.25)' }}/>
-                      <span className="text-sm font-light" style={{ color:THEME.ink }}>{s.name}</span>
+                    className="flex items-center justify-between gap-2 min-h-[36px]">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor:s.status==='live'?'#4F7A6A':'rgba(20,35,55,0.25)' }}/>
+                      <span className="text-sm font-light truncate" style={{ color:THEME.ink }}>{s.name}</span>
                     </div>
-                    <span className="text-[10px] font-light" style={{ color:s.status==='live'?THEME.washedGreen:'rgba(20,35,55,0.40)' }}>{s.status}</span>
+                    <span className="text-[10px] font-light flex-shrink-0" style={{ color:s.status==='live'?THEME.washedGreen:'rgba(20,35,55,0.40)' }}>{s.status}</span>
                   </a>
                 ))}
               </div>
-              <div className="mt-5 pt-4" style={{ borderTop:`1px solid ${THEME.border}` }}>
-                <div className="text-[11px] font-light" style={{ color:'rgba(20,35,55,0.45)' }}>All free federal APIs. No keys required. Data pulled live at report generation time.</div>
+              <div className="mt-5 pt-4 text-[11px] font-light" style={{ borderTop:`1px solid ${THEME.border}`, color:'rgba(20,35,55,0.45)' }}>
+                All free federal APIs. No keys required.
               </div>
             </div>
 
-            {/* LithicEarth pipeline */}
+            {/* LithicEarth */}
             <div className="rounded-2xl overflow-hidden flex flex-col" style={{ backgroundImage:`linear-gradient(135deg, ${THEME.leviBlueDark} 0%, ${THEME.leviBlue} 60%, rgba(79,122,106,0.6) 120%)` }}>
-              <div className="p-6 flex-1">
-                <div className="text-[10px] font-light tracking-widests uppercase mb-3" style={{ color:'rgba(255,255,255,0.55)' }}>LithicEarth Pipeline</div>
-                <div className="text-lg font-light text-white mb-2">Geospatial Processing</div>
-                <div className="text-sm font-light mb-6" style={{ color:'rgba(255,255,255,0.65)' }}>Connect your GDAL/rasterio pipeline to process field data and generate map outputs for reports.</div>
+              <div className="p-5 md:p-6 flex-1">
+                <div className="text-[10px] font-light tracking-widest uppercase mb-3" style={{ color:'rgba(255,255,255,0.55)' }}>LithicEarth Pipeline</div>
+                <div className="text-base md:text-lg font-light text-white mb-2">Geospatial Processing</div>
+                <div className="text-sm font-light mb-4 md:mb-6" style={{ color:'rgba(255,255,255,0.65)' }}>Connect GDAL/rasterio pipeline to process field data and generate map outputs for reports.</div>
                 <div className="flex flex-col gap-2">
                   {['GDAL 3.12.3 installed','Rasterio 1.5.0 ready','QGIS 4.0.1 available','Docker 29.3 running'].map(s=>(
                     <div key={s} className="flex items-center gap-2 text-sm font-light" style={{ color:'rgba(255,255,255,0.80)' }}>
-                      <div className="w-1.5 h-1.5 rounded-full bg-green-300"/>
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-300 flex-shrink-0"/>
                       {s}
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="px-6 pb-6">
+              <div className="px-5 md:px-6 pb-5 md:pb-6">
                 <a href="https://lithicearth.com" target="_blank" rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-light"
-                  style={{ backgroundColor:'rgba(255,255,255,0.15)', color:'white', border:'1px solid rgba(255,255,255,0.30)' }}>
+                  className="flex items-center justify-center gap-2 w-full rounded-full text-sm font-light"
+                  style={{ backgroundColor:'rgba(255,255,255,0.15)', color:'white', border:'1px solid rgba(255,255,255,0.30)', padding:'10px 0', minHeight:44 }}>
                   Open LithicEarth <Icon name="external" size={13}/>
                 </a>
               </div>
             </div>
           </div>
 
-          {/* Live environmental news */}
+          {/* Environmental news feed */}
           <div className="rounded-2xl overflow-hidden" style={{ backgroundColor:THEME.surfaceStrong, border:`1px solid ${THEME.border}` }}>
-            <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom:`1px solid ${THEME.border}` }}>
+            <div className="px-4 md:px-6 py-4 flex items-center justify-between" style={{ borderBottom:`1px solid ${THEME.border}` }}>
               <div>
                 <div className="text-sm font-light" style={{ color:THEME.ink }}>Environmental Intelligence Feed</div>
-                <div className="text-xs font-light mt-0.5" style={{ color:'rgba(20,35,55,0.45)' }}>TCEQ · EPA · USACE · TPWD — live regulatory updates</div>
+                <div className="hidden sm:block text-xs font-light mt-0.5" style={{ color:'rgba(20,35,55,0.45)' }}>TCEQ · EPA · USACE · TPWD — live regulatory updates</div>
               </div>
-              <a href="/envnews" className="text-xs font-light" style={{ color:THEME.leviBlue }}>Full feed →</a>
+              <a href="/envnews" className="text-xs font-light flex-shrink-0 ml-4" style={{ color:THEME.leviBlue }}>Full feed →</a>
             </div>
             {news.length===0 ? (
               <div className="px-6 py-8 flex items-center gap-3" style={{ color:'rgba(20,35,55,0.40)' }}>
@@ -316,8 +410,8 @@ export default function PortalDashboard() {
               </div>
             ) : news.map((item,i)=>(
               <a key={i} href={item.url} target="_blank" rel="noopener noreferrer"
-                className="flex items-start gap-4 px-6 py-4 transition-colors"
-                style={{ borderBottom:i<news.length-1?`1px solid ${THEME.border}`:'none' }}
+                className="flex items-start gap-3 md:gap-4 px-4 md:px-6 py-4 transition-colors"
+                style={{ borderBottom:i<news.length-1?`1px solid ${THEME.border}`:'none', minHeight:60 }}
                 onMouseEnter={e=>e.currentTarget.style.backgroundColor='rgba(47,93,140,0.04)'}
                 onMouseLeave={e=>e.currentTarget.style.backgroundColor='transparent'}>
                 <div className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0" style={{ backgroundColor:THEME.leviBlue }}/>
@@ -325,7 +419,7 @@ export default function PortalDashboard() {
                   <div className="text-sm font-light leading-snug" style={{ color:THEME.ink }}>{item.title}</div>
                   <div className="text-xs font-light mt-1" style={{ color:'rgba(20,35,55,0.45)' }}>{item.source} · {item.date}</div>
                 </div>
-                <Icon name="external" size={13}/>
+                <div className="flex-shrink-0 mt-0.5"><Icon name="external" size={13}/></div>
               </a>
             ))}
           </div>

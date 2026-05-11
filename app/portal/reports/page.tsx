@@ -378,7 +378,7 @@ function RegPanel({ data, loading, error, parcel }: { data: RegData | null; load
   );
 
   return (
-    <div style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 180px)', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+    <div style={{ overflowY: 'auto', maxHeight: 'none', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
       {/* Header */}
       <div style={{ border: `1px solid ${T.border}`, borderRadius: 4, backgroundColor: T.surface, overflow: 'hidden', marginBottom: 14 }}>
         <div style={{ padding: '12px 18px', borderBottom: `1px solid ${T.border}`, backgroundColor: T.blueLight, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -887,32 +887,42 @@ Use all regulatory data provided above. Be thorough, defensible, and acceptable 
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: T.bg, fontFamily: FONT_SANS }}>
-      <header style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 28px', backgroundColor: T.surface, borderBottom: `1px solid ${T.border}`, backdropFilter: 'blur(16px)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <a href="/portal" style={{ fontSize: 12, color: T.muted, textDecoration: 'none', fontFamily: FONT_SANS }}>← Dashboard</a>
-          <span style={{ color: T.border }}>·</span>
-          <div style={{ fontFamily: FONT_SERIF, fontSize: 18, color: T.ink, fontWeight: 300 }}>Reports</div>
-          {reg && <Badge label={`CETO Score: ${computeCetoScore(reg, parcel).total}/100`} color={computeCetoScore(reg, parcel).total >= 80 ? 'green' : computeCetoScore(reg, parcel).total >= 55 ? 'amber' : 'red'} />}
+      <header style={{ position: 'sticky', top: 0, zIndex: 20, backgroundColor: T.surface, borderBottom: `1px solid ${T.border}`, backdropFilter: 'blur(16px)' }}>
+        {/* Top row: back link + title + score badge */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <a href="/portal" style={{ fontSize: 12, color: T.muted, textDecoration: 'none', fontFamily: FONT_SANS, flexShrink: 0 }}>← Portal</a>
+            <span style={{ color: T.border }}>·</span>
+            <div style={{ fontFamily: FONT_SERIF, fontSize: 16, color: T.ink, fontWeight: 300, whiteSpace: 'nowrap' }}>Reports</div>
+          </div>
+          {reg && <Badge label={`${computeCetoScore(reg, parcel).total}/100`} color={computeCetoScore(reg, parcel).total >= 80 ? 'green' : computeCetoScore(reg, parcel).total >= 55 ? 'amber' : 'red'} />}
         </div>
-        <div style={{ display: 'flex', gap: 2, padding: 4, backgroundColor: 'rgba(17,26,36,0.06)', borderRadius: 20 }}>
-          {([
-            { id: 'generate', label: 'Phase I ESA' },
-            { id: 'parcel', label: 'Parcel Intelligence' },
-            { id: 'historical', label: 'Historical Research' },
-            { id: 'swppp', label: 'SWPPP Inspections' },
-            { id: 'library', label: `Library (${library.length})` },
-            { id: 'astra', label: '🧠 ASTRA Critique' },
-          ] as const).map(t => (
-            <button key={t.id} onClick={() => setTab(t.id as any)} style={{ padding: '7px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', backgroundColor: tab === t.id ? 'white' : 'transparent', color: tab === t.id ? T.ink : T.muted, fontSize: 11, fontFamily: FONT_SANS, fontWeight: tab === t.id ? 400 : 300, boxShadow: tab === t.id ? '0 1px 3px rgba(17,26,36,0.10)' : 'none', transition: 'all 0.15s', whiteSpace: 'nowrap' }}>
-              {t.label}
-            </button>
-          ))}
+        {/* Tab row: horizontally scrollable on mobile */}
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+          <div style={{ display: 'flex', gap: 2, padding: '4px 12px 8px', minWidth: 'max-content' }}>
+            {([
+              { id: 'generate', label: 'Phase I ESA' },
+              { id: 'parcel', label: 'Parcel' },
+              { id: 'historical', label: 'Historical' },
+              { id: 'swppp', label: 'SWPPP' },
+              { id: 'library', label: `Library (${library.length})` },
+              { id: 'astra', label: '🧠 ASTRA' },
+            ] as const).map(t => (
+              <button key={t.id} onClick={() => setTab(t.id as any)} style={{ padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', backgroundColor: tab === t.id ? T.blue : 'rgba(17,26,36,0.06)', color: tab === t.id ? 'white' : T.muted, fontSize: 11, fontFamily: FONT_SANS, fontWeight: tab === t.id ? 400 : 300, transition: 'all 0.15s', whiteSpace: 'nowrap', minHeight: 36 }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
-      <div style={{ maxWidth: 1400, margin: '0 auto', padding: '24px 28px' }}>
+      <div style={{ maxWidth: 1400, margin: '0 auto', padding: '16px 12px' }} className='sm:px-6 lg:px-7'>
         {tab === 'generate' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '210px 1fr 1.2fr', gap: 16 }}>
+          <div style={{ display: 'grid', gap: 16 }} className='reports-grid'>
+            <style>{`
+              .reports-grid { grid-template-columns: 1fr; }
+              @media (min-width: 900px) { .reports-grid { grid-template-columns: 200px 1fr 1.1fr; } }
+            `}</style>
 
             {/* Col 1 */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
