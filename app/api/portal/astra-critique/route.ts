@@ -81,7 +81,10 @@ Return ONLY valid JSON — no markdown, no preamble:
         system,
         messages: [{ role: 'user', content: `Critique this Phase I ESA draft:\n\nSite: ${sa || 'Not provided'}\n\n---\n${rt}\n---\n\nReturn JSON only.` }],
       })
-      const raw = response.content.filter((b): b is import('@anthropic-ai/sdk').TextBlock => b.type === 'text').map(b => b.text).join('')
+      const raw = response.content
+        .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
+        .map((b) => b.text)
+        .join('')
       const clean = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
       const critique = JSON.parse(clean)
       return NextResponse.json({ ok: true, critique, tokens_used: response.usage.input_tokens + response.usage.output_tokens, source: 'Claude direct (ASTRA fallback)' })
