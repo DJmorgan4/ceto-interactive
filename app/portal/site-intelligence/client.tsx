@@ -193,9 +193,9 @@ export default function SiteIntelligenceClient() {
         <Link href="/portal/site-intelligence/jobs" style={{ color: '#3498db', fontSize: '12px', textDecoration: 'none' }}>Job History →</Link>
       </div>
 
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', flexDirection: 'column' }} className='md:flex-row'>
         {/* Left panel */}
-        <div style={{ width: '320px', flexShrink: 0, borderRight: '1px solid #1a1a1a', overflowY: 'auto', padding: '18px' }}>
+        <div style={{ flexShrink: 0, borderRight: '1px solid #1a1a1a', overflowY: 'auto', padding: '18px', borderBottom: '1px solid #1a1a1a' }} className='w-full md:w-80 md:border-b-0 max-h-[45vh] md:max-h-none'>
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', fontSize: '10px', color: '#555', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '6px' }}>Project Name</label>
             <input value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="e.g. 817 Sammons Dr"
@@ -294,7 +294,7 @@ export default function SiteIntelligenceClient() {
         </div>
 
         {/* Map */}
-        <div style={{ flex: 1, position: 'relative' }}>
+        <div style={{ flex: 1, position: 'relative', minHeight: '55vw' }} className='md:min-h-0'>
           <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
           {(isDrawingAOI || isDrawingTransect) && (
             <div style={{ position: 'absolute', top: '16px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.85)', border: `1px solid ${isDrawingAOI ? '#3498db' : '#e74c3c'}`, borderRadius: '6px', padding: '8px 16px', color: 'white', fontSize: '12px', pointerEvents: 'none', whiteSpace: 'nowrap' }}>

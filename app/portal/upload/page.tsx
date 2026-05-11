@@ -76,7 +76,7 @@ export default function UploadPage() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: THEME.bg }}>
-      <header className="sticky top-0 z-20 flex items-center justify-between px-8 py-4"
+      <header className="sticky top-0 z-20 flex items-center justify-between px-4 md:px-8 py-3 md:py-4 gap-3"
         style={{ backgroundColor: THEME.surfaceStrong, borderBottom: `1px solid ${THEME.border}`, backdropFilter: 'blur(10px)' }}>
         <div className="flex items-center gap-4">
           <a href="/portal" className="text-sm font-light flex items-center gap-1.5" style={{ color: 'rgba(20,35,55,0.50)' }}>
