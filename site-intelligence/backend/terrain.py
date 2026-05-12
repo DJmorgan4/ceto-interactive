@@ -100,85 +100,146 @@ def render_hillshade(dem: np.ndarray, hs: np.ndarray, output_path: str, title: s
     print(f"  [terrain] Hillshade saved → {output_path}")
 
 
-def render_3d_terrain(dem: np.ndarray, output_path: str, title: str = "3D Terrain"):
-    """Render a 3D perspective block diagram of the DEM."""
-    from mpl_toolkits.mplot3d import Axes3D
-    from scipy.ndimage import zoom as nd_zoom
 
-    # Downsample for 3D performance — 128x128 is plenty
-    factor = min(1.0, 128 / max(dem.shape))
-    dem_small = nd_zoom(np.where(np.isnan(dem), np.nanmean(dem), dem), factor)
 
-    rows, cols = dem_small.shape
-    x = np.linspace(0, 1, cols)
-    y = np.linspace(0, 1, rows)
-    X, Y = np.meshgrid(x, y)
-    Z = dem_small
+def render_3d_terrain(dem: np.ndarray, output_path: str, title: str = "3D Terrain",
+                      nlcd_rgb: np.ndarray = None, flow_acc: np.ndarray = None):
+    """Render a 3D block diagram using ray-cast isometric projection — no matplotlib 3D."""
+    from PIL import Image
+    from scipy.ndimage import zoom as nd_zoom, gaussian_filter as gf
 
-    # Normalize Z for exaggeration
-    z_min, z_max = Z.min(), Z.max()
-    z_range = max(z_max - z_min, 1)
-    # Vertical exaggeration — more dramatic on flat terrain
-    exag = max(3.0, 30.0 / z_range) if z_range < 50 else 2.0
-    Z_plot = (Z - z_min) / z_range * exag
+    # Clean and downsample
+    p2, p98 = np.nanpercentile(dem, 2), np.nanpercentile(dem, 98)
+    dem_c = np.clip(np.where(np.isnan(dem), np.nanmedian(dem), dem), p2, p98)
+    target = 256
+    factor = target / max(dem_c.shape)
+    dem_s = nd_zoom(dem_c, factor)
+    dem_s = gf(dem_s, sigma=1.5)
+    rows, cols = dem_s.shape
 
-    # Color map: terrain elevation
-    norm = plt.Normalize(z_min, z_max)
-    cmap = plt.cm.gist_earth
-    colors = cmap(norm(Z))
+    z_min, z_max = dem_s.min(), dem_s.max()
+    z_range = max(z_max - z_min, 1.0)
+    exag = max(5.0, 150.0 / z_range)
+    exag = min(exag, 20.0)
 
-    fig = plt.figure(figsize=(12, 8), facecolor="#080808")
-    ax = fig.add_subplot(111, projection="3d", facecolor="#080808")
+    # Normalize height 0-1
+    H = (dem_s - z_min) / z_range  # 0..1
 
-    surf = ax.plot_surface(
-        X, Y, Z_plot,
-        facecolors=colors,
-        linewidth=0,
-        antialiased=True,
-        shade=True,
-        rstride=1, cstride=1,
-    )
+    # Surface color: elevation + slope topo
+    dy, dx = np.gradient(dem_s)
+    slope_n = np.sqrt(dx**2 + dy**2)
+    slope_n = slope_n / (slope_n.max() + 1e-6)
 
-    # Style
-    ax.set_facecolor("#080808")
-    fig.patch.set_facecolor("#080808")
-    ax.xaxis.pane.fill = False
-    ax.yaxis.pane.fill = False
-    ax.zaxis.pane.fill = False
-    ax.xaxis.pane.set_edgecolor("#222")
-    ax.yaxis.pane.set_edgecolor("#222")
-    ax.zaxis.pane.set_edgecolor("#222")
-    ax.grid(False)
-    ax.set_xticks([]); ax.set_yticks([]); ax.set_zticks([])
+    # Base palette: low=green, mid=tan, high=rock
+    R = (0.30 + H * 0.35 + slope_n * 0.20)
+    G = (0.42 + H * 0.12 - slope_n * 0.15)
+    B = (0.15 + H * 0.05)
 
-    # Viewing angle — isometric-ish
-    ax.view_init(elev=35, azim=-60)
+    # Hillshade
+    az = np.radians(225)
+    alt = np.radians(45)
+    hs = np.sin(alt)*np.cos(np.arctan(slope_n)) +          np.cos(alt)*np.sin(np.arctan(slope_n))*np.cos(az - np.arctan2(-dy, dx))
+    hs = np.clip(hs, 0.25, 1.0)
+    R = np.clip(R * hs, 0, 1)
+    G = np.clip(G * hs, 0, 1)
+    B = np.clip(B * hs, 0, 1)
 
-    # Colorbar
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array([])
-    cbar = fig.colorbar(sm, ax=ax, fraction=0.02, pad=0.0, shrink=0.6)
-    cbar.set_label("Elevation (m)", color="white", fontsize=8)
-    cbar.ax.yaxis.set_tick_params(color="white")
-    plt.setp(cbar.ax.yaxis.get_ticklabels(), color="white")
+    # Water overlay
+    if flow_acc is not None:
+        fa_s = nd_zoom(flow_acc.astype(float), factor)
+        fa_s = fa_s / (fa_s.max() + 1e-6)
+        water = fa_s > 0.88
+        R[water] = 0.08; G[water] = 0.30; B[water] = 0.75
 
-    ax.set_title(title, color="white", fontsize=13, fontweight="bold", pad=16)
+    surf_rgb = np.stack([R, G, B], axis=2)
 
-    # Exaggeration note
-    fig.text(0.5, 0.02,
-             f"Vertical exaggeration {exag:.1f}× | Elevation range {z_range:.0f} m | Source: USGS 3DEP",
-             ha="center", color="#555", fontsize=7)
+    # Isometric projection params
+    iso_angle = 30  # degrees from horizontal
+    cos_a = np.cos(np.radians(iso_angle))
+    sin_a = np.sin(np.radians(iso_angle))
+    z_scale = exag * 0.35  # pixel height per unit elevation
 
-    plt.tight_layout()
+    # Canvas size
+    c_w = cols + rows
+    c_h = int(rows * cos_a + (z_max - z_min) / z_range * cols * z_scale + rows * sin_a) + 120
+    canvas_r = np.zeros((c_h, c_w))
+    canvas_g = np.zeros((c_h, c_w))
+    canvas_b = np.zeros((c_h, c_w))
+    canvas_z = np.full((c_h, c_w), -999.0)
+
+    # Draw surface pixels (painter's algorithm — back to front)
+    for row in range(rows - 1, -1, -1):
+        for col in range(cols):
+            h = H[row, col]
+            # Isometric screen position
+            sx = col + (rows - 1 - row)
+            sy = int((rows - 1 - row) * sin_a + (cols - 1 - col) * cos_a * 0.5
+                     - h * z_scale * cols * 0.5)
+            sy = c_h - 1 - sy - int(rows * sin_a) - 20
+            if 0 <= sx < c_w and 0 <= sy < c_h:
+                if h > canvas_z[sy, sx]:
+                    canvas_z[sy, sx] = h
+                    canvas_r[sy, sx] = surf_rgb[row, col, 0]
+                    canvas_g[sy, sx] = surf_rgb[row, col, 1]
+                    canvas_b[sy, sx] = surf_rgb[row, col, 2]
+
+    # Draw front walls (geology strata)
+    strata_colors = [
+        (0.00, 0.25, (0.35, 0.22, 0.10)),
+        (0.25, 0.50, (0.52, 0.35, 0.15)),
+        (0.50, 0.75, (0.65, 0.48, 0.22)),
+        (0.75, 1.00, (0.72, 0.58, 0.35)),
+    ]
+    # Front edge: row = rows-1
+    for col in range(cols):
+        h_top = H[rows-1, col]
+        sx = col
+        sy_top = int(c_h - 1 - (0 * sin_a + (cols-1-col)*cos_a*0.5 - h_top*z_scale*cols*0.5) - int(rows*sin_a) - 20)
+        sy_bot = int(c_h - 1 - (0 * sin_a + (cols-1-col)*cos_a*0.5) - int(rows*sin_a) - 20) + int(z_scale * cols * 0.15)
+        for sy in range(min(sy_top, sy_bot), max(sy_top, sy_bot)+1):
+            if 0 <= sy < c_h and 0 <= sx < c_w:
+                frac = (sy - sy_top) / max(abs(sy_bot - sy_top), 1)
+                for zlo, zhi, col_rgb in strata_colors:
+                    if zlo <= frac < zhi:
+                        shade = 0.6 + 0.4 * (1 - frac)
+                        canvas_r[sy, sx] = col_rgb[0] * shade
+                        canvas_g[sy, sx] = col_rgb[1] * shade
+                        canvas_b[sy, sx] = col_rgb[2] * shade
+
+    # Compose final image
+    img_arr = np.stack([
+        (canvas_r * 255).astype(np.uint8),
+        (canvas_g * 255).astype(np.uint8),
+        (canvas_b * 255).astype(np.uint8),
+    ], axis=2)
+
+    # Paste onto dark background with title
+    bg_h = c_h + 60
+    bg = np.full((bg_h, c_w, 3), 8, dtype=np.uint8)
+    bg[40:40+c_h, :] = img_arr
+
+    img = Image.fromarray(bg)
+
+    # Add title text
+    fig, ax = plt.subplots(1, 1, figsize=(c_w/100, bg_h/100), facecolor="#080808")
+    ax.imshow(bg, aspect="auto")
+    ax.text(0.02, 0.97, title, transform=ax.transAxes, color="white",
+            fontsize=9, fontweight="bold", va="top")
+    ax.text(0.5, 0.01,
+            f"Vertical exaggeration {exag:.1f}×  ·  Elevation {z_min:.0f}–{z_max:.0f} m  ·  USGS 3DEP",
+            transform=ax.transAxes, color="#444", fontsize=6, ha="center")
+    ax.axis("off")
+    plt.tight_layout(pad=0)
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(output_path, dpi=150, bbox_inches="tight", facecolor="#080808")
     plt.close()
     print(f"  [terrain] 3D block diagram saved → {output_path}")
 
 
-
 def render_slope(slope: np.ndarray, slope_stats: dict, output_path: str, title: str = "Slope Classification"):
     max_s = slope_stats.get("max_slope_deg", 90)
+    # Force minimum visual range so flat terrain still shows variation
+    if max_s < 1.0: max_s = max(max_s, np.nanpercentile(slope, 99.5) * 2 + 0.1)
 
     # Adaptive colormap bounds matching classify_slope logic
     if max_s <= 10:
@@ -281,7 +342,13 @@ def run_terrain(dem_path: str, output_dir: str, project_name: str = "Site") -> d
 
     render_hillshade(dem, hs, str(maps_dir / "hillshade.png"), f"{project_name} — Hillshade")
     render_slope(slope, slope_stats, str(maps_dir / "slope.png"), f"{project_name} — Slope Classification")
-    render_3d_terrain(dem, str(maps_dir / "terrain_3d.png"), f"{project_name} — 3D Terrain Block")
+    # Pass flow accumulation for water rendering if available
+    try:
+        from backend.hydrology import compute_flow_accumulation
+        fa = compute_flow_accumulation(dem)
+    except Exception:
+        fa = None
+    render_3d_terrain(dem, str(maps_dir / "terrain_3d.png"), f"{project_name} — 3D Terrain Block", flow_acc=fa)
 
     elev_valid = dem[~np.isnan(dem)]
     summary = {
