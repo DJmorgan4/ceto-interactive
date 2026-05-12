@@ -255,8 +255,8 @@ export default function Home() {
                 href="/services"
                 className="inline-flex items-center font-light text-sm transition-colors"
                 style={{ color: THEME.leviBlue }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = THEME.leviBlueDark)}
-                onMouseLeave={(e) => (e.currentTarget.style.color = THEME.leviBlue)}
+                onMouseEnter={(e) => { e.currentTarget.style.color = THEME.leviBlueDark; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = THEME.leviBlue; }}
               >
                 View all services
                 <svg className="w-4 h-4 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
