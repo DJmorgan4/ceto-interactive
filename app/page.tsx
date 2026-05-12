@@ -101,8 +101,8 @@ export default function Home() {
                 href="/portal/login"
                 className="inline-flex items-center justify-center text-white px-8 py-3.5 rounded-full font-light text-lg transition-colors duration-200 shadow-lg"
                 style={{ backgroundColor: THEME.leviBlue }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = THEME.leviBlueDark)}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = THEME.leviBlue)}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = THEME.leviBlueDark; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = THEME.leviBlue; }}
               >
                 Run a Site Screening
                 <svg className="w-5 h-5 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -199,8 +199,8 @@ export default function Home() {
                 href="/portal/login"
                 className="inline-flex items-center justify-center text-white px-8 py-3.5 rounded-full font-light text-lg transition-colors duration-200 shadow-lg"
                 style={{ backgroundColor: THEME.leviBlue }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = THEME.leviBlueDark)}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = THEME.leviBlue)}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = THEME.leviBlueDark; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = THEME.leviBlue; }}
               >
                 Run a Free Site Screening
                 <svg className="w-5 h-5 ml-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
