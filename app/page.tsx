@@ -97,7 +97,7 @@ export default function Home() {
             </div>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-              
+              <a
                 href="/portal/login"
                 className="inline-flex items-center justify-center text-white px-8 py-3.5 rounded-full font-light text-lg transition-colors duration-200 shadow-lg"
                 style={{ backgroundColor: THEME.leviBlue }}
@@ -110,7 +110,7 @@ export default function Home() {
                 </svg>
               </a>
 
-              
+              <a
                 href="/contact"
                 className="inline-flex items-center justify-center px-8 py-3.5 rounded-full font-light text-lg border transition-colors duration-200"
                 style={{
@@ -195,7 +195,7 @@ export default function Home() {
                 ))}
               </div>
 
-              
+              <a
                 href="/portal/login"
                 className="inline-flex items-center justify-center text-white px-8 py-3.5 rounded-full font-light text-lg transition-colors duration-200 shadow-lg"
                 style={{ backgroundColor: THEME.leviBlue }}
@@ -251,7 +251,7 @@ export default function Home() {
             </div>
 
             <div className="mt-5 text-center">
-              
+              <a
                 href="/services"
                 className="inline-flex items-center font-light text-sm transition-colors"
                 style={{ color: THEME.leviBlue }}
@@ -326,7 +326,7 @@ export default function Home() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              
+              <a
                 href="/contact"
                 className="inline-block px-9 py-3.5 rounded-full font-light text-lg transition-colors duration-200 shadow-xl"
                 style={{ backgroundColor: 'rgba(255,255,255,0.92)', color: THEME.leviBlueDark }}
@@ -336,7 +336,7 @@ export default function Home() {
                 Schedule a Consultation
               </a>
 
-              
+              <a
                 href="/portal/login"
                 className="inline-block px-9 py-3.5 rounded-full font-light text-lg border transition-colors duration-200"
                 style={{ borderColor: 'rgba(255,255,255,0.45)', color: 'rgba(255,255,255,0.95)' }}
