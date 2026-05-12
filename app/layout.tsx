@@ -1,27 +1,28 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
-import { SiteShell } from "./SiteShell";
+import SiteShell from "./SiteShell";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Ceto Interactive",
-  description: "Environmental technology, compliance, and intelligence.",
+  title: "Ceto Interactive | Environmental Intelligence",
+  description:
+    "ASTM E1527-21 compliant Phase I ESA screening, geospatial risk intelligence, and construction compliance — built for developers, municipalities, and infrastructure teams.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="en" className={inter.variable}>
+      <body style={{ fontFamily: "var(--font-inter), Inter, Arial, sans-serif" }}>
         <SiteShell>{children}</SiteShell>
       </body>
     </html>
