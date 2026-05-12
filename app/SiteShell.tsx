@@ -23,7 +23,8 @@ const THEME = {
 // NOTE: Contact is handled as a button (so we do not include it here to avoid duplicates)
 const NAV = [
   { href: "/services", label: "Services" },
-  { href: "/envnews", label: "Environmental News" },
+  { href: "/projects", label: "What is Ceto" },
+  { href: "/envnews", label: "News" },
   { href: "/about", label: "About" },
 ] as const;
 
