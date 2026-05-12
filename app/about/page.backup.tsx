@@ -16,7 +16,8 @@ export default function AboutPage() {
           About <span style={{ color: THEME.leviBlue, fontWeight: 400 }}>Ceto Interactive</span>
         </h1>
         <p className="text-lg font-light max-w-2xl mx-auto" style={{ color: "rgba(20, 35, 55, 0.70)" }}>
-          AI-assisted environmental intelligence for land, infrastructure, and regulatory decision-making.
+          Environmental assurance and real-time intelligence—built to help projects move forward responsibly, predictably,
+          and with confidence.
         </p>
       </div>
 
@@ -33,7 +34,7 @@ export default function AboutPage() {
           Our Mission
         </h2>
         <p className="text-base font-light leading-relaxed" style={{ color: "rgba(20, 35, 55, 0.80)" }}>
-          Ceto Interactive helps organizations understand environmental risk before decisions are made.
+          Ceto Interactive helps organizations meet environmental obligations without sacrificing schedule or performance.
           We unite field-verified science with modern IoT monitoring and regulatory intelligence so cities, developers, and
           conservation partners can make decisions that protect ecosystems, reduce risk, and keep work moving.
         </p>

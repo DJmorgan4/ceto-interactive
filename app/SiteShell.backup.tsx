@@ -23,7 +23,7 @@ const THEME = {
 // NOTE: Contact is handled as a button (so we do not include it here to avoid duplicates)
 const NAV = [
   { href: "/services", label: "Services" },
-  { href: "/envnews", label: "Environmental News" },
+  { href: "/envnews", label: "News" },
   { href: "/about", label: "About" },
 ] as const;
 
@@ -176,7 +176,7 @@ function Footer() {
               </div>
 
               <div className="mt-2 text-sm font-light" style={{ color: "rgba(20, 35, 55, 0.70)" }}>
-                Environmental Intelligence for Land, Infrastructure & Ecology
+                Environmental • Technology • Consulting • Intelligence • Compliance • Monitoring
               </div>
             </div>
 
