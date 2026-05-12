@@ -17,13 +17,11 @@ def fetch_usgs_dem(bbox: list, output_dir: str) -> str:
         print(f"  [3DEP] Using cache: {cached_path}")
         return str(cached_path)
     url = (
-        "https://elevation.nationalmap.gov/arcgis/services/3DEPElevation/ImageServer/WCSServer"
-        "?SERVICE=WCS&VERSION=1.0.0&REQUEST=GetCoverage"
-        "&COVERAGE=DEP3Elevation&CRS=EPSG:4326"
-        f"&BBOX={min_lon},{min_lat},{max_lon},{max_lat}"
-        "&WIDTH=512&HEIGHT=512&FORMAT=GeoTIFF"
+        "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage"
+        f"?bbox={min_lon},{min_lat},{max_lon},{max_lat}&bboxSR=4326"
+        "&size=512,512&format=tiff&f=image"
     )
-    print(f"  [3DEP] Fetching WCS GeoTIFF...")
+    print(f"  [3DEP] Fetching ArcGIS REST GeoTIFF...")
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     resp = requests.get(url, timeout=30, stream=True)
     resp.raise_for_status()
@@ -300,7 +298,6 @@ def fetch_ssurgo(bbox: list) -> dict:
         sand_val = float(dominant.get("surface_sand") or 0)
         silt_val = float(dominant.get("surface_silt") or 0)
 
-        from backend.data_clients import _classify_texture, _estimate_drainage
         texture = _classify_texture(clay_val or None, sand_val or None, silt_val or None)
         drainage_class = dominant.get("drainagecl", "Unknown")
 
