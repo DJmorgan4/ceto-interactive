@@ -563,6 +563,35 @@ function ReportsPageInner() {
       if (!res.ok) throw new Error(data.error || 'Lookup failed');
       setReg(data);
 
+      // ── STRATUM write — log every site screening to ASTRA knowledge base ──
+      try {
+        const scoreForStratum = computeCetoScore(data, null);
+        const tier = scoreForStratum.total >= 75 ? 'LOW' : scoreForStratum.total >= 40 ? 'MODERATE' : 'HIGH';
+        const { stratumWriteSite } = await import('../../../lib/stratum');
+        await stratumWriteSite({
+          name: data.address || location,
+          latitude: data.coordinates.lat,
+          longitude: data.coordinates.lng,
+          address: data.address,
+          state: data.state,
+          county: data.county,
+          ceto_score: scoreForStratum.total,
+          ceto_tier: tier,
+          esa_phase: 'Phase I',
+          regulatory_flags: data.epaEcho?.facilitiesNearby?.slice(0, 5) || [],
+          tags: ['ceto-portal', 'phase1-screen'],
+          metadata: {
+            fema_zone: data.fema?.floodZone,
+            wetlands_present: data.nwi?.wetlandsPresent,
+            hydric_percent: data.soils?.hydricPercent,
+            echo_count: data.epaEcho?.totalCount,
+          }
+        });
+      } catch (stratumErr) {
+        // Non-blocking — STRATUM write failure does not affect user experience
+        console.warn('STRATUM write skipped:', stratumErr);
+      }
+
       // Fire TCEQ intel in background — merge into reg facilities
       if (data?.coordinates?.lat && data?.coordinates?.lng) {
         fetch('/api/portal/tceq-intel', {
