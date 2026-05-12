@@ -330,8 +330,8 @@ export default function Home() {
                 href="/contact"
                 className="inline-block px-9 py-3.5 rounded-full font-light text-lg transition-colors duration-200 shadow-xl"
                 style={{ backgroundColor: 'rgba(255,255,255,0.92)', color: THEME.leviBlueDark }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.98)')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.92)')}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.98)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.92)'; }}
               >
                 Schedule a Consultation
               </a>
@@ -340,8 +340,8 @@ export default function Home() {
                 href="/portal/login"
                 className="inline-block px-9 py-3.5 rounded-full font-light text-lg border transition-colors duration-200"
                 style={{ borderColor: 'rgba(255,255,255,0.45)', color: 'rgba(255,255,255,0.95)' }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.10)')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.10)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
               >
                 Run a Site Screening
               </a>
