@@ -100,6 +100,83 @@ def render_hillshade(dem: np.ndarray, hs: np.ndarray, output_path: str, title: s
     print(f"  [terrain] Hillshade saved → {output_path}")
 
 
+def render_3d_terrain(dem: np.ndarray, output_path: str, title: str = "3D Terrain"):
+    """Render a 3D perspective block diagram of the DEM."""
+    from mpl_toolkits.mplot3d import Axes3D
+    from scipy.ndimage import zoom as nd_zoom
+
+    # Downsample for 3D performance — 128x128 is plenty
+    factor = min(1.0, 128 / max(dem.shape))
+    dem_small = nd_zoom(np.where(np.isnan(dem), np.nanmean(dem), dem), factor)
+
+    rows, cols = dem_small.shape
+    x = np.linspace(0, 1, cols)
+    y = np.linspace(0, 1, rows)
+    X, Y = np.meshgrid(x, y)
+    Z = dem_small
+
+    # Normalize Z for exaggeration
+    z_min, z_max = Z.min(), Z.max()
+    z_range = max(z_max - z_min, 1)
+    # Vertical exaggeration — more dramatic on flat terrain
+    exag = max(3.0, 30.0 / z_range) if z_range < 50 else 2.0
+    Z_plot = (Z - z_min) / z_range * exag
+
+    # Color map: terrain elevation
+    norm = plt.Normalize(z_min, z_max)
+    cmap = plt.cm.gist_earth
+    colors = cmap(norm(Z))
+
+    fig = plt.figure(figsize=(12, 8), facecolor="#080808")
+    ax = fig.add_subplot(111, projection="3d", facecolor="#080808")
+
+    surf = ax.plot_surface(
+        X, Y, Z_plot,
+        facecolors=colors,
+        linewidth=0,
+        antialiased=True,
+        shade=True,
+        rstride=1, cstride=1,
+    )
+
+    # Style
+    ax.set_facecolor("#080808")
+    fig.patch.set_facecolor("#080808")
+    ax.xaxis.pane.fill = False
+    ax.yaxis.pane.fill = False
+    ax.zaxis.pane.fill = False
+    ax.xaxis.pane.set_edgecolor("#222")
+    ax.yaxis.pane.set_edgecolor("#222")
+    ax.zaxis.pane.set_edgecolor("#222")
+    ax.grid(False)
+    ax.set_xticks([]); ax.set_yticks([]); ax.set_zticks([])
+
+    # Viewing angle — isometric-ish
+    ax.view_init(elev=35, azim=-60)
+
+    # Colorbar
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    cbar = fig.colorbar(sm, ax=ax, fraction=0.02, pad=0.0, shrink=0.6)
+    cbar.set_label("Elevation (m)", color="white", fontsize=8)
+    cbar.ax.yaxis.set_tick_params(color="white")
+    plt.setp(cbar.ax.yaxis.get_ticklabels(), color="white")
+
+    ax.set_title(title, color="white", fontsize=13, fontweight="bold", pad=16)
+
+    # Exaggeration note
+    fig.text(0.5, 0.02,
+             f"Vertical exaggeration {exag:.1f}× | Elevation range {z_range:.0f} m | Source: USGS 3DEP",
+             ha="center", color="#555", fontsize=7)
+
+    plt.tight_layout()
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(output_path, dpi=150, bbox_inches="tight", facecolor="#080808")
+    plt.close()
+    print(f"  [terrain] 3D block diagram saved → {output_path}")
+
+
+
 def render_slope(slope: np.ndarray, slope_stats: dict, output_path: str, title: str = "Slope Classification"):
     max_s = slope_stats.get("max_slope_deg", 90)
 
@@ -204,6 +281,7 @@ def run_terrain(dem_path: str, output_dir: str, project_name: str = "Site") -> d
 
     render_hillshade(dem, hs, str(maps_dir / "hillshade.png"), f"{project_name} — Hillshade")
     render_slope(slope, slope_stats, str(maps_dir / "slope.png"), f"{project_name} — Slope Classification")
+    render_3d_terrain(dem, str(maps_dir / "terrain_3d.png"), f"{project_name} — 3D Terrain Block")
 
     elev_valid = dem[~np.isnan(dem)]
     summary = {

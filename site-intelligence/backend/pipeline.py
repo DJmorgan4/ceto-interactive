@@ -79,6 +79,39 @@ def generate_site_report(
     geology = run_geology(geo, output_dir, project_name)
     soils = run_soils(ssurgo, soil, output_dir, project_name)
 
+    # Auto-generate transect from max-relief axis if none drawn
+    if not transect and dem_path:
+        try:
+            import rasterio
+            import numpy as np
+            with rasterio.open(dem_path) as src:
+                dem_data = src.read(1).astype(float)
+                dem_data[dem_data == src.nodata] = np.nan
+                transform = src.transform
+                rows, cols = dem_data.shape
+                # Find pixel coords of min and max elevation
+                flat = np.nanargmin(dem_data)
+                min_row, min_col = np.unravel_index(flat, dem_data.shape)
+                flat = np.nanargmax(dem_data)
+                max_row, max_col = np.unravel_index(flat, dem_data.shape)
+                # Convert pixel to lon/lat
+                def px_to_lonlat(row, col):
+                    from rasterio.transform import xy
+                    from pyproj import Transformer
+                    x, y = xy(transform, row, col)
+                    if src.crs and src.crs.to_epsg() != 4326:
+                        t = Transformer.from_crs(src.crs, "EPSG:4326", always_xy=True)
+                        lon, lat = t.transform(x, y)
+                    else:
+                        lon, lat = x, y
+                    return [round(lon, 6), round(lat, 6)]
+                auto_start = px_to_lonlat(max_row, max_col)  # high point
+                auto_end   = px_to_lonlat(min_row, min_col)  # low point
+                transect = {"start": auto_start, "end": auto_end, "auto": True}
+                print(f"  [pipeline] Auto-transect: high {auto_start} → low {auto_end}")
+        except Exception as e:
+            print(f"  [pipeline] Auto-transect failed: {e}")
+
     cross = None
     if transect and dem_path:
         cross = run_cross_section(dem_path, geo, transect, output_dir, project_name)
@@ -386,6 +419,7 @@ def generate_site_report(
         f'<div class="card"><div class="stat-label">Primary Geology</div><div class="stat" style="font-size:15px">{geology.get("primary_unit_name","—")}</div></div>'
         f'<div class="card"><div class="stat-label">Soil Texture / Drainage</div><div class="stat" style="font-size:15px">{soils.get("texture_class","—")} · {soils.get("drainage","—")}</div></div>'
         '</div>'
+        + img_b64("terrain_3d.png", "Terrain — 3D Block Diagram (USGS 3DEP)")
         + img_b64("hillshade.png", "Terrain — LiDAR Hillshade + Elevation (USGS 3DEP)")
         + img_b64("slope.png", "Terrain — Slope Classification")
         + _slope_stats_card(terrain)
