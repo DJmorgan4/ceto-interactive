@@ -318,7 +318,7 @@ def generate_site_report(
         if anthropic_key:
             import json as _json
             payload = _json.dumps({
-                "model": "claude-sonnet-4-20250514",
+                "model": "claude-sonnet-4-5",
                 "max_tokens": 800,
                 "system": (
                     "You are ASTRA CORE, the AI reasoning layer for Ceto Interactive Environmental Consulting. "
