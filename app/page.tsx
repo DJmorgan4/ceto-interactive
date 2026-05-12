@@ -371,7 +371,7 @@ function ServiceCard({
   accent: string;
 }) {
   return (
-    
+    <a
       href={href}
       className="group rounded-3xl p-7 transition-all duration-300 hover:shadow-lg block"
       style={{
