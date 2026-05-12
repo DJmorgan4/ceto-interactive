@@ -70,17 +70,15 @@ export default function Home() {
             </div>
 
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-light leading-[1.02] tracking-tight" style={{ color: THEME.ink }}>
-              Monitor{' '}
+              Environmental{' '}
               <span className="font-normal" style={{ color: THEME.leviBlue }}>
-                Earth
+                Intelligence
               </span>{' '}
-              Together
+              Built for the Field
             </h1>
 
             <p className="mt-5 text-lg md:text-xl font-light max-w-3xl mx-auto leading-relaxed" style={{ color: 'rgba(20, 35, 55, 0.70)' }}>
-              Real-time data. Living systems. Smart compliance.
-              <br />
-              For cities, developers, and conservationists who care.
+              Geospatial analysis, environmental due diligence, and regulatory intelligence for land, infrastructure, and development decisions.
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
@@ -132,8 +130,7 @@ export default function Home() {
               }}
             >
               <p className="font-light text-base md:text-lg leading-relaxed" style={{ color: 'rgba(20, 35, 55, 0.72)' }}>
-                We combine field expertise with living data—so projects stay compliant, ecosystems stay protected,
-                and decisions feel grounded in what’s happening right now.
+                ASTM E1527-21 · EPA + TCEQ Data · USGS 3DEP · GIS Intelligence · Real-Time Monitoring
               </p>
             </div>
           </div>
@@ -144,10 +141,10 @@ export default function Home() {
           <div className="max-w-6xl mx-auto px-6 lg:px-10">
             <div className="text-center mb-10">
               <div className="font-light text-xs tracking-[0.28em] uppercase mb-3" style={{ color: 'rgba(79, 122, 106, 0.80)' }}>
-                What We Do
+                Environmental Intelligence Services
               </div>
               <h2 className="text-4xl md:text-5xl font-light" style={{ color: THEME.ink }}>
-                Our Approach
+                What Ceto Does
               </h2>
             </div>
 
@@ -178,26 +175,11 @@ export default function Home() {
         <section className="py-16" style={{ backgroundColor: 'rgba(255,255,255,0.40)' }}>
           <div className="max-w-4xl mx-auto px-6 lg:px-10 text-center">
             <h2 className="text-4xl md:text-5xl font-light mb-5" style={{ color: THEME.ink }}>
-              Beyond Compliance
+              Built for Real-World Environmental Decisions
             </h2>
             <p className="text-lg md:text-xl font-light leading-relaxed" style={{ color: 'rgba(20, 35, 55, 0.70)' }}>
-              Not just paperwork—living data that connects construction expertise with environmental intelligence.
+              Ceto combines environmental science, geospatial analysis, regulatory intelligence, and field expertise into systems designed to reduce uncertainty before projects move forward.
             </p>
-          </div>
-        </section>
-
-        {/* Testimonials */}
-        <section className="py-16 bg-white">
-          <div className="max-w-4xl mx-auto px-6 lg:px-10 text-center">
-            <h2 className="text-4xl md:text-5xl font-light mb-8" style={{ color: THEME.ink }}>
-              What Our Clients Say
-            </h2>
-            <blockquote className="text-lg md:text-xl font-light leading-relaxed max-w-3xl mx-auto" style={{ color: 'rgba(20, 35, 55, 0.70)' }}>
-              "Your team has been a game-changer for our project. Their expertise and commitment to sustainability have made all the difference."
-              <footer className="mt-4 text-base font-light italic" style={{ color: 'rgba(20, 35, 55, 0.70)' }}>
-                - Jane Doe, Environmental Consultant
-              </footer>
-            </blockquote>
           </div>
         </section>
 
@@ -213,10 +195,10 @@ export default function Home() {
               Join Us
             </div>
             <h2 className="text-4xl md:text-5xl font-light mb-5 leading-tight">
-              Let&apos;s Monitor Earth Together
+              Tell Us What You&apos;re Building
             </h2>
             <p className="text-lg md:text-xl mb-9 text-white/80 font-light leading-relaxed">
-              Start a conversation about how real-time environmental intelligence can support your project.
+              We&apos;ll help you understand environmental risk, permitting constraints, and site intelligence before decisions are made.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
