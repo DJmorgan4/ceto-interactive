@@ -281,7 +281,7 @@ export default function CetoPage() {
             <div className="rounded-3xl p-8 text-center" style={{ backgroundImage: `linear-gradient(135deg, ${T.blueDark} 0%, ${T.blue} 100%)` }}>
               <h3 className="text-xl font-light text-white mb-2">Capability Statement</h3>
               <p className="text-white/70 font-light text-sm mb-6">Full capability statement for procurement officers and teaming partners</p>
-              
+              <a
                 href="/Ceto_Interactive_Capability_Statement.pdf"
                 target="_blank"
                 rel="noopener noreferrer"
