@@ -282,13 +282,13 @@ export default function CetoPage() {
               <h3 className="text-xl font-light text-white mb-2">Capability Statement</h3>
               <p className="text-white/70 font-light text-sm mb-6">Full capability statement for procurement officers and teaming partners</p>
               <a
-                href="/Ceto_Interactive_Capability_Statement.pdf"
+                href="/Ceto_Interactive_Capability_Statement.png"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-sm font-medium transition-all"
                 style={{ backgroundColor: "rgba(255,255,255,0.92)", color: T.blueDark }}
               >
-                Download PDF
+                Download Capability Statement
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                   <path d="M6 2v6M3 6l3 3 3-3M2 10h8" stroke={T.blueDark} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
