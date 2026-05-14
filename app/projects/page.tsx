@@ -116,8 +116,8 @@ export default function CetoPage() {
             </div>
 
             <div className="text-center">
-              <a href="/portal/login" className="inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-sm font-medium text-white transition-all" style={{ backgroundColor: T.blue }}>
-                Run a Site Screening
+              <a href="/contact" className="inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-sm font-medium text-white transition-all" style={{ backgroundColor: T.blue }}>
+                Get in Touch
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                   <path d="M2 6h8M6.5 3L9 6l-2.5 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
