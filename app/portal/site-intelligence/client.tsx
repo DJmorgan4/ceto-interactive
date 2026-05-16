@@ -55,7 +55,7 @@ export default function SiteIntelligenceClient() {
     if (!mapContainer.current || map.current) return
     map.current = new maplibregl.Map({
       container: mapContainer.current,
-      style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+      style: 'https://tiles.openfreemap.org/styles/dark',
       center: [-96.625, 33.20],
       zoom: 9,
     })
