@@ -534,6 +534,7 @@ function ReportsPageInner() {
   const [tab, setTab] = useState<'generate' | 'parcel' | 'historical' | 'swppp' | 'library' | 'astra'>('generate');
   const [astraText, setAstraText] = useState('');
   const [astraCritique, setAstraCritique] = useState<any>(null);
+  const [critiqueLoading, setCritiqueLoading] = useState(false);
   const [astraLoading, setAstraLoading] = useState(false);
   const [astraError, setAstraError] = useState('');
   const [copied, setCopied] = useState(false);
@@ -834,6 +835,25 @@ Use all regulatory data provided above. Be thorough, defensible, and acceptable 
       setReport(data.report);
       setLibrary(prev => [{ id: Date.now(), title: t, type: rType?.label || 'Custom', date: new Date().toISOString().split('T')[0], status: 'draft' }, ...prev]);
       try { sessionStorage.setItem('ceto_report_count', String(parseInt(sessionStorage.getItem('ceto_report_count') || '0') + 1)); } catch {}
+
+      // ── AUTO ASTRA CRITIQUE ──────────────────────────────────────────────
+      // Fire critique immediately after report generation — quality gate before EP signs
+      try {
+        setAstraCritique(null);
+        setCritiqueLoading(true);
+        const critiqueRes = await fetch('/api/portal/astra-critique', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ report_text: data.report, site_address: location }),
+          signal: AbortSignal.timeout(60000),
+        });
+        const critiqueData = await critiqueRes.json();
+        if (critiqueRes.ok && critiqueData.critique) {
+          setAstraCritique(critiqueData.critique);
+        }
+      } catch { /* critique is non-blocking — report still available */ }
+      finally { setCritiqueLoading(false); }
+
     } catch (e: unknown) {
       setGenError(e instanceof Error ? e.message : 'Report generation failed');
     }
