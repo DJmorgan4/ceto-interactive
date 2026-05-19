@@ -19,6 +19,7 @@ const NAV = [
   { href:'/portal/upload', label:'Upload Data', icon:'upload' },
   { href:'/portal/reports', label:'Reports', icon:'doc' },
   { href:'/portal/site-intelligence', label:'Site Intelligence', icon:'terrain' },
+  { href:'/portal/bids', label:'Bid Pipeline', icon:'doc' },
 ];
 
 const INTEL_NAV = [
