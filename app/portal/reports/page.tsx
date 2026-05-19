@@ -1091,7 +1091,7 @@ Use all regulatory data provided above. Be thorough, defensible, and acceptable 
                       <button onClick={() => { navigator.clipboard.writeText(report); setCopied(true); setTimeout(() => setCopied(false), 2200); }} style={{ padding: '5px 12px', border: `1px solid ${T.border}`, borderRadius: 2, background: 'none', cursor: 'pointer', fontSize: 11, color: T.muted, fontFamily: FONT_SANS }}>
                         {copied ? '✓ Copied' : 'Copy'}
                       </button>
-                      <button onClick={() => exportPDF(report, reportTitle, reg, parcel, clientName, location, surveyDate)} style={{ padding: '5px 12px', backgroundColor: T.green, border: 'none', borderRadius: 2, cursor: 'pointer', fontSize: 11, color: 'white', fontFamily: FONT_SANS }}>
+                      <button onClick={() => exportPdf()} style={{ padding: '5px 12px', backgroundColor: T.green, border: 'none', borderRadius: 2, cursor: 'pointer', fontSize: 11, color: 'white', fontFamily: FONT_SANS }}>
                         Export PDF
                       </button>
                     </div>
