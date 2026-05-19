@@ -51,6 +51,82 @@ function Icon({ name, size=20 }: { name:string; size?:number }) {
 interface WeatherData { temp: number; desc: string; humidity: number; wind: number; feels: number; }
 interface NewsItem { title: string; source: string; url: string; date: string; }
 
+
+function AstraPanel({ leviBlue, border, surfaceStrong, ink }: { leviBlue:string; border:string; surfaceStrong:string; ink:string }) {
+  const [query, setQuery] = useState('');
+  const [response, setResponse] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState<{q:string;a:string}[]>([]);
+
+  const ask = async () => {
+    if (!query.trim() || loading) return;
+    setLoading(true);
+    const q = query.trim();
+    setQuery('');
+    try {
+      const res = await fetch('/api/astra/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q, source: 'ceto-dashboard' }),
+      });
+      const data = await res.json();
+      const answer = data.response || data.error || 'No response';
+      setResponse(answer);
+      setHistory(h => [{ q, a: answer }, ...h].slice(0, 5));
+    } catch { setResponse('ASTRA unavailable.'); }
+    setLoading(false);
+  };
+
+  return (
+    <div className="rounded-2xl mb-4 md:mb-6" style={{ backgroundColor:surfaceStrong, border:`1px solid ${border}` }}>
+      <div className="px-5 md:px-6 py-4 flex items-center justify-between" style={{ borderBottom:`1px solid ${border}` }}>
+        <div>
+          <div className="text-sm font-light" style={{ color:ink }}>ASTRA Environmental Intelligence</div>
+          <div className="text-xs font-light mt-0.5" style={{ color:'rgba(20,35,55,0.45)' }}>Phase I · TCEQ · Wetlands · SWPPP · Regulatory — ask anything</div>
+        </div>
+        <div className="text-[10px] font-light px-2 py-1 rounded-full" style={{ backgroundColor:`rgba(47,93,140,0.10)`, color:leviBlue }}>LOCUS</div>
+      </div>
+      <div className="p-5 md:p-6">
+        <div className="flex gap-2 mb-4">
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && ask()}
+            placeholder="Ask ASTRA — REC classification, TCEQ databases, wetland delineation, SWPPP requirements..."
+            className="flex-1 rounded-xl text-sm font-light px-4 py-3 outline-none"
+            style={{ backgroundColor:'rgba(20,35,55,0.04)', border:`1px solid ${border}`, color:ink, minHeight:44 }}
+          />
+          <button
+            onClick={ask}
+            disabled={loading || !query.trim()}
+            className="rounded-xl text-sm font-light px-5 text-white transition-all"
+            style={{ backgroundColor:loading ? 'rgba(47,93,140,0.5)' : leviBlue, minHeight:44, minWidth:80, cursor:loading?'wait':'pointer' }}
+          >
+            {loading ? '...' : 'Ask'}
+          </button>
+        </div>
+        {response && (
+          <div className="rounded-xl p-4 mb-3" style={{ backgroundColor:'rgba(47,93,140,0.05)', border:`1px solid rgba(47,93,140,0.12)` }}>
+            <div className="text-[10px] font-light tracking-widest uppercase mb-2" style={{ color:'rgba(47,93,140,0.6)' }}>ASTRA Response</div>
+            <div className="text-sm font-light leading-relaxed whitespace-pre-wrap" style={{ color:ink }}>{response}</div>
+          </div>
+        )}
+        {history.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {history.slice(1).map((h,i) => (
+              <button key={i} onClick={() => setQuery(h.q)}
+                className="text-xs font-light px-3 py-1.5 rounded-full transition-all"
+                style={{ backgroundColor:'rgba(20,35,55,0.04)', border:`1px solid ${border}`, color:'rgba(20,35,55,0.55)' }}>
+                {h.q.length > 40 ? h.q.slice(0,40)+'…' : h.q}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function PortalDashboard() {
   const [weather, setWeather] = useState<WeatherData|null>(null);
   const [news, setNews] = useState<NewsItem[]>([]);
@@ -393,6 +469,9 @@ export default function PortalDashboard() {
               </div>
             </div>
           </div>
+
+          {/* ASTRA Intelligence Panel */}
+          <AstraPanel leviBlue={THEME.leviBlue} border={THEME.border} surfaceStrong={THEME.surfaceStrong} ink={THEME.ink} />
 
           {/* Environmental news feed */}
           <div className="rounded-2xl overflow-hidden" style={{ backgroundColor:THEME.surfaceStrong, border:`1px solid ${THEME.border}` }}>
