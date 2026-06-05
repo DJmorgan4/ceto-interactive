@@ -48,3 +48,5 @@ site-intelligence/data/raw/
 site-intelligence/data/processed/
 __pycache__/
 *.pyc
+__pycache__/
+site-intelligence/outputs/
