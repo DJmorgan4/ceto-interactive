@@ -111,9 +111,12 @@ async function fetchEPAECHO(_coords: Coordinates) {
 async function fetchNWI(coords: Coordinates) {
   try {
     const { lat, lng } = coords;
-    const url = `https://www.fws.gov/wetlandsmapper/rest/services/Wetlands/MapServer/0/query?geometry=${lng},${lat}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&outFields=ATTRIBUTE,WETLAND_TYPE,ACRES&returnGeometry=false&f=json`;
+    const geom = encodeURIComponent(JSON.stringify({ x: lng, y: lat, spatialReference: { wkid: 4326 } }));
+    const url = `https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest/services/Wetlands/MapServer/0/query?geometry=${geom}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&outFields=ATTRIBUTE,WETLAND_TYPE,ACRES&returnGeometry=false&f=json`;
     const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) throw new Error(`NWI HTTP ${res.status}`);
     const data = await res.json();
+    if (data?.error) throw new Error(`NWI service error: ${data.error.message || data.error.code}`);
     const features = data?.features || [];
     if (features.length > 0) {
       const wetlandTypes = [...new Set(features.map((f: {attributes: Record<string,string>}) => f.attributes.ATTRIBUTE || f.attributes.WETLAND_TYPE).filter(Boolean))] as string[];
