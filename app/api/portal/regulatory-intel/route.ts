@@ -109,23 +109,32 @@ async function fetchEPAECHO(_coords: Coordinates) {
 }
 
 async function fetchNWI(coords: Coordinates) {
-  try {
-    const { lat, lng } = coords;
-    const geom = encodeURIComponent(JSON.stringify({ x: lng, y: lat, spatialReference: { wkid: 4326 } }));
-    const url = `https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest/services/Wetlands/MapServer/0/query?geometry=${geom}&geometryType=esriGeometryPoint&spatialRel=esriSpatialRelIntersects&outFields=ATTRIBUTE,WETLAND_TYPE,ACRES&returnGeometry=false&f=json`;
+  const { lat, lng } = coords;
+  const queryEnv = async (half: number) => {
+    const env = `${lng - half},${lat - half},${lng + half},${lat + half}`;
+    const url = `https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest/services/Wetlands/MapServer/0/query?geometry=${encodeURIComponent(env)}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=*&returnGeometry=false&f=json`;
     const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
     if (!res.ok) throw new Error(`NWI HTTP ${res.status}`);
     const data = await res.json();
     if (data?.error) throw new Error(`NWI service error: ${data.error.message || data.error.code}`);
-    const features = data?.features || [];
+    return (data?.features || []) as { attributes: Record<string, string> }[];
+  };
+  try {
+    // Service 500s on point geometry; ~20m envelope approximates on-site intersect,
+    // ~150m envelope captures adjacent wetlands (ASTM E1527-21 adjoining-property concern).
+    const [onSiteFeats, nearFeats] = await Promise.all([queryEnv(0.0002), queryEnv(0.00135)]);
+    const attr = (f: { attributes: Record<string, string> }, k: string) => f.attributes[k] ?? f.attributes[`Wetlands.${k}`];
+    const onSite = onSiteFeats.length > 0;
+    const adjacent = !onSite && nearFeats.length > 0;
+    const features = onSite ? onSiteFeats : nearFeats;
     if (features.length > 0) {
-      const wetlandTypes = [...new Set(features.map((f: {attributes: Record<string,string>}) => f.attributes.ATTRIBUTE || f.attributes.WETLAND_TYPE).filter(Boolean))] as string[];
-      const totalAcres = features.reduce((sum: number, f: {attributes: Record<string,string>}) => sum + (parseFloat(f.attributes.ACRES) || 0), 0);
-      return { wetlandsPresent: true, wetlandTypes, acresEstimate: totalAcres > 0 ? totalAcres.toFixed(2) : '<1', source: 'USFWS NWI ArcGIS REST', risk: 'MODERATE' };
+      const wetlandTypes = [...new Set(features.map((f: { attributes: Record<string, string> }) => attr(f, 'ATTRIBUTE') || attr(f, 'WETLAND_TYPE')).filter(Boolean))] as string[];
+      const totalAcres = features.reduce((sum: number, f: { attributes: Record<string, string> }) => sum + (parseFloat(attr(f, 'ACRES')) || 0), 0);
+      return { wetlandsPresent: true, onSite, adjacent, wetlandTypes, acresEstimate: totalAcres > 0 ? totalAcres.toFixed(2) : '<1', source: `USFWS NWI ArcGIS REST (${onSite ? 'on-site intersect' : 'mapped within ~150m'})`, risk: onSite ? 'HIGH' : 'MODERATE' };
     }
-    return { wetlandsPresent: false, wetlandTypes: [], acresEstimate: '0', source: 'USFWS NWI', risk: 'LOW' };
+    return { wetlandsPresent: false, onSite: false, adjacent: false, wetlandTypes: [], acresEstimate: '0', source: 'USFWS NWI', risk: 'LOW' };
   } catch {
-    return { wetlandsPresent: false, wetlandTypes: [], acresEstimate: '0', source: 'USFWS NWI (QUERY FAILED)', risk: 'DATA_GAP' };
+    return { wetlandsPresent: false, onSite: false, adjacent: false, wetlandTypes: [], acresEstimate: '0', source: 'USFWS NWI (QUERY FAILED)', risk: 'DATA_GAP' };
   }
 }
 
@@ -259,13 +268,13 @@ async function fetchHydrology(coords: Coordinates) {
         drainageBasin,
         primaryStream,
         withinHUC: true,
-        source: 'USGS NHD Plus HR — NetworkNHDFlowline',
+        source: 'USGS NHDPlus HR (legacy; superseded by 3DHP) — NetworkNHDFlowline',
         risk,
       };
     }
-    return { nearbyStreams: [], namedStreamCount: 0, totalFeaturesFound: 0, closestStreamMiles: 'None within 2km', withinHUC: false, source: 'USGS NHD Plus HR (no streams within 2km)', risk: 'LOW' };
+    return { nearbyStreams: [], namedStreamCount: 0, totalFeaturesFound: 0, closestStreamMiles: 'None within 2km', withinHUC: false, source: 'USGS NHDPlus HR (legacy; superseded by 3DHP) — no streams within 2km', risk: 'LOW' };
   } catch (err) {
-    return { nearbyStreams: [], namedStreamCount: 0, totalFeaturesFound: 0, closestStreamMiles: 'Unknown', withinHUC: false, source: `USGS NHD Plus HR (error: ${err instanceof Error ? err.message : 'timeout'})`, risk: 'DATA_GAP' };
+    return { nearbyStreams: [], namedStreamCount: 0, totalFeaturesFound: 0, closestStreamMiles: 'Unknown', withinHUC: false, source: `USGS NHDPlus HR (QUERY FAILED: ${err instanceof Error ? err.message : 'timeout'})`, risk: 'DATA_GAP' };
   }
 }
 

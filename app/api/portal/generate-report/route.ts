@@ -117,7 +117,7 @@ Lithology: [rock type]
 Age: [geologic age]
 Interpretation: [1-2 sentences on permeability and contaminant migration potential]
 
-HYDROLOGY (USGS NHD):
+HYDROLOGY (USGS NHDPlus HR — legacy, superseded by 3DHP):
 Elevation: [elevation ft MSL]
 Nearest Surface Water: [stream name or distance]
 Drainage Direction: [direction based on topography]

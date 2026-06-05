@@ -114,11 +114,11 @@ export function generateRiskInterpretation(reg: any, cetoScore?: number): string
     const unique = [...new Set(allNames)];
     const distNote = closestMi && closestMi !== 'Unknown' ? ` (nearest: ${closestMi} mi)` : '';
     if (drainageBasin && primaryStream) {
-      issues.push(`site is located within the ${drainageBasin}; named surface water features include ${unique.slice(0,3).join(', ')}${distNote} (USGS NHD)`);
+      issues.push(`site is located within the ${drainageBasin}; named surface water features include ${unique.slice(0,3).join(', ')}${distNote} (USGS NHDPlus HR, legacy)`);
     } else if (primaryStream) {
-      issues.push(`surface water within 2km — ${primaryStream}${distNote} (USGS NHD)`);
+      issues.push(`surface water within 2km — ${primaryStream}${distNote} (USGS NHDPlus HR, legacy)`);
     } else {
-      issues.push(`surface water features present within 2km${distNote} (USGS NHD)`);
+      issues.push(`surface water features present within 2km${distNote} (USGS NHDPlus HR, legacy)`);
     }
   }
 

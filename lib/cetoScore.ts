@@ -923,8 +923,8 @@ export function deriveScoreInput(reg: any, parcelData: any, fieldNotes: string):
     }),
     historicalUse,
     historicalUseSource, // FIX 1
-    nwiOnSite: reg?.nwi?.wetlandsPresent || false,
-    nwiAdjacent: false,
+    nwiOnSite: (reg?.nwi as any)?.onSite ?? false,
+    nwiAdjacent: (reg?.nwi as any)?.adjacent ?? false,
     surfaceWaterWithin500ft: (() => {
       const SURFACE_WATER_500FT_MI = 0.0947;
       const dist = parseFloat(reg?.hydrology?.closestStreamMiles || '999');

@@ -389,7 +389,7 @@ export function Phase1PDF(props: Phase1PDFProps) {
           </Text>
           <Text style={styles.h3}>Data Sources & Limitations</Text>
           <Text style={styles.p}>
-            Regulatory database searches were conducted via TCEQ ArcGIS FeatureServer (LPST, PST, Dry Cleaner Remediation, Voluntary Cleanup Program, Industrial and Hazardous Waste Corrective Action, and Superfund datasets), FEMA National Flood Hazard Layer (NFHL), USFWS National Wetlands Inventory (NWI), USDA NRCS SSURGO soils data, USGS National Elevation Dataset (NED), USGS National Hydrography Dataset (NHD), and Macrostrat geologic mapping. Per-source query status and timestamps are recorded at time of preparation; any failed queries are disclosed as data gaps. TCEQ data covers all state-regulated petroleum storage, leaking sites, dry cleaners, brownfields, hazardous waste, and Superfund sites.
+            Regulatory database searches were conducted via TCEQ ArcGIS FeatureServer (LPST, PST, Dry Cleaner Remediation, Voluntary Cleanup Program, Industrial and Hazardous Waste Corrective Action, and Superfund datasets), FEMA National Flood Hazard Layer (NFHL), USFWS National Wetlands Inventory (NWI), USDA NRCS SSURGO soils data, USGS National Elevation Dataset (NED), USGS NHDPlus HR (legacy hydrography; superseded by the USGS 3D Hydrography Program), and Macrostrat geologic mapping. Per-source query status and timestamps are recorded at time of preparation; any failed queries are disclosed as data gaps. TCEQ data covers all state-regulated petroleum storage, leaking sites, dry cleaners, brownfields, hazardous waste, and Superfund sites.
           </Text>
           <Text style={styles.h3}>Environmental Professional Statement</Text>
           <Text style={styles.p}>
