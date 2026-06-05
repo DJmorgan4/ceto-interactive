@@ -389,11 +389,15 @@ export function Phase1PDF(props: Phase1PDFProps) {
           </Text>
           <Text style={styles.h3}>Data Sources & Limitations</Text>
           <Text style={styles.p}>
-            Regulatory database searches were conducted via TCEQ ArcGIS FeatureServer (LPST, PST, Dry Cleaner Remediation, Voluntary Cleanup Program, Industrial and Hazardous Waste Corrective Action, and Superfund datasets), FEMA National Flood Hazard Layer (NFHL), USFWS National Wetlands Inventory (NWI), USDA NRCS SSURGO soils data, USGS National Elevation Dataset (NED), USGS National Hydrography Dataset (NHD), and Macrostrat geologic mapping. Federal EPA ECHO data was unavailable at time of preparation; TCEQ data covers all state-regulated petroleum storage, leaking sites, dry cleaners, brownfields, hazardous waste, and Superfund sites.
+            Regulatory database searches were conducted via TCEQ ArcGIS FeatureServer (LPST, PST, Dry Cleaner Remediation, Voluntary Cleanup Program, Industrial and Hazardous Waste Corrective Action, and Superfund datasets), FEMA National Flood Hazard Layer (NFHL), USFWS National Wetlands Inventory (NWI), USDA NRCS SSURGO soils data, USGS National Elevation Dataset (NED), USGS National Hydrography Dataset (NHD), and Macrostrat geologic mapping. Per-source query status and timestamps are recorded at time of preparation; any failed queries are disclosed as data gaps. TCEQ data covers all state-regulated petroleum storage, leaking sites, dry cleaners, brownfields, hazardous waste, and Superfund sites.
           </Text>
           <Text style={styles.h3}>Environmental Professional Statement</Text>
           <Text style={styles.p}>
             This report was prepared by a qualified Environmental Professional (EP) as defined under ASTM E1527-21 Section 12 and the AAI Rule. The CETO Environmental Risk Score is a proprietary screening metric and does not constitute a final professional opinion or substitute for a complete Phase I ESA with full site reconnaissance, interviews, and records review.
+          </Text>
+          <Text style={styles.h3}>Environmental Professional Declaration (40 CFR 312.21)</Text>
+          <Text style={styles.p}>
+            I declare that, to the best of my professional knowledge and belief, I meet the definition of Environmental Professional as defined in 40 CFR 312.10. I have the specific qualifications based on education, training, and experience to assess a property of the nature, history, and setting of the subject property. I have developed and performed the all appropriate inquiries in conformance with the standards and practices set forth in 40 CFR Part 312.
           </Text>
           <Text style={styles.h3}>Reliance & Confidentiality</Text>
           <Text style={styles.p}>

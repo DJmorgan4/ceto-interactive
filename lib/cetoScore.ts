@@ -654,12 +654,16 @@ export function computeCetoScore(input: ScoredInput): ScoreOutput {
   else
     explanations.push({ category: 'Current Use', points: -Math.round(currentUseRisk * 0.13), sign: '-', reason: cuEntry.label, traced: `${input.currentUse.source} — ${input.currentUse.confidence} · ${input.currentUse.timestamp}`, confidenceNote: cuPenaltyApplied ? input.currentUse.note : undefined });
 
-  if (wetlandRisk === 0)
+  if (input.wetlandsPresent.confidence === 'UNAVAILABLE')
+    explanations.push({ category: 'Wetlands', points: 0, sign: '+', reason: 'DATA GAP — wetlands query failed; status undetermined. Verify at fws.gov/wetlands', traced: `USFWS NWI — UNAVAILABLE · ${input.wetlandsPresent.timestamp}` });
+  else if (wetlandRisk === 0)
     explanations.push({ category: 'Wetlands', points: 15, sign: '+', reason: 'No wetlands mapped on-site or adjacent', traced: `USFWS NWI — ${input.wetlandsPresent.confidence} · ${input.wetlandsPresent.timestamp}` });
   else
     explanations.push({ category: 'Wetlands', points: -Math.round(wetlandRisk * 0.15), sign: '-', reason: `Wetland indicators present — ${hydric}% hydric soils`, traced: `USFWS NWI (${input.wetlandsPresent.confidence}), USDA SSURGO (${input.hydricPercent.confidence}) · ${input.hydricPercent.timestamp}` });
 
-  if (floodRisk === 0)
+  if (fz === 'UNDETERMINED')
+    explanations.push({ category: 'Flood', points: 0, sign: '+', reason: 'DATA GAP — flood zone query failed; verify at msc.fema.gov', traced: `FEMA NFHL — ${input.floodZone.confidence} · ${input.floodZone.timestamp}` });
+  else if (floodRisk === 0)
     explanations.push({ category: 'Flood', points: 10, sign: '+', reason: `FEMA Zone ${fz} — outside SFHA`, traced: `FEMA NFHL — ${input.floodZone.confidence} · ${input.floodZone.timestamp}` });
   else
     explanations.push({ category: 'Flood', points: -Math.round(floodRisk * 0.10), sign: '-', reason: `FEMA Zone ${fz} — flood hazard present`, traced: `FEMA NFHL — ${input.floodZone.confidence} · ${input.floodZone.timestamp}` });
@@ -767,22 +771,25 @@ export function deriveScoreInput(reg: any, parcelData: any, fieldNotes: string):
   // All TCEQ facilities from tceq-intel route
   const tceqFacilities: TceqFacility[] = reg?.tceq?.facilitiesNearby || [];
 
+  const soilsFailed = reg?.soils?.risk === 'DATA_GAP' || String(reg?.soils?.source || '').includes('QUERY FAILED');
   const hydricPercent = trace(
     reg?.soils?.hydricPercent || 0,
     'USDA NRCS SSURGO via Soil Data Access',
     reg?.soils?.mapUnits?.length ? 'VERIFIED' : 'UNAVAILABLE'
   );
 
+  const femaFailed = reg?.fema?.risk === 'DATA_GAP' || String(reg?.fema?.source || '').includes('QUERY FAILED');
   const floodZone = trace(
-    reg?.fema?.floodZone || 'X',
+    femaFailed ? 'UNDETERMINED' : (reg?.fema?.floodZone || 'X'),
     'FEMA NFHL ArcGIS REST',
-    reg?.fema?.floodZone ? 'VERIFIED' : 'INFERRED'
+    femaFailed ? 'INFERRED' : (reg?.fema?.floodZone ? 'VERIFIED' : 'INFERRED')
   );
 
+  const nwiFailed = reg?.nwi?.risk === 'DATA_GAP' || String(reg?.nwi?.source || '').includes('QUERY FAILED');
   const wetlandsPresent = trace(
     reg?.nwi?.wetlandsPresent || false,
     'USFWS NWI ArcGIS REST',
-    reg?.nwi ? 'VERIFIED' : 'UNAVAILABLE'
+    (reg?.nwi && !nwiFailed) ? 'VERIFIED' : 'UNAVAILABLE'
   );
 
   // FIX 2: facilitiesCount reflects TCEQ total (EPA ECHO retired 2026-04-27)

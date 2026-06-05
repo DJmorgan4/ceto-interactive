@@ -89,7 +89,7 @@ async function fetchFEMA(coords: Coordinates) {
     }
     return { floodZone: 'X', floodZoneDesc: 'Zone X — Minimal flood hazard; outside mapped SFHA', panelNumber: 'Verify at msc.fema.gov', source: 'FEMA NFHL', risk: 'LOW' };
   } catch {
-    return { floodZone: 'X', floodZoneDesc: 'Zone X (assumed) — verify at msc.fema.gov', panelNumber: 'Manual verification required', source: 'FEMA NFHL (timeout)', risk: 'LOW' };
+    return { floodZone: 'X', floodZoneDesc: 'UNDETERMINED — flood zone query failed, verify at msc.fema.gov', panelNumber: 'Manual verification required', source: 'FEMA NFHL (QUERY FAILED)', risk: 'DATA_GAP' };
   }
 }
 
@@ -121,7 +121,7 @@ async function fetchNWI(coords: Coordinates) {
     }
     return { wetlandsPresent: false, wetlandTypes: [], acresEstimate: '0', source: 'USFWS NWI', risk: 'LOW' };
   } catch {
-    return { wetlandsPresent: false, wetlandTypes: [], acresEstimate: '0', source: 'USFWS NWI (timeout)', risk: 'LOW' };
+    return { wetlandsPresent: false, wetlandTypes: [], acresEstimate: '0', source: 'USFWS NWI (QUERY FAILED)', risk: 'DATA_GAP' };
   }
 }
 
@@ -166,7 +166,7 @@ async function fetchSSURGO(coords: Coordinates) {
     }
     return { mapUnits: [], hydricPercent: 0, source: 'USDA SSURGO (no data)', risk: 'LOW', interpretation: 'Soil data unavailable — verify at websoilsurvey.nrcs.usda.gov' };
   } catch {
-    return { mapUnits: [], hydricPercent: 0, source: 'USDA SSURGO (timeout)', risk: 'LOW', interpretation: 'Soil data unavailable — verify at websoilsurvey.nrcs.usda.gov' };
+    return { mapUnits: [], hydricPercent: 0, source: 'USDA SSURGO (QUERY FAILED)', risk: 'DATA_GAP', interpretation: 'Soil data unavailable — verify at websoilsurvey.nrcs.usda.gov' };
   }
 }
 
@@ -260,7 +260,7 @@ async function fetchHydrology(coords: Coordinates) {
     }
     return { nearbyStreams: [], namedStreamCount: 0, totalFeaturesFound: 0, closestStreamMiles: 'None within 2km', withinHUC: false, source: 'USGS NHD Plus HR (no streams within 2km)', risk: 'LOW' };
   } catch (err) {
-    return { nearbyStreams: [], namedStreamCount: 0, totalFeaturesFound: 0, closestStreamMiles: 'Unknown', withinHUC: false, source: `USGS NHD Plus HR (error: ${err instanceof Error ? err.message : 'timeout'})`, risk: 'LOW' };
+    return { nearbyStreams: [], namedStreamCount: 0, totalFeaturesFound: 0, closestStreamMiles: 'Unknown', withinHUC: false, source: `USGS NHD Plus HR (error: ${err instanceof Error ? err.message : 'timeout'})`, risk: 'DATA_GAP' };
   }
 }
 
@@ -316,10 +316,10 @@ export async function POST(req: NextRequest) {
       fetchGeology(geo.coords),
     ]);
 
-    const femaData = fema.status === 'fulfilled' ? fema.value : { floodZone: 'X', floodZoneDesc: 'Verify at msc.fema.gov', panelNumber: 'N/A', source: 'Error', risk: 'LOW' };
-    const echoData = epaEcho.status === 'fulfilled' ? epaEcho.value : { totalCount: 0, facilitiesNearby: [], source: 'Error', risk: 'LOW' };
-    const nwiData = nwi.status === 'fulfilled' ? nwi.value : { wetlandsPresent: false, wetlandTypes: [], acresEstimate: '0', source: 'Error', risk: 'LOW' };
-    const soilData = soils.status === 'fulfilled' ? soils.value : { mapUnits: [], hydricPercent: 0, source: 'Error', risk: 'LOW', interpretation: '' };
+    const femaData = fema.status === 'fulfilled' ? fema.value : { floodZone: 'X', floodZoneDesc: 'Verify at msc.fema.gov', panelNumber: 'N/A', source: 'FEMA NFHL (QUERY FAILED)', risk: 'DATA_GAP' };
+    const echoData = epaEcho.status === 'fulfilled' ? epaEcho.value : { totalCount: 0, facilitiesNearby: [], source: 'EPA ECHO (QUERY FAILED)', risk: 'DATA_GAP' };
+    const nwiData = nwi.status === 'fulfilled' ? nwi.value : { wetlandsPresent: false, wetlandTypes: [], acresEstimate: '0', source: 'USFWS NWI (QUERY FAILED)', risk: 'DATA_GAP' };
+    const soilData = soils.status === 'fulfilled' ? soils.value : { mapUnits: [], hydricPercent: 0, source: 'USDA SSURGO (QUERY FAILED)', risk: 'DATA_GAP', interpretation: 'Soil query failed — verify at websoilsurvey.nrcs.usda.gov' };
     const elevData = elevation.status === 'fulfilled' ? elevation.value : { elevationFt: null, elevationM: null, source: 'Error' };
     const hydroData = hydrology.status === 'fulfilled' ? hydrology.value : { nearbyStreams: [], withinHUC: false, source: 'Error' };
     const geoData = geology.status === 'fulfilled' ? geology.value : { formation: 'Unknown', lithology: 'Unknown', age: 'Unknown', description: '', source: 'Error' };
