@@ -29,6 +29,7 @@ async function geocode(location: string): Promise<{ coords: Coordinates; address
   try {
     const url = `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${encodeURIComponent(location)}&benchmark=2020&format=json`;
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error(`SDA HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
     const data = await res.json();
     const matches = data?.result?.addressMatches;
     if (matches && matches.length > 0) {
@@ -128,8 +129,9 @@ async function fetchNWI(coords: Coordinates) {
 async function fetchSSURGO(coords: Coordinates) {
   try {
     const { lat, lng } = coords;
-    const query = `SELECT mu.muname, c.hydgrp, c.drainagecl, c.hydricrating, c.texinfil, c.pondingfreqcl, c.flodfreqcl, c.taxclname, c.shrinkswel, c.wtdepannmin
+    const query = `SELECT mu.muname, c.hydgrp, c.drainagecl, c.hydricrating, c.taxclname, ma.wtdepannmin, ma.flodfreqdcd, ma.pondfreqprs
       FROM mapunit mu
+      INNER JOIN muaggatt ma ON ma.mukey = mu.mukey
       INNER JOIN component c ON c.mukey = mu.mukey AND c.majcompflag = 'Yes'
       WHERE mu.mukey IN (SELECT * FROM SDA_Get_Mukey_from_intersection_with_WktWgs84('point(${lng} ${lat})'))
       ORDER BY c.comppct_r DESC`;
@@ -147,12 +149,12 @@ async function fetchSSURGO(coords: Coordinates) {
         hydricGroup: row[1] || 'Unknown',
         drainage: row[2] || 'Unknown',
         hydric: (row[3] || '').toLowerCase().includes('yes'),
-        texture: row[4] || 'Unknown',
-        ponding: row[5] || 'None',
+        texture: 'See Web Soil Survey',
+        ponding: row[7] || 'None',
         flooding: row[6] || 'None',
-        taxClass: row[7] || 'Unknown',
-        shrinkSwell: row[8] || 'Unknown',
-        waterTableDepth: row[9] || 'Unknown',
+        taxClass: row[4] || 'Unknown',
+        shrinkSwell: 'Unknown',
+        waterTableDepth: row[5] || 'Unknown',
       }));
       const hydricPct = Math.round((mapUnits.filter(u => u.hydric).length / mapUnits.length) * 100);
       const risk = hydricPct > 50 ? 'HIGH' : hydricPct > 0 ? 'MODERATE' : 'LOW';
