@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const ATLAS_API_URL =
+const ATLAS_API_URL = (
   process.env.ATLAS_API_URL ??
-  'http://127.0.0.1:8000';
+  'http://127.0.0.1:8000'
+)
+  .trim()
+  .replace(/^['"]|['"]$/g, '')
+  .replace(/\/+$/, '');
 
 type RouteContext = {
   params: Promise<{
@@ -14,28 +18,46 @@ async function proxy(
   request: NextRequest,
   context: RouteContext,
 ) {
-  const { path } = await context.params;
-
-  const destination = new URL(
-    `${ATLAS_API_URL}/${path.join('/')}`,
-  );
-
-  request.nextUrl.searchParams.forEach((value, key) => {
-    destination.searchParams.set(key, value);
-  });
-
-  const method = request.method;
-  const headers = new Headers();
-
-  headers.set('Content-Type', 'application/json');
-
-  let body: string | undefined;
-
-  if (!['GET', 'HEAD'].includes(method)) {
-    body = await request.text();
-  }
-
   try {
+    const { path } = await context.params;
+
+    if (!path || path.length === 0) {
+      return NextResponse.json(
+        { error: 'Missing Atlas API path.' },
+        { status: 400 },
+      );
+    }
+
+    const destination = new URL(
+      `${ATLAS_API_URL}/${path.join('/')}`,
+    );
+
+    request.nextUrl.searchParams.forEach((value, key) => {
+      destination.searchParams.set(key, value);
+    });
+
+    const method = request.method;
+    const headers = new Headers();
+
+    const contentType =
+      request.headers.get('content-type') ??
+      'application/json';
+
+    headers.set('Content-Type', contentType);
+
+    const authorization =
+      request.headers.get('authorization');
+
+    if (authorization) {
+      headers.set('Authorization', authorization);
+    }
+
+    let body: string | undefined;
+
+    if (!['GET', 'HEAD'].includes(method)) {
+      body = await request.text();
+    }
+
     const response = await fetch(destination, {
       method,
       headers,
@@ -43,18 +65,25 @@ async function proxy(
       cache: 'no-store',
     });
 
-    const text = await response.text();
+    const responseBody = await response.text();
 
-    return new NextResponse(text, {
+    return new NextResponse(responseBody, {
       status: response.status,
       headers: {
         'Content-Type':
-          response.headers.get('Content-Type') ??
+          response.headers.get('content-type') ??
           'application/json',
       },
     });
   } catch (error) {
-    console.error('Atlas proxy error:', error);
+    console.error('Atlas proxy error:', {
+      error,
+      atlasUrlConfigured: Boolean(
+        process.env.ATLAS_API_URL,
+      ),
+      atlasUrlLength:
+        process.env.ATLAS_API_URL?.length ?? 0,
+    });
 
     return NextResponse.json(
       {
@@ -76,6 +105,27 @@ export async function GET(
 }
 
 export async function POST(
+  request: NextRequest,
+  context: RouteContext,
+) {
+  return proxy(request, context);
+}
+
+export async function PUT(
+  request: NextRequest,
+  context: RouteContext,
+) {
+  return proxy(request, context);
+}
+
+export async function PATCH(
+  request: NextRequest,
+  context: RouteContext,
+) {
+  return proxy(request, context);
+}
+
+export async function DELETE(
   request: NextRequest,
   context: RouteContext,
 ) {
