@@ -20,6 +20,7 @@ const NAV = [
   { href:'/portal/reports', label:'Reports', icon:'doc' },
   { href:'/portal/site-intelligence', label:'Site Intelligence', icon:'terrain' },
   { href:'/portal/bids', label:'Bid Pipeline', icon:'doc' },
+  { href:'/portal/atlas', label:'Atlas AI', icon:'lightning' },
 ];
 
 const INTEL_NAV = [
@@ -239,7 +240,7 @@ export default function PortalDashboard() {
         <nav className="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto">
           {NAV.map((item) => (
             <a
-              key={item.href}
+              key={`${item.href}-${item.label}`}
               href={item.href}
               onClick={() => isMobile && setMobileNavOpen(false)}
               className="flex items-center gap-3 px-3 rounded-xl transition-all"
@@ -262,7 +263,7 @@ export default function PortalDashboard() {
 
           {INTEL_NAV.map((item) => (
             <a
-              key={item.href}
+              key={`${item.href}-${item.label}`}
               href={item.href}
               className="flex items-center gap-3 px-3 rounded-xl transition-all"
               style={{ minHeight:44, color:'rgba(20,35,55,0.55)' }}
