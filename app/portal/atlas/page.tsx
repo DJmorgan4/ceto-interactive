@@ -19,6 +19,10 @@ type Opportunity = {
   evidence_score: number | null;
   summary: string;
   source_url: string;
+  astra_recommendation?: string | null;
+  astra_win_probability?: string | number | null;
+  astra_first_move?: string | null;
+  fit_reason?: string | null;
 };
 
 type Health = {
@@ -92,6 +96,15 @@ function scoreColor(score: number) {
   if (score >= 80) return THEME.green;
   if (score >= 65) return THEME.blue;
   return THEME.orange;
+}
+
+function verdictColor(rec?: string | null) {
+  const r = (rec || '').toUpperCase();
+  if (r === 'BID') return THEME.green;
+  if (r === 'TEAM') return '#C08A2D';
+  if (r === 'NO_BID') return '#B83232';
+  if (r === 'WATCH') return THEME.blue;
+  return null;
 }
 
 export default function AtlasPage() {
@@ -577,6 +590,7 @@ export default function AtlasPage() {
                             ? 38
                             : 28,
                           backgroundColor:
+                            verdictColor(item.astra_recommendation) ??
                             scoreColor(item.score),
                           border: isSelected
                             ? '4px solid white'
@@ -685,6 +699,41 @@ export default function AtlasPage() {
                       </div>
                     </dl>
 
+                    {verdictColor(selected.astra_recommendation) && (
+                      <div
+                        className="mt-5 rounded-2xl p-4"
+                        style={{
+                          border: `1px solid ${THEME.border}`,
+                          backgroundColor: 'rgba(20,35,55,0.03)',
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span
+                            className="rounded-full px-3 py-1 text-xs font-semibold text-white"
+                            style={{ backgroundColor: verdictColor(selected.astra_recommendation) as string }}
+                          >
+                            ASTRA: {selected.astra_recommendation}
+                          </span>
+                          {selected.astra_win_probability !== undefined &&
+                            selected.astra_win_probability !== null &&
+                            selected.astra_win_probability !== '' && (
+                              <span className="text-sm font-light">
+                                {selected.astra_win_probability}% win
+                              </span>
+                            )}
+                        </div>
+                        {selected.astra_first_move && (
+                          <p
+                            className="mt-3 text-sm font-light leading-relaxed"
+                            style={{ color: 'rgba(20,35,55,0.72)' }}
+                          >
+                            <span className="font-medium">First move: </span>
+                            {selected.astra_first_move}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     {selected.summary && (
                       <p
                         className="mt-5 text-sm font-light leading-relaxed"
@@ -754,6 +803,9 @@ export default function AtlasPage() {
                       Score
                     </th>
                     <th className="px-5 py-3 font-light">
+                      Verdict
+                    </th>
+                    <th className="px-5 py-3 font-light">
                       Opportunity
                     </th>
                     <th className="px-5 py-3 font-light">
@@ -795,6 +847,20 @@ export default function AtlasPage() {
                             item.score,
                           )}
                         </span>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        {verdictColor(item.astra_recommendation) ? (
+                          <span
+                            className="rounded-full px-3 py-1 text-xs text-white"
+                            style={{ backgroundColor: verdictColor(item.astra_recommendation) as string }}
+                          >
+                            {item.astra_recommendation}
+                            {item.astra_win_probability ? ` ${item.astra_win_probability}%` : ''}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'rgba(20,35,55,0.35)' }}>—</span>
+                        )}
                       </td>
 
                       <td className="px-5 py-4">
