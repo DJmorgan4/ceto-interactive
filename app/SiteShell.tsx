@@ -20,15 +20,33 @@ const THEME = {
   sunset: "#E07A5F",
 };
 
-// NOTE: Contact is handled as a button (so we do not include it here to avoid duplicates)
+// Nav restructure: flagship gets its own slot, labels match destinations.
+// "News" moved to footer only — it dilutes the top nav until it's an
+// authored Insights section. Contact stays a button.
 const NAV = [
+  { href: "/services#phase1", label: "Phase I ESA" },
   { href: "/services", label: "Services" },
-  { href: "/projects", label: "What is Ceto" },
+  { href: "/projects", label: "Projects" },
+  { href: "/about", label: "About" },
+] as const;
+
+const FOOTER_NAV = [
+  { href: "/services#phase1", label: "Phase I ESA" },
+  { href: "/services", label: "Services" },
+  { href: "/projects", label: "Projects" },
   { href: "/envnews", label: "News" },
   { href: "/about", label: "About" },
 ] as const;
 
 const CONTACT = { href: "/contact", label: "Contact" } as const;
+
+// Credibility facts — shown sitewide in the footer
+const CREDENTIALS = {
+  name: "DJ Morgan, EP",
+  license: "EP-TX-2025-0814",
+  sam: "SAM Registered · CAGE 14V05",
+  location: "Texas",
+} as const;
 
 export function SiteShell({ children }: { children: ReactNode }) {
   return (
@@ -81,6 +99,10 @@ function Header() {
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
+    // Hash links (e.g. /services#phase1) never show as active — only the
+    // plain /services entry lights up on that route, avoiding a double
+    // highlight in the nav.
+    if (href.includes("#")) return false;
     return pathname?.startsWith(href);
   };
 
@@ -90,6 +112,7 @@ function Header() {
       style={{
         backgroundColor: THEME.surfaceStrong,
         borderBottom: `1px solid ${THEME.border}`,
+        backdropFilter: "blur(10px)",
       }}
     >
       <div className="max-w-6xl mx-auto px-6 lg:px-10 py-4">
@@ -103,7 +126,7 @@ function Header() {
           </a>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-10">
+          <nav className="hidden md:flex items-center gap-8 lg:gap-10">
             {NAV.map((item) => (
               <a
                 key={item.href}
@@ -177,12 +200,12 @@ function Footer() {
               </div>
 
               <div className="mt-2 text-sm font-light" style={{ color: "rgba(20, 35, 55, 0.70)" }}>
-                Environmental Intelligence for Land, Infrastructure & Ecology
+                Environmental Intelligence for Land, Infrastructure &amp; Ecology
               </div>
             </div>
 
             <div className="flex flex-wrap gap-x-8 gap-y-3 text-sm">
-              {[...NAV, CONTACT].map((item) => (
+              {[...FOOTER_NAV, CONTACT].map((item) => (
                 <a
                   key={item.href}
                   href={item.href}
@@ -197,8 +220,21 @@ function Footer() {
             </div>
           </div>
 
-          <div className="mt-8 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-xs font-light">
-            <div style={{ color: "rgba(20, 35, 55, 0.60)" }}>© {new Date().getFullYear()} Ceto Interactive. All rights reserved.</div>
+          {/* Credibility block — sitewide trust signal */}
+          <div
+            className="mt-8 pt-6 flex flex-col md:flex-row md:items-center gap-2 md:gap-6 text-sm font-light"
+            style={{ borderTop: `1px solid ${THEME.border}` }}
+          >
+            <span style={{ color: THEME.ink }}>{CREDENTIALS.name}</span>
+            <span style={{ color: "rgba(20, 35, 55, 0.60)" }}>{CREDENTIALS.license}</span>
+            <span style={{ color: "rgba(20, 35, 55, 0.60)" }}>{CREDENTIALS.sam}</span>
+            <span style={{ color: "rgba(20, 35, 55, 0.60)" }}>{CREDENTIALS.location}</span>
+          </div>
+
+          <div className="mt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-xs font-light">
+            <div style={{ color: "rgba(20, 35, 55, 0.60)" }}>
+              © {new Date().getFullYear()} Ceto Interactive. All rights reserved.
+            </div>
             <div style={{ color: "rgba(20, 35, 55, 0.60)" }}>
               Built for clarity: data, permits, habitats, and real-world decisions.
             </div>
@@ -208,4 +244,3 @@ function Footer() {
     </footer>
   );
 }
-
