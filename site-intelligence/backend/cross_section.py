@@ -4,30 +4,58 @@ import matplotlib.patches as mpatches
 from pathlib import Path
 import rasterio
 from rasterio.transform import rowcol
+from rasterio.warp import transform as warp_transform
 import json
 
 
 def sample_dem_along_transect(dem_path: str, start: list, end: list, n_points: int = 200) -> dict:
+    """Sample a DEM along a lon/lat transect.
+
+    FIX: the transect endpoints are given in geographic lon/lat (EPSG:4326), but
+    the DEM is typically projected (meters). Previously lon/lat were passed
+    straight into the metric raster transform via rowcol(), and out-of-bounds
+    hits were clipped to the raster edge — collapsing every sample onto the same
+    corner pixel and producing 0.0 m relief. We now reproject lon/lat into the
+    DEM's CRS before sampling, and treat out-of-bounds samples as honest gaps
+    (None) rather than fake edge values.
+    """
     with rasterio.open(dem_path) as src:
         dem = src.read(1).astype(float)
         dem[dem == src.nodata] = np.nan
         transform = src.transform
+        crs = src.crs
+        h, w = dem.shape
 
     lons = np.linspace(start[0], end[0], n_points)
     lats = np.linspace(start[1], end[1], n_points)
 
+    # Reproject the sample coordinates from lon/lat into the DEM's CRS.
+    if crs is not None and not crs.is_geographic:
+        xs, ys = warp_transform("EPSG:4326", crs, list(lons), list(lats))
+    else:
+        xs, ys = list(lons), list(lats)  # DEM already geographic — sample directly
+
     elevations = []
-    for lon, lat in zip(lons, lats):
-        try:
-            row, col = rowcol(transform, lon, lat)
-            row = int(np.clip(row, 0, dem.shape[0] - 1))
-            col = int(np.clip(col, 0, dem.shape[1] - 1))
+    valid_points = 0
+    oob_points = 0
+    for x, y in zip(xs, ys):
+        row, col = rowcol(transform, x, y)
+        row, col = int(row), int(col)
+        if 0 <= row < h and 0 <= col < w:
             elev = dem[row, col]
-            elevations.append(float(elev) if not np.isnan(elev) else None)
-        except Exception:
-            elevations.append(None)
+            if np.isnan(elev):
+                elevations.append(None)
+            else:
+                elevations.append(float(elev))
+                valid_points += 1
+        else:
+            elevations.append(None)  # outside DEM footprint — real gap, not an edge fake
+            oob_points += 1
 
     valid = [e for e in elevations if e is not None]
+
+    # Ground distance in km along the transect (geographic haversine — correct
+    # regardless of DEM CRS; this part was never the bug).
     distances_km = []
     R = 6371.0
     for i in range(n_points):
@@ -40,15 +68,20 @@ def sample_dem_along_transect(dem_path: str, start: list, end: list, n_points: i
         distances_km.append(round(dist, 4))
 
     total_dist_km = distances_km[-1] if distances_km else 0
+    coverage_pct = round(valid_points / n_points * 100, 1) if n_points else 0.0
 
     return {
         "distances_km": distances_km,
         "elevations_m": elevations,
         "n_points": n_points,
+        "valid_points": valid_points,
+        "oob_points": oob_points,
+        "coverage_pct": coverage_pct,
         "total_distance_km": round(total_dist_km, 3),
         "elev_min_m": round(min(valid), 2) if valid else None,
         "elev_max_m": round(max(valid), 2) if valid else None,
         "elev_range_m": round(max(valid) - min(valid), 2) if valid else None,
+        "crs": str(crs),
         "start": start,
         "end": end,
     }
@@ -302,6 +335,27 @@ def run_cross_section(dem_path: str, geo_data: dict, transect: dict,
     metrics = analyze_transect_metrics(profile["elevations_m"], profile["distances_km"])
     render_cross_section(profile, geo_data, metrics, str(maps_dir / "cross_section.png"), project_name)
 
+    # ---- Consistency guard --------------------------------------------------
+    # If the transect covered the DEM well (>50%) over real distance but relief
+    # reads ~0, something is wrong with sampling — flag rather than emit "flat".
+    data_quality = "ok"
+    warnings = []
+    relief = profile.get("elev_range_m")
+    coverage = profile.get("coverage_pct", 0.0)
+    dist_km = profile.get("total_distance_km", 0.0)
+    if coverage < 50.0:
+        data_quality = "suspect"
+        warnings.append(
+            f"Transect coverage only {coverage}% — endpoints may fall outside the "
+            "DEM footprint; relief may be unreliable.")
+        print(f"  [cross_section] WARNING: {warnings[-1]}")
+    if (relief is not None and relief < 0.1 and coverage > 80.0 and dist_km > 0.2):
+        data_quality = "suspect"
+        warnings.append(
+            f"Relief {relief} m over {dist_km} km at {coverage}% coverage — "
+            "possible CRS/sampling fault; verify DEM projection.")
+        print(f"  [cross_section] WARNING: {warnings[-1]}")
+
     summary = {
         "status": "ok",
         "start": transect["start"],
@@ -310,14 +364,21 @@ def run_cross_section(dem_path: str, geo_data: dict, transect: dict,
         "elev_min_m":        profile["elev_min_m"],
         "elev_max_m":        profile["elev_max_m"],
         "elev_range_m":      profile["elev_range_m"],
+        "coverage_pct":      profile["coverage_pct"],
+        "valid_points":      profile["valid_points"],
+        "crs":               profile["crs"],
         "terrain_breaks":    classify_terrain_breaks(profile["elevations_m"], profile["distances_km"]),
         "metrics":           metrics,
         "maps":              ["cross_section.png"],
+        "data_quality":      data_quality,
+        "warnings":          warnings,
         "disclaimer":        "Conceptual interpretation — not verified by subsurface investigation",
     }
 
     with open(Path(output_dir) / "cross_section_summary.json", "w") as f:
         json.dump(summary, f, indent=2)
 
-    print(f"  [cross_section] Complete. Relief: {metrics.get('total_relief_m')}m | Character: {metrics.get('terrain_character')} | Cut/Fill: {metrics.get('cut_fill_level')}")
+    print(f"  [cross_section] Complete. Relief: {metrics.get('total_relief_m')}m | "
+          f"Coverage: {profile['coverage_pct']}% | Character: {metrics.get('terrain_character')} | "
+          f"Cut/Fill: {metrics.get('cut_fill_level')}")
     return summary
