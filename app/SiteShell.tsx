@@ -49,6 +49,12 @@ const CREDENTIALS = {
 } as const;
 
 export function SiteShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname()
+
+  if (pathname.startsWith('/portal')) {
+    return <>{children}</>
+  }
+
   return (
     <main className="relative min-h-screen overflow-hidden" style={{ backgroundColor: THEME.bg }}>
       {/* Calm background wash */}
