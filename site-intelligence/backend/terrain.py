@@ -1,4 +1,5 @@
 import numpy as np
+import math
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
@@ -16,16 +17,40 @@ def read_dem(dem_path: str):
         transform = src.transform
         crs = src.crs
         res = src.res
-    return data, transform, crs, res
+        bounds = src.bounds
+    return data, transform, crs, res, bounds
 
 
-def compute_hillshade(dem: np.ndarray, azimuth: float = 315, altitude: float = 45, res: tuple = (30, 30)) -> np.ndarray:
+def pixel_size_meters(res: tuple, crs, center_lat: float = 0.0) -> tuple:
+    """Return (dx_m, dy_m) pixel spacing in METERS, correct for either a
+    projected (already metric) or geographic (degrees) CRS.
+
+    This is the single source of truth for horizontal scale. The previous code
+    blindly multiplied res by 111320, which is only valid for a geographic CRS.
+    When the DEM is projected (3DEP WCS typically returns meters), that turned a
+    ~10 m pixel into an ~1,113 km spacing and collapsed every slope to 0.0 deg.
+    """
+    rx, ry = abs(res[0]), abs(res[1])
+    is_geographic = bool(crs is not None and getattr(crs, "is_geographic", False))
+    if is_geographic:
+        # res is in degrees. Latitude spacing is ~constant; longitude spacing
+        # shrinks with cos(latitude) as meridians converge.
+        dy_m = ry * 111320.0
+        dx_m = rx * 111320.0 * math.cos(math.radians(center_lat))
+        # Guard against degenerate cos() near the poles.
+        dx_m = dx_m if dx_m > 1e-6 else dy_m
+        return dx_m, dy_m
+    # Projected CRS -> res is already in linear units (meters for 3DEP/UTM/Albers).
+    return rx, ry
+
+
+def compute_hillshade(dem: np.ndarray, dx_m: float, dy_m: float,
+                      azimuth: float = 315, altitude: float = 45) -> np.ndarray:
     az = np.radians(360 - azimuth + 90)
     alt = np.radians(altitude)
     dem_filled = np.where(np.isnan(dem), np.nanmean(dem), dem)
     smoothed = gaussian_filter(dem_filled, sigma=1.5)
-    res_m = (res[0] * 111320, res[1] * 111320)
-    dy, dx = np.gradient(smoothed, res_m[1], res_m[0])
+    dy, dx = np.gradient(smoothed, dy_m, dx_m)
     slope = np.arctan(np.sqrt(dx**2 + dy**2))
     aspect = np.arctan2(-dy, dx)
     hs = (np.sin(alt) * np.cos(slope) +
@@ -35,11 +60,10 @@ def compute_hillshade(dem: np.ndarray, azimuth: float = 315, altitude: float = 4
     return hs
 
 
-def compute_slope_degrees(dem: np.ndarray, res: tuple) -> np.ndarray:
+def compute_slope_degrees(dem: np.ndarray, dx_m: float, dy_m: float) -> np.ndarray:
     dem_filled = np.where(np.isnan(dem), np.nanmean(dem), dem)
     smoothed = gaussian_filter(dem_filled, sigma=2.0)
-    res_m = (res[0] * 111320, res[1] * 111320)
-    dy, dx = np.gradient(smoothed, res_m[1], res_m[0])
+    dy, dx = np.gradient(smoothed, dy_m, dx_m)
     slope = np.degrees(np.arctan(np.sqrt(dx**2 + dy**2)))
     slope[np.isnan(dem)] = np.nan
     return slope
@@ -332,12 +356,21 @@ def _add_map_furniture(ax, source: str):
 
 def run_terrain(dem_path: str, output_dir: str, project_name: str = "Site") -> dict:
     print(f"  [terrain] Processing DEM: {dem_path}")
-    dem, transform, crs, res = read_dem(dem_path)
+    dem, transform, crs, res, bounds = read_dem(dem_path)
     maps_dir = Path(output_dir) / "maps"
     maps_dir.mkdir(parents=True, exist_ok=True)
 
-    hs = compute_hillshade(dem, res=res)
-    slope = compute_slope_degrees(dem, res)
+    # Resolve true horizontal pixel size in meters (CRS-aware). This is the fix
+    # for the 0.0-degree slope / 0.0 m relief bug.
+    center_lat = 0.0
+    if crs is not None and getattr(crs, "is_geographic", False):
+        center_lat = (bounds.bottom + bounds.top) / 2.0
+    dx_m, dy_m = pixel_size_meters(res, crs, center_lat)
+    print(f"  [terrain] CRS={crs} | pixel size ≈ {dx_m:.2f} m × {dy_m:.2f} m "
+          f"({'geographic' if (crs is not None and getattr(crs,'is_geographic',False)) else 'projected'})")
+
+    hs = compute_hillshade(dem, dx_m, dy_m)
+    slope = compute_slope_degrees(dem, dx_m, dy_m)
     slope_stats = classify_slope(slope)
 
     render_hillshade(dem, hs, str(maps_dir / "hillshade.png"), f"{project_name} — Hillshade")
@@ -351,15 +384,35 @@ def run_terrain(dem_path: str, output_dir: str, project_name: str = "Site") -> d
     render_3d_terrain(dem, str(maps_dir / "terrain_3d.png"), f"{project_name} — 3D Terrain Block", flow_acc=fa)
 
     elev_valid = dem[~np.isnan(dem)]
+    elev_min = round(float(np.min(elev_valid)), 2) if len(elev_valid) else None
+    elev_max = round(float(np.max(elev_valid)), 2) if len(elev_valid) else None
+    elev_range = round(elev_max - elev_min, 2) if (elev_min is not None) else None
+
+    # ---- Self-consistency guard --------------------------------------------
+    # Real elevation relief but ~0 slope is physically impossible and indicates
+    # a scale/CRS fault. Flag it instead of silently emitting "flat".
+    data_quality = "ok"
+    warnings = []
+    max_slope = slope_stats.get("max_slope_deg", 0.0)
+    if elev_range and elev_range > 3.0 and max_slope < 0.05:
+        data_quality = "suspect"
+        warnings.append(
+            f"Elevation range {elev_range} m but max slope {max_slope}° — "
+            "possible horizontal-scale/CRS fault; slope not trustworthy.")
+        print(f"  [terrain] WARNING: {warnings[-1]}")
+
     summary = {
         "status": "ok",
-        "elev_min_m":   round(float(np.min(elev_valid)), 2) if len(elev_valid) else None,
-        "elev_max_m":   round(float(np.max(elev_valid)), 2) if len(elev_valid) else None,
+        "elev_min_m":   elev_min,
+        "elev_max_m":   elev_max,
         "elev_mean_m":  round(float(np.mean(elev_valid)), 2) if len(elev_valid) else None,
-        "elev_range_m": round(float(np.max(elev_valid) - np.min(elev_valid)), 2) if len(elev_valid) else None,
+        "elev_range_m": elev_range,
         "slope": slope_stats,
         "maps": ["hillshade.png", "slope.png"],
         "crs": str(crs),
+        "pixel_size_m": [round(dx_m, 3), round(dy_m, 3)],
+        "data_quality": data_quality,
+        "warnings": warnings,
     }
 
     with open(Path(output_dir) / "terrain_summary.json", "w") as f:
