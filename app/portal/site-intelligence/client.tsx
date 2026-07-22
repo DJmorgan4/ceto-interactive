@@ -642,7 +642,7 @@ export default function SiteIntelligenceClient() {
       style: MAP_STYLES.dark.url,
       center: [-97.1467, 31.5493],
       zoom: 9,
-      attributionControl: true,
+      attributionControl: {},
     })
 
     map.current = instance
