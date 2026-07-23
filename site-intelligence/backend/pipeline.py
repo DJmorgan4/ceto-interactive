@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 from backend.data_clients import (
+from backend.location_resolver import resolve_location
     fetch_usgs_dem,
     fetch_srtm_dem,
     fetch_macrostrat,
@@ -38,6 +39,13 @@ def generate_site_report(
         print(f"[{p}%] {msg}")
         if progress_callback:
             progress_callback(p, msg)
+
+    progress(3, "Resolving location...")
+    try:
+        site_facts = resolve_location(center[1], center[0])
+    except Exception as _e:
+        print(f"[WARN] location resolve failed: {_e}")
+        site_facts = None
 
     datasets = datasets or ["usgs_3dep", "macrostrat", "soilgrids", "nhd", "osm", "nlcd"]
     outputs = outputs or ["hillshade", "slope", "drainage", "geology", "soils", "cross_section", "nlcd"]
@@ -148,6 +156,12 @@ def generate_site_report(
         "project_name": project_name,
         "bbox": bbox,
         "center": center,
+        "location": (site_facts.to_report_header() if site_facts else None),
+        "county": (site_facts.county if site_facts else None),
+        "state": (site_facts.state if site_facts else None),
+        "locale": (site_facts.county_state if site_facts else None),
+        "local_time": (site_facts.local_time_iso if site_facts else None),
+        "location_confidence": (site_facts.confidence_label() if site_facts else "unresolved"),
         "date_generated": datetime.utcnow().isoformat() + "Z",
         "overall_risk": insights.get("overall_risk"),
         "flag_count": insights.get("flag_count"),
@@ -331,6 +345,7 @@ def generate_site_report(
                 "messages": [{
                     "role": "user",
                     "content": (
+                        (site_facts.to_llm_ground_truth() + "\n\n" if site_facts else "") +
                         f"Site: {project_name}\n"
                         f"Bbox: {bbox}\n"
                         f"Overall Risk: {metadata.get('overall_risk')}\n"
