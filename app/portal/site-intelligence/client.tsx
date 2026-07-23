@@ -713,6 +713,7 @@ export default function SiteIntelligenceClient() {
 
           applyAoiToMap(nextBbox)
           aoiClicks.current = []
+          drawingAOIRef.current = false
           setIsDrawingAOI(false)
           currentMap.getCanvas().style.cursor = ''
         }
@@ -764,6 +765,7 @@ export default function SiteIntelligenceClient() {
           })
 
           transectClicks.current = []
+          drawingTransectRef.current = false
           setIsDrawingTransect(false)
           currentMap.getCanvas().style.cursor = ''
         }
@@ -792,6 +794,10 @@ export default function SiteIntelligenceClient() {
     aoiClicks.current = []
     transectClicks.current = []
 
+    drawingAOIRef.current = true
+
+    drawingTransectRef.current = false
+
     setIsDrawingAOI(true)
     setIsDrawingTransect(false)
 
@@ -804,6 +810,10 @@ export default function SiteIntelligenceClient() {
     setError('')
     transectClicks.current = []
     aoiClicks.current = []
+
+    drawingTransectRef.current = true
+
+    drawingAOIRef.current = false
 
     setIsDrawingTransect(true)
     setIsDrawingAOI(false)
@@ -824,6 +834,7 @@ export default function SiteIntelligenceClient() {
   const clearTransect = () => {
     setTransect(null)
     transectClicks.current = []
+    drawingTransectRef.current = false
     setIsDrawingTransect(false)
 
     const currentMap = map.current
@@ -857,6 +868,8 @@ export default function SiteIntelligenceClient() {
 
     setIsDrawingAOI(false)
     setIsDrawingTransect(false)
+    drawingAOIRef.current = false
+    drawingTransectRef.current = false
 
     const currentMap = map.current
     if (!currentMap) return
