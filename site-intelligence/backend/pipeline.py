@@ -424,6 +424,7 @@ def generate_site_report(
         f'<div class="mi">Project<span>{project_name}</span></div>'
         f'<div class="mi">Coordinates<span>{bbox[0]:.4f},{bbox[1]:.4f} → {bbox[2]:.4f},{bbox[3]:.4f}</span></div>'
         f'<div class="mi">Generated<span>{metadata.get("date_generated","")[:10]}</span></div>'
+        f'<div class="mi">Location<span>{metadata.get("locale") or "Unresolved"}</span></div>'
         f'<div class="mi">Report ID<span>{report_id[:8].upper()}</span></div>'
         '</div>'
         f'<div class="badge">{metadata.get("overall_risk","Unknown")} Risk &middot; {metadata.get("flag_count",0)} Flag(s)</div>'
