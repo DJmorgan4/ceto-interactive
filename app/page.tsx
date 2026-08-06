@@ -262,7 +262,7 @@ export default function Home() {
               style={{ color: THEME.ink, fontFamily: 'var(--font-serif, Georgia, serif)' }}
             >
               Phase I ESAs powered by{' '}
-              <span style={{ color: THEME.leviBlue }}>live federal ddata.</span>
+              <span style={{ color: THEME.leviBlue }}>live federal data.</span>
             </h1>
 
             <p
