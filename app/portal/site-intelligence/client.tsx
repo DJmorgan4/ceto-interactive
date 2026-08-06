@@ -367,6 +367,7 @@ export default function SiteIntelligenceClient() {
 
   const [bbox, setBbox] = useState<BoundingBox | null>(null)
   const [center, setCenter] = useState<Coordinate | null>(null)
+  const [mapReady, setMapReady] = useState(false)
   const [transect, setTransect] = useState<Transect | null>(null)
 
   const [isDrawingAOI, setIsDrawingAOI] = useState(false)
@@ -603,6 +604,13 @@ export default function SiteIntelligenceClient() {
       })
     }
 
+  }, [])
+
+  // Sync AOI + transect geometry without recreating the map.
+  useEffect(() => {
+    const currentMap = map.current
+    if (!mapReady || !currentMap) return
+
     if (bbox) applyAoiToMap(bbox, false)
 
     if (transect) {
@@ -624,7 +632,7 @@ export default function SiteIntelligenceClient() {
         ],
       })
     }
-  }, [applyAoiToMap, bbox, transect])
+  }, [mapReady, bbox, transect, applyAoiToMap])
 
   useEffect(() => {
     drawingAOIRef.current = isDrawingAOI
@@ -640,7 +648,7 @@ export default function SiteIntelligenceClient() {
     const instance = new maplibregl.Map({
       container: mapContainer.current,
       style: MAP_STYLES.dark.url,
-      center: [-97.1467, 31.5493],
+      center: [-96.797, 32.7767],
       zoom: 9,
       attributionControl: {},
     })
@@ -662,14 +670,19 @@ export default function SiteIntelligenceClient() {
       'bottom-right',
     )
 
-    instance.on('load', addOperationalLayers)
+    instance.on('load', () => {
+      addOperationalLayers()
+      setMapReady(true)
+    })
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current)
       instance.remove()
       map.current = null
+      setMapReady(false)
     }
-  }, [addOperationalLayers])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     const container = mapContainer.current
@@ -777,7 +790,7 @@ export default function SiteIntelligenceClient() {
     return () => {
       currentMap.off('click', handleClick)
     }
-  }, [applyAoiToMap])
+  }, [mapReady, applyAoiToMap])
 
   const changeMapStyle = (nextStyle: MapStyleKey) => {
     setMapStyle(nextStyle)
@@ -1372,7 +1385,7 @@ export default function SiteIntelligenceClient() {
                     onChange={(event) =>
                       setProjectName(event.target.value)
                     }
-                    placeholder="Waco Area Test"
+                    placeholder="Site name"
                     style={inputStyle}
                   />
                 </FieldLabel>
