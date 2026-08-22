@@ -14,6 +14,10 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 const SITE_INTEL_API =
   process.env.NEXT_PUBLIC_SITE_INTEL_API_URL || 'http://localhost:8001'
 
+// Shared storage keys — the Jobs page reads both of these.
+const STORAGE_LAST_SETUP = 'ceto:site-intel:last'
+const STORAGE_JOB_MIRROR = 'ceto:site-intel:jobs'
+
 type Coordinate = [number, number]
 type BoundingBox = [number, number, number, number]
 
@@ -348,6 +352,127 @@ function getDownloadLinks(jobStatus: JobStatus | null) {
   return links
 }
 
+// ── Cross-page setup contract ──────────────────────────────────────────
+// Other Ceto surfaces (Jobs history, the reports panels, a client email)
+// can deep-link into this wizard with:
+//   /portal/site-intelligence?project=...&client=...&preset=due-diligence
+//     &bbox=w,s,e,n&transect=lng1,lat1,lng2,lat2
+// URL params win; otherwise the last session restores from localStorage.
+
+type InitialSetup = {
+  projectName?: string
+  clientName?: string
+  projectPurpose?: string
+  preset?: string
+  datasets?: string[]
+  outputs?: string[]
+  bbox?: BoundingBox
+  transect?: Transect
+}
+
+function parseBboxParam(raw: string | null): BoundingBox | null {
+  if (!raw) return null
+  const parts = raw.split(',').map(Number)
+  if (parts.length !== 4 || !parts.every(Number.isFinite)) return null
+  const [w, s, e, n] = parts
+  if (w < -180 || e > 180 || s < -90 || n > 90 || w >= e || s >= n) return null
+  return [w, s, e, n]
+}
+
+function parseTransectParam(raw: string | null): Transect | null {
+  if (!raw) return null
+  const parts = raw.split(',').map(Number)
+  if (parts.length !== 4 || !parts.every(Number.isFinite)) return null
+  return {
+    start: [parts[0], parts[1]],
+    end: [parts[2], parts[3]],
+  }
+}
+
+function readInitialSetup(): InitialSetup {
+  const params = new URLSearchParams(window.location.search)
+
+  const fromUrl: InitialSetup = {}
+  const project = params.get('project')
+  const client = params.get('client')
+  const presetId = params.get('preset')
+  const bbox = parseBboxParam(params.get('bbox'))
+  const transect = parseTransectParam(params.get('transect'))
+
+  if (project) fromUrl.projectName = project
+  if (client) fromUrl.clientName = client
+  if (bbox) fromUrl.bbox = bbox
+  if (transect) fromUrl.transect = transect
+  if (presetId && REPORT_PRESETS.some((p) => p.id === presetId)) {
+    const p = REPORT_PRESETS.find((item) => item.id === presetId)!
+    fromUrl.preset = p.id
+    fromUrl.datasets = [...p.datasets]
+    fromUrl.outputs = [...p.outputs]
+  }
+
+  // Any URL-provided setup takes the session over; otherwise restore
+  // the last local session so a refresh never loses work.
+  if (Object.keys(fromUrl).length > 0) return fromUrl
+
+  try {
+    const raw = localStorage.getItem(STORAGE_LAST_SETUP)
+    if (!raw) return {}
+    const saved = JSON.parse(raw) as InitialSetup
+    return {
+      projectName: typeof saved.projectName === 'string' ? saved.projectName : undefined,
+      clientName: typeof saved.clientName === 'string' ? saved.clientName : undefined,
+      projectPurpose: typeof saved.projectPurpose === 'string' ? saved.projectPurpose : undefined,
+      preset: typeof saved.preset === 'string' ? saved.preset : undefined,
+      datasets: Array.isArray(saved.datasets)
+        ? saved.datasets.filter((id) => ALL_DATASET_IDS.includes(id))
+        : undefined,
+      outputs: Array.isArray(saved.outputs)
+        ? saved.outputs.filter((id) => ALL_OUTPUT_IDS.includes(id))
+        : undefined,
+      bbox: Array.isArray(saved.bbox) && saved.bbox.length === 4 &&
+        saved.bbox.every((v) => Number.isFinite(v as number))
+        ? (saved.bbox as BoundingBox)
+        : undefined,
+      transect: saved.transect &&
+        Array.isArray(saved.transect.start) &&
+        Array.isArray(saved.transect.end)
+        ? saved.transect
+        : undefined,
+    }
+  } catch {
+    return {}
+  }
+}
+
+/** Mirror submitted jobs locally so the Jobs page can still show and
+ *  rebuild them after the FastAPI server restarts and loses history. */
+function mirrorJobLocally(record: {
+  job_id: string
+  project_name: string
+  client: string
+  bbox: BoundingBox
+  transect: Transect | null
+  datasets: string[]
+  outputs: string[]
+  created_at: string
+}) {
+  try {
+    const raw = localStorage.getItem(STORAGE_JOB_MIRROR)
+    const list = raw ? (JSON.parse(raw) as unknown[]) : []
+    const next = [record, ...(Array.isArray(list) ? list : [])]
+      .filter(
+        (item, index, all) =>
+          all.findIndex(
+            (other: any) => other?.job_id === (item as any)?.job_id,
+          ) === index,
+      )
+      .slice(0, 25)
+    localStorage.setItem(STORAGE_JOB_MIRROR, JSON.stringify(next))
+  } catch {
+    /* storage unavailable — mirror is best-effort */
+  }
+}
+
 export default function SiteIntelligenceClient() {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<maplibregl.Map | null>(null)
@@ -359,23 +484,46 @@ export default function SiteIntelligenceClient() {
   const drawingAOIRef = useRef(false)
   const drawingTransectRef = useRef(false)
 
-  const [projectName, setProjectName] = useState('')
-  const [clientName, setClientName] = useState('')
+  // Read the incoming setup exactly once. This component ships with
+  // ssr:false, so window and localStorage exist on first render.
+  const initialSetupRef = useRef<InitialSetup | null>(null)
+  if (initialSetupRef.current === null) {
+    initialSetupRef.current =
+      typeof window === 'undefined' ? {} : readInitialSetup()
+  }
+  const init = initialSetupRef.current
+
+  const [projectName, setProjectName] = useState(init.projectName ?? '')
+  const [clientName, setClientName] = useState(init.clientName ?? '')
   const [projectPurpose, setProjectPurpose] = useState(
-    'Environmental due diligence and site development screening',
+    init.projectPurpose ??
+      'Environmental due diligence and site development screening',
   )
 
-  const [bbox, setBbox] = useState<BoundingBox | null>(null)
-  const [center, setCenter] = useState<Coordinate | null>(null)
+  const [bbox, setBbox] = useState<BoundingBox | null>(init.bbox ?? null)
+  const [center, setCenter] = useState<Coordinate | null>(
+    init.bbox
+      ? [
+          (init.bbox[0] + init.bbox[2]) / 2,
+          (init.bbox[1] + init.bbox[3]) / 2,
+        ]
+      : null,
+  )
   const [mapReady, setMapReady] = useState(false)
-  const [transect, setTransect] = useState<Transect | null>(null)
+  const [transect, setTransect] = useState<Transect | null>(
+    init.transect ?? null,
+  )
 
   const [isDrawingAOI, setIsDrawingAOI] = useState(false)
   const [isDrawingTransect, setIsDrawingTransect] = useState(false)
 
-  const [datasets, setDatasets] = useState<string[]>(ALL_DATASET_IDS)
-  const [outputs, setOutputs] = useState<string[]>(ALL_OUTPUT_IDS)
-  const [preset, setPreset] = useState('complete')
+  const [datasets, setDatasets] = useState<string[]>(
+    init.datasets ?? ALL_DATASET_IDS,
+  )
+  const [outputs, setOutputs] = useState<string[]>(
+    init.outputs ?? ALL_OUTPUT_IDS,
+  )
+  const [preset, setPreset] = useState(init.preset ?? 'complete')
   const [mapStyle, setMapStyle] = useState<MapStyleKey>('dark')
 
   const [coordinateInput, setCoordinateInput] = useState('')
@@ -388,6 +536,7 @@ export default function SiteIntelligenceClient() {
   const [submitting, setSubmitting] = useState(false)
   const [polling, setPolling] = useState(false)
   const [error, setError] = useState('')
+  const [setupLinkCopied, setSetupLinkCopied] = useState(false)
 
   const areaAcres = useMemo(() => approximateAreaAcres(bbox), [bbox])
   const downloads = useMemo(() => getDownloadLinks(jobStatus), [jobStatus])
@@ -473,6 +622,71 @@ export default function SiteIntelligenceClient() {
 
     return rows
   }, [datasets])
+
+  // ── Session persistence ─────────────────────────────────────────────
+  // Every meaningful change mirrors to localStorage, so a refresh, a
+  // detour to the Jobs page, or an accidental tab close never loses the
+  // setup. The Jobs page "Rebuild setup" links also land here.
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STORAGE_LAST_SETUP,
+        JSON.stringify({
+          projectName,
+          clientName,
+          projectPurpose,
+          preset,
+          datasets,
+          outputs,
+          bbox,
+          transect,
+        }),
+      )
+    } catch {
+      /* storage unavailable */
+    }
+  }, [
+    projectName,
+    clientName,
+    projectPurpose,
+    preset,
+    datasets,
+    outputs,
+    bbox,
+    transect,
+  ])
+
+  const buildSetupUrl = useCallback(() => {
+    const params = new URLSearchParams()
+    if (projectName.trim()) params.set('project', projectName.trim())
+    if (clientName.trim()) params.set('client', clientName.trim())
+    if (preset !== 'custom') params.set('preset', preset)
+    if (bbox) params.set('bbox', bbox.map((v) => v.toFixed(6)).join(','))
+    if (transect) {
+      params.set(
+        'transect',
+        [
+          transect.start[0],
+          transect.start[1],
+          transect.end[0],
+          transect.end[1],
+        ]
+          .map((v) => v.toFixed(6))
+          .join(','),
+      )
+    }
+    return `${window.location.origin}/portal/site-intelligence?${params.toString()}`
+  }, [projectName, clientName, preset, bbox, transect])
+
+  const copySetupLink = useCallback(() => {
+    try {
+      navigator.clipboard.writeText(buildSetupUrl())
+      setSetupLinkCopied(true)
+      setTimeout(() => setSetupLinkCopied(false), 2000)
+    } catch {
+      setError('Unable to copy the setup link in this browser.')
+    }
+  }, [buildSetupUrl])
 
   const applyAoiToMap = useCallback(
     (nextBbox: BoundingBox, shouldFit = true) => {
@@ -633,6 +847,16 @@ export default function SiteIntelligenceClient() {
       })
     }
   }, [mapReady, bbox, transect, applyAoiToMap])
+
+  // A restored session (URL param or localStorage) should open framed on
+  // its site, not on the default metro view — fit once when the map wakes.
+  const didInitialFit = useRef(false)
+  useEffect(() => {
+    if (!mapReady || didInitialFit.current) return
+    didInitialFit.current = true
+    if (bbox) applyAoiToMap(bbox, true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapReady])
 
   useEffect(() => {
     drawingAOIRef.current = isDrawingAOI
@@ -1089,6 +1313,19 @@ export default function SiteIntelligenceClient() {
         throw new Error('The API did not return a job ID.')
       }
 
+      // Mirror the job locally so Jobs history survives API restarts and
+      // can rebuild this exact setup later.
+      mirrorJobLocally({
+        job_id: nextJobId,
+        project_name: requestBody.project_name,
+        client: clientName.trim(),
+        bbox,
+        transect: transect ?? null,
+        datasets: [...datasets],
+        outputs: [...outputs],
+        created_at: new Date().toISOString(),
+      })
+
       setJobId(nextJobId)
       setJobStatus(data)
       setPolling(true)
@@ -1522,6 +1759,41 @@ export default function SiteIntelligenceClient() {
                     <div style={dataRowStyle}>
                       <span>Approximate area</span>
                       <strong>{formatArea(areaAcres)}</strong>
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: 6,
+                        marginTop: 8,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={copySetupLink}
+                        style={{
+                          ...secondaryButtonStyle,
+                          minHeight: 30,
+                          fontSize: 9,
+                        }}
+                      >
+                        {setupLinkCopied
+                          ? 'Link copied'
+                          : 'Copy setup link'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={clearAll}
+                        style={{
+                          ...secondaryButtonStyle,
+                          minHeight: 30,
+                          fontSize: 9,
+                        }}
+                      >
+                        Clear site
+                      </button>
                     </div>
                   </div>
                 ) : (
@@ -1997,6 +2269,24 @@ export default function SiteIntelligenceClient() {
                     ))}
                   </div>
                 )}
+
+                <Link
+                  href={`/portal/site-intelligence/jobs?job=${encodeURIComponent(jobId)}`}
+                  style={{
+                    display: 'block',
+                    marginTop: 7,
+                    padding: '8px 9px',
+                    borderRadius: 5,
+                    border: `1px solid ${COLORS.borderStrong}`,
+                    color: COLORS.blue,
+                    textAlign: 'center',
+                    textDecoration: 'none',
+                    fontSize: 10,
+                    fontWeight: 650,
+                  }}
+                >
+                  Open in job history →
+                </Link>
 
                 <button
                   type="button"
