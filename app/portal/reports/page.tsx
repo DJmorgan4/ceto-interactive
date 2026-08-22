@@ -7,6 +7,8 @@ import ReconForm, { ReconData, reconToNotes } from './ReconForm';
 import FederalDatabasePanel, { FederalDBData } from './FederalDatabasePanel';
 import HistoricalResearchPanel, { HistoricalResearchData } from './HistoricalResearchPanel';
 import SWPPPModule from './SWPPPModule';
+import LocationInput, { LocationPullPayload } from './LocationInput';
+import { parseLocation } from '../../../lib/locationParse';
 
 import { useState, useCallback, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -552,13 +554,20 @@ function ReportsPageInner() {
   const [parcel, setParcel] = useState<ParcelData | null>(null);
   const [parcelLoading, setParcelLoading] = useState(false);
 
-  const pullReg = useCallback(async () => {
-    if (!location.trim()) return;
+  const pullReg = useCallback(async (payload?: LocationPullPayload) => {
+    const parsed = parseLocation(location);
+    const query = payload?.query
+      ?? (parsed.kind === 'coords' ? parsed.canonical : location.trim());
+    if (!query) return;
     setRegLoading(true); setRegError(''); setReg(null);
     try {
       const res = await fetch('/api/portal/regulatory-intel', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ location: location.trim() }),
+        body: JSON.stringify({
+          location: query,
+          coordinates: payload?.coords
+            ?? (parsed.kind === 'coords' ? { lat: parsed.lat, lng: parsed.lng } : undefined),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Lookup failed');
@@ -997,13 +1006,7 @@ Use all regulatory data provided above. Be thorough, defensible, and acceptable 
                 <div><label style={labelStyle}>Client Name</label><input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="e.g. Apex Energy Partners" style={inputStyle} /></div>
                 <div>
                   <label style={labelStyle}>Location / Coordinates *</label>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <input value={location} onChange={e => setLocation(e.target.value)} onKeyDown={e => e.key === 'Enter' && pullReg()} placeholder="Address, city, or lat/lng" style={{ ...inputStyle, flex: 1 }} />
-                    <button onClick={pullReg} disabled={!location.trim() || regLoading} style={{ flexShrink: 0, padding: '9px 10px', backgroundColor: T.blue, color: 'white', border: 'none', borderRadius: 2, cursor: !location.trim() || regLoading ? 'not-allowed' : 'pointer', fontSize: 11, fontFamily: FONT_SANS, opacity: !location.trim() || regLoading ? 0.5 : 1, whiteSpace: 'nowrap' }}>
-                      {regLoading ? '...' : '⚡ Pull'}
-                    </button>
-                  </div>
-                  <div style={{ fontSize: 9, color: T.muted, marginTop: 4 }}>Pulls 7 federal databases simultaneously</div>
+                  <LocationInput value={location} onChange={setLocation} onPull={pullReg} loading={regLoading} />
                 </div>
                 <div><label style={labelStyle}>Survey Date</label><input type="date" value={surveyDate} onChange={e => setSurveyDate(e.target.value)} style={{ ...inputStyle, width: 'auto' }} /></div>
                 <div>
