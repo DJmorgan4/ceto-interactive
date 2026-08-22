@@ -417,6 +417,25 @@ function RegPanel({ data, loading, error, parcel }: { data: RegData | null; load
       {/* Screening Summary Table */}
       <ScreeningSummary reg={data} />
 
+      {/* ASTM E1527-21 database search distances */}
+      <div style={{ border: `1px solid ${T.border}`, borderRadius: 4, backgroundColor: T.surface, overflow: 'hidden', marginBottom: 14 }}>
+        <div style={{ padding: '12px 18px', borderBottom: `1px solid ${T.border}` }}>
+          <div style={{ fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: T.muted, fontFamily: FONT_SANS }}>Database Search Distances — ASTM E1527-21 §8.2.2</div>
+        </div>
+        <div>
+          {buildAstmSearchSummary((data as any)?.federal?.facilitiesNearby ?? []).filter((r: any) => r.findingCount > 0).map((r: any, i: number, arr: any[]) => (
+            <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 44px', gap: 10, padding: '7px 18px', borderBottom: i < arr.length - 1 ? `1px solid ${T.border}` : 'none', alignItems: 'center' }}>
+              <div style={{ fontSize: 11, color: T.ink, fontFamily: FONT_SANS, fontWeight: 300 }}>{r.label}{!r.reducible && <span style={{ color: T.amber, fontSize: 8, marginLeft: 6 }}>FLOOR</span>}</div>
+              <div style={{ fontSize: 10, color: T.muted, fontFamily: FONT_SANS, textAlign: 'right' }}>{r.distance}</div>
+              <div style={{ fontSize: 11, color: T.ink, fontFamily: FONT_SANS, textAlign: 'right' }}>{r.findingCount}</div>
+            </div>
+          ))}
+          {buildAstmSearchSummary((data as any)?.federal?.facilitiesNearby ?? []).every((r: any) => r.findingCount === 0) && (
+            <div style={{ padding: '10px 18px', fontSize: 11, color: T.muted, fontFamily: FONT_SANS }}>No database findings within ASTM search distances.</div>
+          )}
+        </div>
+      </div>
+
       {/* Soils interpretation */}
       {data.soils.interpretation && (
         <div style={{ border: `1px solid ${T.border}`, borderRadius: 4, backgroundColor: T.surface, padding: '12px 18px', marginBottom: 14 }}>
