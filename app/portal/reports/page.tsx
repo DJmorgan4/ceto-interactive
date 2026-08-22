@@ -9,6 +9,7 @@ import HistoricalResearchPanel, { HistoricalResearchData } from './HistoricalRes
 import SWPPPModule from './SWPPPModule';
 import LocationInput, { LocationPullPayload } from './LocationInput';
 import { parseLocation } from '../../../lib/locationParse';
+import { buildAstmSearchSummary, scopeLabel } from '../../../lib/astmSearchDistances';
 
 import { useState, useCallback, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';

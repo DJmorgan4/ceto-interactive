@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isWithinAstmDistance } from '../../../../lib/astmSearchDistances';
 
 // ── Haversine distance (miles) ────────────────────────────────────────────────
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -56,7 +57,7 @@ async function fetchNPL(lat: number, lng: number): Promise<FederalSource> {
         dataset: 'NPL',
         riskClass: 'HIGH',
       };
-    }).filter((f: any) => f.distanceMi === null || f.distanceMi <= 1.0)
+    }).filter((f: any) => isWithinAstmDistance(f))
       .sort((a: any, b: any) => (a.distanceMi ?? 99) - (b.distanceMi ?? 99));
 
     return { name: 'EPA Superfund NPL Site Boundaries', dataset: 'NPL', endpointUrl: url, queryDate, resultCount: facilities.length, status: 'success', facilities };
@@ -81,7 +82,7 @@ async function fetchTCEQSuperfund(lat: number, lng: number): Promise<FederalSour
       const facLng = Number(a.LONG_DD) || null;
       const distanceMi = facLat && facLng ? Math.round(haversine(lat, lng, facLat, facLng) * 100) / 100 : null;
       return { name: a.SITE_NAME || 'Unknown', lat: facLat, lng: facLng, distanceMi, status: a.SITE_STATUS || '', epaId: '', city: a.CITY || '', dataset: 'TCEQ_SUPERFUND', riskClass: 'HIGH' };
-    }).filter((f: any) => f.distanceMi === null || f.distanceMi <= 1.0)
+    }).filter((f: any) => isWithinAstmDistance(f))
       .sort((a: any, b: any) => (a.distanceMi ?? 99) - (b.distanceMi ?? 99));
     return { name: 'TCEQ State Superfund / Corrective Action', dataset: 'TCEQ_SUPERFUND', endpointUrl: url, queryDate, resultCount: facilities.length, status: 'success', facilities };
   } catch {
@@ -114,7 +115,7 @@ async function fetchRCRA(lat: number, lng: number): Promise<FederalSource> {
         dataset: 'RCRA',
         riskClass: 'MODERATE', // RCRA generators default MODERATE; TSD would be HIGH
       };
-    }).filter((f: any) => f.distanceMi === null || f.distanceMi <= 1.0)
+    }).filter((f: any) => isWithinAstmDistance(f))
       .sort((a: any, b: any) => (a.distanceMi ?? 99) - (b.distanceMi ?? 99));
     return { name: 'EPA RCRA Facility Points', dataset: 'RCRA', endpointUrl: url, queryDate, resultCount: facilities.length, status: 'success', facilities };
   } catch {
@@ -138,7 +139,7 @@ async function fetchFRSRCRA(lat: number, lng: number): Promise<FederalSource> {
       const facLng = Number(a.LONGITUDE83) || null;
       const distanceMi = facLat && facLng ? Math.round(haversine(lat, lng, facLat, facLng) * 100) / 100 : null;
       return { name: a.PRIMARY_NAME || 'Unknown', lat: facLat, lng: facLng, distanceMi, status: 'RCRA Active', epaId: '', city: a.CITY_NAME || '', dataset: 'RCRA_FRS', riskClass: 'LOW' };
-    }).filter((f: any) => f.distanceMi === null || f.distanceMi <= 1.0)
+    }).filter((f: any) => isWithinAstmDistance(f))
       .sort((a: any, b: any) => (a.distanceMi ?? 99) - (b.distanceMi ?? 99));
     return { name: 'FRS RCRA Active Facilities', dataset: 'RCRA_FRS', endpointUrl: url, queryDate, resultCount: facilities.length, status: 'success', facilities };
   } catch {
