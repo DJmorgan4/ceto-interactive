@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Lora } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { SiteShell } from "./SiteShell";
 
@@ -9,14 +9,6 @@ const inter = Inter({
   display: "swap",
 });
 
-// Serif display face for headlines — the "world class" typography move.
-// Source Serif 4 is screen-optimized with low stroke contrast — reads sober next to Inter.
-const serif = Lora({
-  subsets: ["latin"],
-  variable: "--font-serif",
-  display: "swap",
-  weight: ["400", "600", "700"],
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.cetointeractive.com"),
@@ -43,7 +35,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${serif.variable}`}>
+    <html lang="en" className={`${inter.variable}`}>
       <body style={{ fontFamily: "var(--font-inter), Inter, Arial, sans-serif" }}>
         <SiteShell>{children}</SiteShell>
       </body>
