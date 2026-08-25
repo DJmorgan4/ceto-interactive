@@ -261,7 +261,7 @@ export default function Home() {
               className="text-4xl md:text-5xl lg:text-6xl font-normal leading-[1.06] tracking-tight"
               style={{ color: THEME.ink, fontFamily: 'var(--font-inter), Inter, sans-serif' }}
             >
-              Phase I ESAs powered by{' '}
+              Environmental due diligence powered by{' '}
               <span style={{ color: THEME.leviBlue }}>live federal&nbsp;data.</span>
             </h1>
 
