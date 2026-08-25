@@ -4,8 +4,6 @@
   --background: #F6F7F8;
   --foreground: #142337;
   --font-inter: 'Inter', Arial, sans-serif;
-  /* Populated by next/font (Fraunces) in layout.tsx; Georgia is the fallback */
-  --font-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
 }
 
 body {

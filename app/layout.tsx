@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Fraunces } from "next/font/google";
+import { Inter, Lora } from "next/font/google";
 import "./globals.css";
 import { SiteShell } from "./SiteShell";
 
@@ -10,12 +10,12 @@ const inter = Inter({
 });
 
 // Serif display face for headlines — the "world class" typography move.
-// Fraunces has the right editorial-institutional feel next to Inter.
-const fraunces = Fraunces({
+// Source Serif 4 is screen-optimized with low stroke contrast — reads sober next to Inter.
+const serif = Lora({
   subsets: ["latin"],
   variable: "--font-serif",
   display: "swap",
-  weight: ["300", "400", "500"],
+  weight: ["400", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -43,7 +43,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${fraunces.variable}`}>
+    <html lang="en" className={`${inter.variable} ${serif.variable}`}>
       <body style={{ fontFamily: "var(--font-inter), Inter, Arial, sans-serif" }}>
         <SiteShell>{children}</SiteShell>
       </body>
