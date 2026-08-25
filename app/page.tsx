@@ -259,7 +259,7 @@ export default function Home() {
 
             <h1
               className="text-4xl md:text-5xl lg:text-6xl font-light leading-[1.06] tracking-tight"
-              style={{ color: THEME.ink, fontFamily: 'var(--font-serif, Georgia, serif)' }}
+              style={{ color: THEME.ink, fontFamily: 'var(--font-inter), Inter, sans-serif' }}
             >
               Phase I ESAs powered by{' '}
               <span style={{ color: THEME.leviBlue }}>live federal data.</span>
@@ -354,7 +354,7 @@ export default function Home() {
             </div>
             <h2
               className="text-4xl md:text-5xl font-light"
-              style={{ color: THEME.ink, fontFamily: 'var(--font-serif, Georgia, serif)' }}
+              style={{ color: THEME.ink, fontFamily: 'var(--font-inter), Inter, sans-serif' }}
             >
               What Ceto Does
             </h2>
@@ -402,7 +402,7 @@ export default function Home() {
             </div>
             <h2
               className="text-3xl md:text-4xl font-light mb-4"
-              style={{ color: THEME.ink, fontFamily: 'var(--font-serif, Georgia, serif)' }}
+              style={{ color: THEME.ink, fontFamily: 'var(--font-inter), Inter, sans-serif' }}
             >
               Every site, seen twice.
             </h2>
@@ -489,7 +489,7 @@ export default function Home() {
           </div>
           <h2
             className="text-4xl md:text-5xl font-light mb-5 leading-tight"
-            style={{ fontFamily: 'var(--font-serif, Georgia, serif)' }}
+            style={{ fontFamily: 'var(--font-inter), Inter, sans-serif' }}
           >
             Tell us what you&apos;re building.
           </h2>
