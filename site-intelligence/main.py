@@ -42,6 +42,7 @@ class JobStatus(BaseModel):
     message: Optional[str] = None
     report_id: Optional[str] = None
     error: Optional[str] = None
+    traceback: Optional[str] = None
 
 def update_progress(job_id: str, progress: int, message: str):
     if job_id in jobs:
@@ -50,10 +51,10 @@ def update_progress(job_id: str, progress: int, message: str):
         jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
 
 def run_pipeline(job_id: str, request: JobRequest):
-    from backend.pipeline import generate_site_report
-    jobs[job_id]["status"] = "running"
-    jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
     try:
+        from backend.pipeline import generate_site_report
+        jobs[job_id]["status"] = "running"
+        jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
         report_id = str(uuid.uuid4())
         report_dir = OUTPUTS_DIR / report_id
         report_dir.mkdir(parents=True, exist_ok=True)
@@ -66,10 +67,18 @@ def run_pipeline(job_id: str, request: JobRequest):
             project_name=request.project_name, output_dir=str(report_dir),
             progress_callback=lambda p, msg: update_progress(job_id, p, msg),
         )
+        if not (report_dir / "report.json").exists():
+            raise RuntimeError(f"pipeline finished but {report_dir}/report.json was not written")
         jobs[job_id].update({"status": "complete", "progress": 100, "report_id": report_id, "updated_at": datetime.utcnow().isoformat(), "message": "Report complete"})
-    except Exception as e:
-        jobs[job_id].update({"status": "failed", "error": str(e), "updated_at": datetime.utcnow().isoformat()})
-        raise
+    except BaseException as e:
+        import traceback
+        jobs[job_id].update({
+            "status": "failed",
+            "error": f"{type(e).__name__}: {e}",
+            "traceback": traceback.format_exc()[-2000:],
+            "message": "Job failed",
+            "updated_at": datetime.utcnow().isoformat(),
+        })
 
 @app.get("/")
 def root(): return {"service": "Ceto Site Intelligence Engine", "status": "online"}
@@ -92,7 +101,7 @@ def get_job(job_id: str):
 
 @app.get("/api/reports/{report_id}")
 def get_report(report_id: str):
-    path = OUTPUTS_DIR / report_id / "metadata.json"
+    path = OUTPUTS_DIR / report_id / "report.json"
     if not path.exists(): raise HTTPException(status_code=404, detail="Report not found")
     with open(path) as f: return json.load(f)
 

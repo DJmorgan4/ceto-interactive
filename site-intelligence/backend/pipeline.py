@@ -2,8 +2,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from backend.data_clients import (
 from backend.location_resolver import resolve_location
+from backend.data_clients import (
     fetch_usgs_dem,
     fetch_srtm_dem,
     fetch_macrostrat,
