@@ -166,7 +166,7 @@ interface LibraryEntry {
 }
 
 // ── Risk Score Engine ─────────────────────────────────────────────────────────
-function computeCetoScore(reg: RegData, parcelArg?: ParcelData | null): { total: number; reason: string; recommendedAction: string; ratingCode: string; breakdown: Record<string, { score: number; max: number; label: string; risk: string }> } {
+function computeCetoScore(reg: RegData, parcelArg?: ParcelData | null): { total: number; reason: string; recommendedAction: string; ratingCode: string; phase2Required: boolean; phase2Recommended: boolean; breakdown: Record<string, { score: number; max: number; label: string; risk: string }> } {
   try {
     const input = deriveScoreInput(reg, parcelArg || null, '');
     const result = computeCetoScoreReal(input);
@@ -176,6 +176,8 @@ function computeCetoScore(reg: RegData, parcelArg?: ParcelData | null): { total:
       reason: result.reason,
       recommendedAction: result.recommendedAction,
       ratingCode: result.ratingCode,
+      phase2Required: result.phase2Required,
+      phase2Recommended: result.phase2Recommended,
       breakdown: {
         flood:         { score: Math.round((1 - b.flood / 100)         * 20), max: 20, label: 'Flood Risk',             risk: b.flood > 50 ? 'HIGH' : b.flood > 20 ? 'MODERATE' : 'LOW' },
         wetland:       { score: Math.round((1 - b.wetland / 100)       * 20), max: 20, label: 'Wetland Risk',           risk: b.wetland > 50 ? 'HIGH' : b.wetland > 20 ? 'MODERATE' : 'LOW' },
@@ -194,6 +196,9 @@ function computeCetoScore(reg: RegData, parcelArg?: ParcelData | null): { total:
       reason: "Score computed from fallback data — full analysis unavailable.",
       recommendedAction: "Complete TCEQ STEERS manual search and verify flagged items before closing.",
       ratingCode: "MODERATE",
+      // Engine unavailable: recommend Phase II rather than imply clearance.
+      phase2Required: false,
+      phase2Recommended: true,
       breakdown: {
         flood:         { score: floodScore,   max: 20, label: 'Flood Risk',             risk: floodScore >= 16   ? 'LOW' : floodScore >= 10   ? 'MODERATE' : 'HIGH' },
         wetland:       { score: wetlandScore, max: 20, label: 'Wetland Risk',           risk: wetlandScore >= 16 ? 'LOW' : wetlandScore >= 10 ? 'MODERATE' : 'HIGH' },
