@@ -10,6 +10,9 @@ from datetime import datetime
 from pathlib import Path
 
 app = FastAPI(title="Ceto Site Intelligence Engine", version="1.0.0")
+
+from concurrent.futures import ThreadPoolExecutor
+_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ceto-job")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 jobs: dict = {}
@@ -87,11 +90,11 @@ def root(): return {"service": "Ceto Site Intelligence Engine", "status": "onlin
 def health(): return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
 
 @app.post("/api/jobs", response_model=JobStatus)
-def create_job(request: JobRequest, background_tasks: BackgroundTasks):
+def create_job(request: JobRequest):
     job_id = str(uuid.uuid4())
     now = datetime.utcnow().isoformat()
     jobs[job_id] = {"job_id": job_id, "status": "queued", "created_at": now, "updated_at": now, "progress": 0, "message": "Job queued", "report_id": None, "error": None}
-    background_tasks.add_task(run_pipeline, job_id, request)
+    _executor.submit(run_pipeline, job_id, request)
     return jobs[job_id]
 
 @app.get("/api/jobs/{job_id}", response_model=JobStatus)
