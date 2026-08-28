@@ -14,10 +14,10 @@ CRITICAL FORMATTING RULES:
 - Write in professional, defensible EP language
 - Be specific — use actual data provided, never generic placeholders
 - The Executive Decision Summary is the most important section — make it instant to read
-- Include the Risk Score breakdown table using actual calculated scores
+- Include the Risk Score breakdown table using only the scores supplied in the report brief
 - Historical use timeline must be a formatted table
 - All regulatory findings must cite the source database
-- Environmental Professional Statement must reference ASTM E1527-21 and EPA AAI
+- Any non-certifying standards statement in the narrative must reference ASTM E1527-21 and EPA AAI as applicable. Do NOT generate an Environmental Professional declaration, certification, attestation, signature, or credential block
 - Minimum 900 words, maximum 1800 words for the main report body
 
 HARD PROHIBITIONS — non-negotiable, override any other instruction:
@@ -229,7 +229,8 @@ Reproduce the SCORE BREAKDOWN, Confidence Multiplier, Severity Multiplier, Ceili
 CETO Score EXACTLY as supplied in the brief above. Do not recompute, re-weight, or total
 anything. Do not invent categories or weights that were not supplied. If a value is absent
 from the brief, omit that line entirely.
-[If ceiling applied: "Score ceiling of [X]/100 applied — reason: [specific flag]"]
+If a Ceiling Reason is supplied in the brief, state it verbatim. If none is supplied, omit
+the ceiling line entirely — do not infer why a ceiling was applied.
 
 The scoring engine has already applied any ceiling before this brief was built. State which
 ceiling was applied and why, using the Ceiling value supplied above. Never apply, adjust or
