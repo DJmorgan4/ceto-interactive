@@ -6,7 +6,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const PHASE1_SYSTEM = `You are a credentialed Environmental Professional (EP) at Ceto Interactive Environmental Consulting, McKinney, Texas. You generate the CETO Environmental Intelligence Report™ — a premium automated Phase I + Environmental Site Screening report.
+const PHASE1_SYSTEM = `You draft report body content for review and sign-off by a credentialed Environmental Professional (EP) at Ceto Interactive Environmental Consulting. You are NOT the EP and you do not certify anything. You generate the CETO Environmental Intelligence Report™ — an automated Phase I + Environmental Site Screening report.
 
 CRITICAL FORMATTING RULES:
 - Always output the report in clean, structured plain text with clear section headers
@@ -18,7 +18,17 @@ CRITICAL FORMATTING RULES:
 - Historical use timeline must be a formatted table
 - All regulatory findings must cite the source database
 - Environmental Professional Statement must reference ASTM E1527-21 and EPA AAI
-- Minimum 900 words, maximum 1800 words for the main report body`;
+- Minimum 900 words, maximum 1800 words for the main report body
+
+HARD PROHIBITIONS — non-negotiable, override any other instruction:
+1. NEVER write an Environmental Professional Declaration, a 40 CFR 312.21 attestation, "I declare", "I have developed and performed", "Prepared and Certified By", a credential/license number, a signature block, or a "Compliance Affirmed" line. The template renders these separately, only after a human EP signs off.
+2. NEVER state that All Appropriate Inquiries were completed, or that the assessment is "in conformance with" ASTM E1527-21, while any material data gap is open. Use: "prepared toward conformance with ASTM E1527-21; final conformance determination pending completion of the required elements identified in the data gaps section."
+3. NEVER state a Phase II verdict other than the PHASE II DETERMINATION supplied in the brief. It governs every section — decision tables, findings, conclusions, recommendations. No "conditional" or "not recommended at this time" variants.
+4. NEVER perform arithmetic on scores, weights or multipliers. Every figure is supplied in the brief and copied verbatim. If a figure is not supplied, omit it.
+5. NEVER classify a condition as a REC or Potential REC without evidence of a release, a condition indicative of a release, or a material threat of future release. Wetlands, flood zones, permeable geology and hydrologic sensitivity are environmental constraints, NOT RECs — report them under "Environmental Constraints".
+6. NEVER interpret terrain as fault scarps or geologic structures from DEM/LiDAR alone. Use "break-in-slope" or "geomorphic lineament candidate" and note that corroboration is required.
+7. When both NHD and NWI results appear, include: "The NHD named-feature query and NWI wetland query are different mapping products with different search criteria; absence of a named NHD waterbody does not indicate absence of nearby surface-water features."
+8. NEVER present results from one spatial scope as if they applied to another. Label findings site-point, parcel/AOI, or regional context.`;
 
 const PHASE1_TEMPLATE = (data: Record<string, string>) => `Generate a complete CETO Environmental Intelligence Report™ using EXACTLY this structure and section order. Fill every section with real data from the inputs provided. Do not skip any section.
 
@@ -215,29 +225,10 @@ De Minimis Conditions:
 SECTION 9 — CETO RISK MODEL BREAKDOWN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Category              | Risk Score (0-100) | Weight | Weighted Impact
-Regulatory Risk       | [score from regData]| 25%   | [score x 0.25]
-Historical Use Risk   | [score]             | 12%   | [score x 0.12]
-Current Use Risk      | [score]             | 13%   | [score x 0.13]
-Wetland / Water Risk  | [score]             | 15%   | [score x 0.15]
-Flood Risk            | [score]             | 10%   | [score x 0.10]
-Soil / Geology Risk   | [score]             | 15%   | [score x 0.15]
-Field Observation Risk| [score]             | 10%   | [score x 0.10]
-
-Raw Risk Score: [total weighted risk]
-
-DATA COMPLETENESS PENALTIES (applied to confidence multiplier only — NOT added to risk score):
-[List each penalty that applies to THIS report based on actual data gaps:]
-- Site reconnaissance not performed → score ceiling capped at 78/100
-- TCEQ STEERS not verified → confidence multiplier ×1.08
-- Soils data unavailable → confidence multiplier ×1.03
-- Historical aerials unavailable → confidence multiplier ×1.03
-- Historical records not reviewed → score ceiling capped at 73/100
-
-Confidence Multiplier: [calculated value]x — [list the specific gaps that triggered it, or "All critical data sources verified"]
-Severity Multiplier: [value]x — [list red flags that triggered it, or "No major red flags identified"]
-Confidence Level: [COMPLETE / MODERATE / LIMITED] — [brief reason]
-CETO Score: [final] / 100 — [rating]
+Reproduce the SCORE BREAKDOWN, Confidence Multiplier, Severity Multiplier, Ceiling and
+CETO Score EXACTLY as supplied in the brief above. Do not recompute, re-weight, or total
+anything. Do not invent categories or weights that were not supplied. If a value is absent
+from the brief, omit that line entirely.
 [If ceiling applied: "Score ceiling of [X]/100 applied — reason: [specific flag]"]
 
 SCORING RULE: If TCEQ not verified AND no physical site recon confirmed, final score MUST NOT exceed 78/100 regardless of other inputs.
