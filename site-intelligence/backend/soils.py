@@ -50,8 +50,10 @@ def _depth_to_bedrock(ssurgo: dict, dominant_component: str) -> dict:
         depth_cm = int(np.median(depths))
         source = "SSURGO corestrictions"
     else:
-        key = (dominant_component or "").lower().split()[0]
-        depth_cm = SERIES_DEPTH_TABLE.get(key)
+        # SSURGO returns no dominant component over open water and some
+        # unmapped units; split() on an empty string yields [], not [""].
+        parts = (dominant_component or "").lower().split()
+        depth_cm = SERIES_DEPTH_TABLE.get(parts[0]) if parts else None
         source = "series lookup" if depth_cm is not None else "unknown"
 
     if depth_cm is None:
