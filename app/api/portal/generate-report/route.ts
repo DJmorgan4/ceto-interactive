@@ -480,12 +480,22 @@ ${astraEnrichment}`
   try {
     const message = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
+      max_tokens: 16000,
       system: systemPrompt,
       messages: [{ role: 'user', content: finalPrompt }],
     });
 
     const report = message.content.map(b => b.type === 'text' ? b.text : '').join('');
+
+    // A report cut off at the token ceiling is missing its later sections
+    // (data gaps, EP opinion) while still looking complete. Surface it.
+    const truncated = message.stop_reason === 'max_tokens';
+    if (truncated) {
+      console.error('[generate-report] narrative truncated at max_tokens', {
+        project: resolvedProject,
+        chars: report.length,
+      });
+    }
 
     // ── STRATUM write — pin this site on the LithicEarth globe ──
     try {
@@ -520,7 +530,7 @@ ${astraEnrichment}`
       console.error('STRATUM write failed (non-blocking):', stratumErr)
     }
     // ── end STRATUM write ──
-    return NextResponse.json({ report });
+    return NextResponse.json({ report, truncated });
   } catch (e: unknown) {
     console.error('Generation error:', e);
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Generation failed' }, { status: 500 });

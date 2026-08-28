@@ -349,11 +349,43 @@ export function Phase1PDF(props: Phase1PDFProps) {
           <View style={styles.body}>
             <Text style={styles.sectionHeader}>Section 4 — Findings, Opinions & Conclusions</Text>
             {reportText.split('\n').filter(l => l.trim()).map((line, i) => {
-              const isSection = line.startsWith('SECTION') || line.startsWith('━');
-              const isHeader = line.match(/^[A-Z][A-Z\s\/]{8,}:?\s*$/) && line.length < 60;
-              if (isSection || line.includes('━')) return null;
-              if (isHeader) return <Text key={i} style={styles.h3}>{line.trim()}</Text>;
-              return <Text key={i} style={styles.p}>{line.trim()}</Text>;
+              const raw = line.trim();
+
+              // horizontal rules and legacy box-drawing separators
+              if (/^(-{3,}|\*{3,}|_{3,})$/.test(raw) || raw.includes('━')) return null;
+
+              // markdown table rows and separators -> strip pipes, keep cells
+              if (raw.startsWith('|')) {
+                const cells = raw.split('|').map(c => c.trim()).filter(Boolean);
+                if (cells.every(c => /^:?-{2,}:?$/.test(c))) return null;
+                return <Text key={i} style={styles.p}>{cells.join('  ·  ')}</Text>;
+              }
+
+              // strip inline markdown emphasis + blockquote markers
+              const clean = raw
+                .replace(/^>\s?/, '')
+                .replace(/\*\*(.+?)\*\*/g, '$1')
+                .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '$1')
+                .replace(/`(.+?)`/g, '$1')
+                .trim();
+              if (!clean) return null;
+
+              // markdown headings
+              const h = clean.match(/^(#{1,6})\s+(.*)$/);
+              if (h) {
+                const text = h[2].trim();
+                // engine already renders its own Section 4 header; drop ASTRA's duplicates
+                if (/^SECTION\s+\d/i.test(text) || /INTELLIGENCE REPORT/i.test(text)) return null;
+                return <Text key={i} style={styles.h3}>{text}</Text>;
+              }
+
+              // legacy plain-caps section markers
+              if (clean.startsWith('SECTION')) return null;
+
+              const isHeader = clean.match(/^[A-Z][A-Z\s\/]{8,}:?\s*$/) && clean.length < 60;
+              if (isHeader) return <Text key={i} style={styles.h3}>{clean}</Text>;
+
+              return <Text key={i} style={styles.p}>{clean}</Text>;
             })}
           </View>
           <PageFooter reportId={reportId} />
