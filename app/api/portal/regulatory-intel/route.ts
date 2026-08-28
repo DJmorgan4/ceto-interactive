@@ -187,12 +187,13 @@ async function fetchSSURGO(coords: Coordinates) {
 async function fetchElevation(coords: Coordinates) {
   try {
     const { lat, lng } = coords;
-    const url = `https://epqs.nationalmap.gov/v1/json?x=${lng}&y=${lat}&wkid=4326&includeDate=false`;
+    const url = `https://epqs.nationalmap.gov/v1/json?x=${lng}&y=${lat}&units=Feet&wkid=4326&includeDate=false`;
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
     const data = await res.json();
     const elevFt = data?.value;
-    if (elevFt && elevFt !== '-1000000') {
-      return { elevationFt: Math.round(parseFloat(elevFt)), elevationM: Math.round(parseFloat(elevFt) * 0.3048), source: 'USGS National Elevation Dataset' };
+    const elevNum = parseFloat(elevFt);
+    if (Number.isFinite(elevNum) && elevNum > -1000000) {
+      return { elevationFt: Math.round(elevNum), elevationM: Math.round(elevNum * 0.3048 * 10) / 10, source: 'USGS National Elevation Dataset' };
     }
     return { elevationFt: null, elevationM: null, source: 'USGS NED (no data)' };
   } catch {

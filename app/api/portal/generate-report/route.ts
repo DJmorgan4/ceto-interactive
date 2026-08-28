@@ -326,6 +326,10 @@ Severity Multiplier: ${scoreOutput.severityMultiplier}x
 Ceiling: ${scoreOutput.ceiling}/100
 Recommended Action: ${scoreOutput.recommendedAction}
 
+PHASE II DETERMINATION (AUTHORITATIVE — copy into Section 1 exactly, do not re-derive):
+${scoreOutput.phase2Required ? 'REQUIRED' : scoreOutput.phase2Recommended ? 'RECOMMENDED' : 'NOT REQUIRED'}
+This determination is computed by the CETO scoring engine and is the single source of truth. It appears verbatim on the Go/No-Go dashboard. Do NOT reach a different conclusion from the score, the Phase II Likelihood percentage, or any other figure in this brief. If open data gaps prevent a final REC determination, say so separately — that does not change this verdict.
+
 SCORE BREAKDOWN (copy into Section 9 exactly):
 Regulatory Risk: ${scoreOutput.breakdown.regulatory}
 Historical Use Risk: ${scoreOutput.breakdown.historicalUse}

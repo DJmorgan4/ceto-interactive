@@ -129,6 +129,8 @@ export interface ScoreOutput {
   };
   redFlags: string[];
   recommendedAction: string;
+  phase2Required: boolean;
+  phase2Recommended: boolean;
   reason: string;
   dealImpact: DealImpact;
   siteClass: string;
@@ -737,6 +739,7 @@ export function computeCetoScore(input: ScoredInput): ScoreOutput {
     },
     explanations, dataCompleteness: { score: completenessScore, missingItems, verifiedItems },
     redFlags, reason, recommendedAction, dealImpact,
+    phase2Required, phase2Recommended,
     siteClass: sc,
     siteClassConfidence: input.siteClass.confidence,
     siteClassSource: input.siteClass.source,

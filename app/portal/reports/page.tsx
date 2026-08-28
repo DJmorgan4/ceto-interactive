@@ -275,16 +275,16 @@ function CetoScorePanel({ reg, parcel }: { reg: RegData; parcel: ParcelData | nu
 
 // ── Go/No-Go Dashboard ────────────────────────────────────────────────────────
 function GoNoGo({ reg }: { reg: RegData }) {
-  const { total, reason, recommendedAction, ratingCode } = computeCetoScore(reg, null);
+  const { total, reason, recommendedAction, ratingCode, phase2Required, phase2Recommended } = computeCetoScore(reg, null);
   const proceed = ratingCode === "LOW" || ratingCode === "MODERATE_LOW";
-  const phase2 = ratingCode === "HIGH" || ratingCode === "ELEVATED" || ratingCode === "MODERATE";
+  const phase2 = phase2Required || phase2Recommended;
   const wetlandConcern = reg.nwi.wetlandsPresent ? 'MODERATE' : 'LOW';
   const floodConcern = reg.fema.floodZone === 'X' ? 'LOW' : 'HIGH';
   const permitConcern = reg.nwi.wetlandsPresent || reg.fema.floodZone !== 'X' ? 'MODERATE' : 'LOW';
 
   const decisions = [
     { label: 'Proceed with Acquisition', value: proceed ? 'YES' : 'CONDITIONAL', risk: proceed ? 'LOW' : 'MODERATE' },
-    { label: 'Phase II ESA Needed', value: phase2 ? 'RECOMMENDED' : 'NO', risk: phase2 ? 'MODERATE' : 'LOW' },
+    { label: 'Phase II ESA Needed', value: phase2Required ? 'REQUIRED' : phase2Recommended ? 'RECOMMENDED' : 'NOT REQUIRED', risk: phase2 ? 'MODERATE' : 'LOW' },
     { label: 'Wetland Concern', value: wetlandConcern, risk: wetlandConcern },
     { label: 'Flood Concern', value: floodConcern, risk: floodConcern },
     { label: 'Permitting Concern', value: permitConcern, risk: permitConcern },
@@ -903,7 +903,7 @@ Use all regulatory data provided above. Be thorough, defensible, and acceptable 
 
       const decisions = [
         { label: 'Proceed with Acquisition', value: score.total >= 55 ? 'YES' : 'CONDITIONAL', risk: score.total >= 55 ? 'LOW' : 'MODERATE' },
-        { label: 'Phase II ESA Needed', value: score.total < 75 ? 'RECOMMENDED' : 'NOT REQUIRED', risk: score.total < 75 ? 'MODERATE' : 'LOW' },
+        { label: 'Phase II ESA Needed', value: score.phase2Required ? 'REQUIRED' : score.phase2Recommended ? 'RECOMMENDED' : 'NOT REQUIRED', risk: (score.phase2Required || score.phase2Recommended) ? 'MODERATE' : 'LOW' },
         { label: 'Wetland Concern', value: reg.nwi?.wetlandsPresent ? 'MODERATE' : 'LOW', risk: reg.nwi?.wetlandsPresent ? 'MODERATE' : 'LOW' },
         { label: 'Flood Concern', value: reg.fema?.risk || 'LOW', risk: reg.fema?.risk || 'LOW' },
       ];
