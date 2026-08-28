@@ -112,6 +112,8 @@ export interface Phase1PDFProps {
   historicalData?: { naipReviewed: boolean; topoReviewed: boolean; googleEarthReviewed: boolean; historicAerialsReviewed: boolean; sanbornReviewed: boolean; notes: string } | null;
   mapSnapshot?: string | null;
   preparedBy?: string;
+  dataGaps?: string[];
+  signedOff?: boolean;
 }
 
 export function Phase1PDF(props: Phase1PDFProps) {
@@ -120,10 +122,14 @@ export function Phase1PDF(props: Phase1PDFProps) {
     ratingCode, scoreBreakdown, decisions, screeningRows, facilities,
     fema, geology, elevation, hydrology, soils, reportText,
     county, parcelData, historicalData, mapSnapshot, preparedBy,
+    dataGaps = [], signedOff = false,
   } = props;
 
   const ratingLabel = ratingCode === 'LOW' ? 'LOW RISK' : ratingCode === 'MODERATE_LOW' ? 'LOW-MODERATE RISK' : ratingCode === 'MODERATE' ? 'MODERATE RISK' : ratingCode === 'ELEVATED' ? 'ELEVATED RISK' : 'HIGH RISK';
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  // 40 CFR 312.21 is an attestation that AAI was performed. Never render it
+  // automatically: it requires no open material data gaps AND an explicit sign-off.
+  const attestable = signedOff && dataGaps.length === 0;
 
   return (
     <Document title={`Phase I ESA — ${projectName}`} author="Ceto Interactive" subject="Environmental Site Assessment" creator="Ceto Interactive Portal">
@@ -425,12 +431,31 @@ export function Phase1PDF(props: Phase1PDFProps) {
           </Text>
           <Text style={styles.h3}>Environmental Professional Statement</Text>
           <Text style={styles.p}>
-            This report was prepared by a qualified Environmental Professional (EP) as defined under ASTM E1527-21 Section 12 and the AAI Rule. The CETO Environmental Risk Score is a proprietary screening metric and does not constitute a final professional opinion or substitute for a complete Phase I ESA with full site reconnaissance, interviews, and records review.
+            This report was prepared by a qualified Environmental Professional (EP) as defined under ASTM E1527-21 §3.2 and 40 CFR 312.10. The CETO Environmental Risk Score is a proprietary screening metric and does not constitute a final professional opinion or substitute for a complete Phase I ESA with full site reconnaissance, interviews, and records review.
           </Text>
-          <Text style={styles.h3}>Environmental Professional Declaration (40 CFR 312.21)</Text>
-          <Text style={styles.p}>
-            I declare that, to the best of my professional knowledge and belief, I meet the definition of Environmental Professional as defined in 40 CFR 312.10. I have the specific qualifications based on education, training, and experience to assess a property of the nature, history, and setting of the subject property. I have developed and performed the all appropriate inquiries in conformance with the standards and practices set forth in 40 CFR Part 312.
-          </Text>
+          {attestable ? (
+            <>
+              <Text style={styles.h3}>Environmental Professional Declaration (40 CFR 312.21)</Text>
+              <Text style={styles.p}>
+                I declare that, to the best of my professional knowledge and belief, I meet the definition of Environmental Professional as defined in 40 CFR 312.10. I have the specific qualifications based on education, training, and experience to assess a property of the nature, history, and setting of the subject property. I have developed and performed the all appropriate inquiries in conformance with the standards and practices set forth in 40 CFR Part 312.
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.h3}>Environmental Professional Declaration — WITHHELD</Text>
+              <Text style={styles.p}>
+                The Environmental Professional Declaration required under 40 CFR 312.21 is not made in this document. All Appropriate Inquiries have not been completed, and this report is a preliminary screening product only. It does not satisfy the AAI standard and may not be relied upon for innocent landowner, bona fide prospective purchaser, or contiguous property owner defenses under CERCLA.
+              </Text>
+              {dataGaps.length > 0 && (
+                <>
+                  <Text style={[styles.p, { fontFamily: 'Helvetica-Bold' }]}>Open items preventing declaration:</Text>
+                  {dataGaps.map((g, i) => (
+                    <Text key={i} style={styles.p}>{'\u2022  ' + g}</Text>
+                  ))}
+                </>
+              )}
+            </>
+          )}
           <Text style={styles.h3}>Reliance & Confidentiality</Text>
           <Text style={styles.p}>
             This report was prepared solely for the use of the client identified on the cover page. Reliance by any third party is not authorized without the express written consent of Ceto Interactive Environmental Consulting. The findings and opinions expressed herein are based on conditions observed and information available at the time of preparation. Environmental conditions can change over time, and this report should not be relied upon if more than 180 days have elapsed since the report date without an update.
@@ -443,7 +468,11 @@ export function Phase1PDF(props: Phase1PDFProps) {
           </View>
           <View style={{ marginTop: 24, borderTop: `2px solid ${INK}`, paddingTop: 14 }}>
             <Text style={{ fontSize: 9, color: INK, marginBottom: 4, fontFamily: 'Helvetica-Bold' }}>Environmental Professional Signature</Text>
-            <Text style={{ fontSize: 9, color: MUTED, marginBottom: 20 }}>Signed electronically via Ceto Interactive Portal — {today}</Text>
+            <Text style={{ fontSize: 9, color: MUTED, marginBottom: 20 }}>
+              {attestable
+                ? `Signed electronically via Ceto Interactive Portal — ${today}`
+                : 'UNSIGNED DRAFT — no electronic signature applied. Not for distribution or reliance.'}
+            </Text>
             <Text style={{ fontSize: 9, color: INK }}>{preparedBy || 'Ceto Interactive Environmental Consulting'}</Text>
             <Text style={{ fontSize: 8.5, color: MUTED }}>Environmental Professional (EP) · McKinney, Texas · cetointeractive.com</Text>
           </View>

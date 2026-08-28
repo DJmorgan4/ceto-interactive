@@ -928,7 +928,7 @@ Use all regulatory data provided above. Be thorough, defensible, and acceptable 
           surveyDate,
           county: reg.county || 'Unknown',
           cetoScore: score.total,
-          ratingCode: score.total >= 90 ? 'LOW' : score.total >= 75 ? 'MODERATE_LOW' : score.total >= 60 ? 'MODERATE' : score.total >= 40 ? 'ELEVATED' : 'HIGH',
+          ratingCode: score.ratingCode,
           scoreBreakdown: score.breakdown,
           decisions,
           screeningRows,
@@ -943,6 +943,8 @@ Use all regulatory data provided above. Be thorough, defensible, and acceptable 
           historicalData: historicalResearch,
           mapSnapshot: mapSnapshot || null,
           preparedBy: 'DJ Morgan, EP-TX',
+          dataGaps: score.dataCompleteness?.missingItems || [],
+          signedOff: false,
         }),
       });
 
