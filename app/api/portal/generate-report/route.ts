@@ -231,7 +231,9 @@ anything. Do not invent categories or weights that were not supplied. If a value
 from the brief, omit that line entirely.
 [If ceiling applied: "Score ceiling of [X]/100 applied — reason: [specific flag]"]
 
-SCORING RULE: If TCEQ not verified AND no physical site recon confirmed, final score MUST NOT exceed 78/100 regardless of other inputs.
+The scoring engine has already applied any ceiling before this brief was built. State which
+ceiling was applied and why, using the Ceiling value supplied above. Never apply, adjust or
+infer a ceiling yourself.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SECTION 10 — DATA GAPS
