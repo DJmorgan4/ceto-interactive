@@ -108,6 +108,9 @@ export interface ScoreOutput {
   confidenceScore: number;
   correctedScore: number;
   ceiling: number;
+  ceilingRule: string | null;
+  ceilingReason: string | null;
+  appliedCeilings: { rule: string; cap: number; reason: string }[];
   confidenceMultiplier: number;
   severityMultiplier: number;
   rating: string;
@@ -614,16 +617,40 @@ export function computeCetoScore(input: ScoredInput): ScoreOutput {
   const _defaultCeilings = {"NO_TCEQ":78,"NO_HISTORICAL":73,"NO_SITE_RECON":78,"KNOWN_RELEASE":42,"FORMER_DRYCLEANER":62,"FORMER_GASSTATION":62,"ACTIVE_DRYCLEANER":55,"ACTIVE_GASSTATION":60,"NWI_ONSITE":68,"FLOODWAY":68};
   const C = (() => { try { return process.env.CETO_CEILINGS ? JSON.parse(process.env.CETO_CEILINGS) : _defaultCeilings; } catch { return _defaultCeilings; } })();
 
-  let ceiling = 100;
-  if (input.knownReleaseOnSite)                        ceiling = Math.min(ceiling, C.KNOWN_RELEASE);
-  if (input.formerDryCleaner)                          ceiling = Math.min(ceiling, C.FORMER_DRYCLEANER);
-  if (input.formerGasStation)                          ceiling = Math.min(ceiling, C.FORMER_GASSTATION);
-  if (input.currentUse.value === 'dryCleaner')         ceiling = Math.min(ceiling, C.ACTIVE_DRYCLEANER);
-  if (input.currentUse.value === 'gasStation')         ceiling = Math.min(ceiling, C.ACTIVE_GASSTATION);
-  if (input.wetlandsPresent.value && input.nwiOnSite)  ceiling = Math.min(ceiling, C.NWI_ONSITE);
-  if (input.inFloodway)                                ceiling = Math.min(ceiling, C.FLOODWAY);
-  if (gaps.noSiteRecon)                                ceiling = Math.min(ceiling, C.NO_SITE_RECON);
-  if (gaps.noHistoricalRecords)                        ceiling = Math.min(ceiling, C.NO_HISTORICAL);
+  // Each applicable ceiling is recorded with a stable rule code and display
+  // text so the report can state WHY the score was capped, not just the value.
+  const CEILING_TEXT: Record<string, string> = {
+    KNOWN_RELEASE:      'Known release documented on site',
+    FORMER_DRYCLEANER:  'Former dry cleaner use',
+    FORMER_GASSTATION:  'Former gas station use',
+    ACTIVE_DRYCLEANER:  'Active dry cleaner on site',
+    ACTIVE_GASSTATION:  'Active gas station on site',
+    NWI_ONSITE:         'NWI wetlands mapped on site',
+    FLOODWAY:           'Site within regulatory floodway',
+    NO_SITE_RECON:      'Site reconnaissance not performed',
+    NO_HISTORICAL:      'Historical records not reviewed',
+  };
+  const appliedCeilings: { rule: string; cap: number; reason: string }[] = [];
+  const applyCeiling = (cond: boolean, rule: string) => {
+    if (cond && typeof C[rule] === 'number') {
+      appliedCeilings.push({ rule, cap: C[rule], reason: CEILING_TEXT[rule] || rule });
+    }
+  };
+  applyCeiling(input.knownReleaseOnSite, 'KNOWN_RELEASE');
+  applyCeiling(input.formerDryCleaner, 'FORMER_DRYCLEANER');
+  applyCeiling(input.formerGasStation, 'FORMER_GASSTATION');
+  applyCeiling(input.currentUse.value === 'dryCleaner', 'ACTIVE_DRYCLEANER');
+  applyCeiling(input.currentUse.value === 'gasStation', 'ACTIVE_GASSTATION');
+  applyCeiling(Boolean(input.wetlandsPresent.value && input.nwiOnSite), 'NWI_ONSITE');
+  applyCeiling(input.inFloodway, 'FLOODWAY');
+  applyCeiling(gaps.noSiteRecon, 'NO_SITE_RECON');
+  applyCeiling(gaps.noHistoricalRecords, 'NO_HISTORICAL');
+
+  const binding = appliedCeilings.reduce<{ rule: string; cap: number; reason: string } | null>(
+    (lowest, c) => (lowest === null || c.cap < lowest.cap ? c : lowest), null);
+  const ceiling = binding ? binding.cap : 100;
+  const ceilingRule = binding ? binding.rule : null;
+  const ceilingReason = binding ? binding.reason : null;
 
   const finalScore = Math.min(correctedScore, ceiling);
 
@@ -692,7 +719,7 @@ export function computeCetoScore(input: ScoredInput): ScoreOutput {
     explanations.push({ category: 'Data Completeness', points: 0, sign: '~', reason: `${missingItems.length} gap(s) noted — affects confidence multiplier (×${confidenceMultiplier.toFixed(2)}), not risk score` });
 
   if (ceiling < 100)
-    explanations.push({ category: 'Red Flag Ceiling', points: -(100 - ceiling), sign: '-', reason: `Hard ceiling: max ${ceiling}/100 — ${redFlags[0]}` });
+    explanations.push({ category: 'Red Flag Ceiling', points: -(100 - ceiling), sign: '-', reason: `Hard ceiling: max ${ceiling}/100 — ${ceilingReason ?? redFlags[0] ?? 'see data gaps'}` });
 
   const negatives = explanations.filter(e => e.sign === '-' && e.category !== 'Data Completeness');
   const reason = negatives.length > 0
@@ -729,7 +756,7 @@ export function computeCetoScore(input: ScoredInput): ScoreOutput {
 
   return {
     finalScore, rawRiskScore, confidenceScore: completenessScore,
-    correctedScore, ceiling,
+    correctedScore, ceiling, ceilingRule, ceilingReason, appliedCeilings,
     confidenceMultiplier: Math.round(confidenceMultiplier * 100) / 100,
     severityMultiplier, rating, ratingCode,
     breakdown: {

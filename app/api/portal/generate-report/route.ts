@@ -317,7 +317,7 @@ Site Class: ${scoreOutput.siteClass} (${scoreOutput.siteClassConfidence}) — ${
 Current Use: ${scoreOutput.currentUseLabel} (${scoreOutput.currentUseConfidence})
 Confidence Multiplier: ${scoreOutput.confidenceMultiplier}x
 Severity Multiplier: ${scoreOutput.severityMultiplier}x
-Ceiling: ${scoreOutput.ceiling}/100
+Ceiling: ${scoreOutput.ceiling}/100${scoreOutput.ceilingReason ? `\nCeiling Reason: ${scoreOutput.ceilingReason}` : ''}${scoreOutput.appliedCeilings?.length > 1 ? `\nOther applicable ceilings: ${scoreOutput.appliedCeilings.filter(c => c.rule !== scoreOutput.ceilingRule).map(c => `${c.reason} (${c.cap}/100)`).join('; ')}` : ''}
 Recommended Action: ${scoreOutput.recommendedAction}
 
 PHASE II DETERMINATION (AUTHORITATIVE — copy into Section 1 exactly, do not re-derive):
