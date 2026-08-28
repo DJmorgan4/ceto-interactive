@@ -42,7 +42,7 @@ def generate_site_report(
 
     progress(3, "Resolving location...")
     try:
-        site_facts = resolve_location(center[1], center[0])
+        site_facts = resolve_location(center[0], center[1])
     except Exception as _e:
         print(f"[WARN] location resolve failed: {_e}")
         site_facts = None

@@ -287,6 +287,19 @@ def _nominatim(lat: float, lon: float, timeout: int) -> Optional[dict]:
 # Orchestrator
 # ---------------------------------------------------------------------------
 
+def _norm_county(name):
+    """Normalize county names so 'Denton County' == 'Denton'."""
+    if not name:
+        return ""
+    n = str(name).strip().casefold()
+    for suffix in (" county", " parish", " borough", " census area",
+                   " municipality", " city and borough"):
+        if n.endswith(suffix):
+            n = n[: -len(suffix)]
+            break
+    return n.strip()
+
+
 def resolve_location(lat: float, lon: float, *,
                      timeout: int = DEFAULT_TIMEOUT) -> LocationFacts:
     """Resolve a coordinate into verified, provenance-stamped facts.
@@ -337,7 +350,7 @@ def resolve_location(lat: float, lon: float, *,
         # Cross-validate county if both present
         c_fcc = (fcc or {}).get("county")
         c_cen = census.get("county")
-        if c_fcc and c_cen and c_fcc.strip().lower() != c_cen.strip().lower():
+        if c_fcc and c_cen and _norm_county(c_fcc) != _norm_county(c_cen):
             facts.conflicts.append(
                 f"County mismatch: FCC='{c_fcc}' vs Census='{c_cen}'")
     else:
